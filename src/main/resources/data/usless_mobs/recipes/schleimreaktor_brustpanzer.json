@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": {
+    "item": "usless_mobs:schleimreaktor_schmiedevorlage"
+  },
+  "base": {
+    "item": "minecraft:netherite_chestplate"
+  },
+  "addition": {
+    "item": "usless_mobs:netherite_schleimkern"
+  },
+  "result": {
+    "item": "usless_mobs:schleimreaktor_brustpanzer",
+    "count": 1
+  }
+}

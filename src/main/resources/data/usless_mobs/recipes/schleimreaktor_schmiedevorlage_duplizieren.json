@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "DGD",
+    "DTD",
+    "DDD"
+  ],
+  "key": {
+    "D": {
+      "item": "minecraft:diamond"
+    },
+    "G": {
+      "item": "usless_mobs:goldener_schleimblock"
+    },
+    "T": {
+      "item": "usless_mobs:schleimreaktor_schmiedevorlage"
+    }
+  },
+  "result": {
+    "item": "usless_mobs:schleimreaktor_schmiedevorlage",
+    "count": 2
+  }
+}
