@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "usless_mobs:goldener_schleimblock"
+    }
+  ],
+  "result": {
+    "item": "usless_mobs:goldener_schleimball",
+    "count": 9
+  }
+}
