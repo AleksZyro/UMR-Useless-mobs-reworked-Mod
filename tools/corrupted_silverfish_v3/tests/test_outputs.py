@@ -300,6 +300,70 @@ class PaintedTextureContract(unittest.TestCase):
             self.assertGreaterEqual(calls, 4)
             self.assert_transaction_restored(targets)
 
+    def test_combined_publish_and_rollback_failure_retains_unrestored_backup(self):
+        real_replace = os.replace
+        calls = 0
+
+        def fail_publish_then_glow_rollback(source, target):
+            nonlocal calls
+            calls += 1
+            if calls == 4:
+                raise OSError("simulated bbmodel publish failure")
+            if calls == 6:
+                raise OSError("simulated glow rollback failure")
+            return real_replace(source, target)
+
+        with tempfile.TemporaryDirectory() as directory:
+            targets = self.transaction_targets(directory)
+            with mock.patch.multiple(
+                paint,
+                MAIN_TEXTURE_PATH=targets[0],
+                GLOWMASK_PATH=targets[1],
+                PREVIEW_PATH=targets[2],
+            ), mock.patch.object(
+                build, "BBMODEL_PATH", targets[3]
+            ), mock.patch(
+                "os.replace", side_effect=fail_publish_then_glow_rollback
+            ), self.assertRaisesRegex(
+                RuntimeError, "texture transaction rollback failed"
+            ) as raised:
+                paint.write_textures()
+
+            self.assertEqual(7, calls)
+            self.assertEqual(b"original-0", targets[0].read_bytes())
+            self.assertNotEqual(b"original-1", targets[1].read_bytes())
+            self.assertEqual(b"original-2", targets[2].read_bytes())
+            self.assertEqual(b"original-3", targets[3].read_bytes())
+
+            glow_backups = [
+                path for path in targets[1].parent.iterdir() if path != targets[1]
+            ]
+            self.assertEqual(1, len(glow_backups))
+            retained_backup = glow_backups[0]
+            self.assertIn(".backup.", retained_backup.name)
+            self.assertEqual(b"original-1", retained_backup.read_bytes())
+            self.assertIn(str(targets[1]), str(raised.exception))
+            self.assertIn(str(retained_backup), str(raised.exception))
+            self.assertIn("simulated bbmodel publish failure", str(raised.exception))
+            self.assertIn("simulated glow rollback failure", str(raised.exception))
+
+            rollback_cause = raised.exception.__cause__
+            self.assertIsInstance(rollback_cause, OSError)
+            self.assertEqual("simulated glow rollback failure", str(rollback_cause))
+            publish_cause = rollback_cause.__cause__
+            self.assertIsInstance(publish_cause, OSError)
+            self.assertEqual(
+                "simulated bbmodel publish failure",
+                str(publish_cause),
+            )
+
+            for target in (targets[0], targets[2], targets[3]):
+                self.assertEqual([target], list(target.parent.iterdir()))
+            probe = retained_backup.with_suffix(".handle-check")
+            os.replace(retained_backup, probe)
+            os.replace(probe, retained_backup)
+            self.assertEqual(b"original-1", retained_backup.read_bytes())
+
     def test_write_textures_uses_unique_temps_and_backups_in_target_directories(self):
         created = []
         real_mkstemp = tempfile.mkstemp

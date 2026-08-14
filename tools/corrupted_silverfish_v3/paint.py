@@ -216,6 +216,7 @@ def _publish_transaction(payloads: Sequence[tuple[Path, bytes]]) -> None:
     candidates: dict[Path, Path] = {}
     backups: dict[Path, Path | None] = {}
     published: list[Path] = []
+    retained_backups: set[Path] = set()
     try:
         for target, contents in payloads:
             candidates[target] = _stage_bytes(target, contents, "candidate")
@@ -229,23 +230,44 @@ def _publish_transaction(payloads: Sequence[tuple[Path, bytes]]) -> None:
         for target in targets:
             os.replace(candidates[target], target)
             published.append(target)
-    except BaseException:
-        rollback_error = None
+    except BaseException as publish_error:
+        rollback_failures = []
         for target in reversed(published):
+            backup = backups[target]
             try:
-                backup = backups[target]
                 if backup is None:
                     target.unlink(missing_ok=True)
                 else:
                     os.replace(backup, target)
             except BaseException as error:
-                rollback_error = rollback_error or error
-        if rollback_error is not None:
-            raise RuntimeError("texture transaction rollback failed") from rollback_error
+                rollback_failures.append((target, backup, error))
+                if backup is not None:
+                    retained_backups.add(backup)
+            else:
+                backups.pop(target)
+        if rollback_failures:
+            failure_details = "; ".join(
+                (
+                    f"target={target}, retained_backup={backup or '<none>'}, "
+                    f"rollback_error={type(error).__name__}: {error}"
+                )
+                for target, backup, error in rollback_failures
+            )
+            error_chain = publish_error
+            for _target, _backup, error in rollback_failures:
+                error.__cause__ = error_chain
+                error_chain = error
+            raise RuntimeError(
+                (
+                    "texture transaction rollback failed after "
+                    f"publish_error={type(publish_error).__name__}: {publish_error}; "
+                    f"{failure_details}"
+                )
+            ) from error_chain
         raise
     finally:
         for temporary in (*candidates.values(), *backups.values()):
-            if temporary is not None:
+            if temporary is not None and temporary not in retained_backups:
                 temporary.unlink(missing_ok=True)
 
 
