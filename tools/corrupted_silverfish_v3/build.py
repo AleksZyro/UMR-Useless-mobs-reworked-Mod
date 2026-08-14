@@ -5,7 +5,9 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 from pathlib import Path
+import tempfile
 from typing import Dict, Iterable, Mapping, Sequence, Tuple
 from uuid import UUID, uuid5
 
@@ -24,6 +26,7 @@ UUID_NAMESPACE = UUID("b2e12292-b0e2-5f48-91a5-f9385a89e5a3")
 
 FaceKey = Tuple[str, str]
 UvRect = Tuple[int, int, int, int]
+Island = Tuple[str, str, int, int]
 
 
 def stable_uuid(kind: str, name: str) -> str:
@@ -55,6 +58,13 @@ def _pack_uvs(cubes: Iterable[Cube] = CUBES) -> Dict[FaceKey, UvRect]:
         for face in FACE_ORDER:
             width, height = _face_dimensions(cube, face)
             faces.append((cube.name, face, width, height))
+    return _pack_islands(faces)
+
+
+def _pack_islands(islands: Iterable[Island]) -> Dict[FaceKey, UvRect]:
+    """Pack already-sized face islands for deterministic boundary testing."""
+
+    faces = list(islands)
     faces.sort(key=lambda item: (-item[3], item[0], item[1]))
 
     packed: Dict[FaceKey, UvRect] = {}
@@ -62,6 +72,13 @@ def _pack_uvs(cubes: Iterable[Cube] = CUBES) -> Dict[FaceKey, UvRect]:
     y = 0
     shelf_height = 0
     for cube_name, face, width, height in faces:
+        if not all(
+            isinstance(value, int) and not isinstance(value, bool) and value > 0
+            for value in (width, height)
+        ):
+            raise ValueError(
+                f"Face {cube_name}/{face} has invalid packed dimensions {(width, height)}"
+            )
         if width > TEXTURE_SIZE or height > TEXTURE_SIZE:
             raise ValueError(f"Face {cube_name}/{face} is larger than {TEXTURE_SIZE}x{TEXTURE_SIZE}")
         if x and x + width > TEXTURE_SIZE:
@@ -223,12 +240,27 @@ def bbmodel_document() -> dict:
 
 def _atomic_json_write(path: Path, document: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.tmp")
-    temporary.write_text(
-        json.dumps(document, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
+    file_descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=str(path.parent),
     )
-    temporary.replace(path)
+    temporary = Path(temporary_name)
+    try:
+        handle = os.fdopen(
+            file_descriptor,
+            "w",
+            encoding="utf-8",
+            newline="\n",
+        )
+        file_descriptor = -1
+        with handle:
+            handle.write(json.dumps(document, ensure_ascii=False, indent=2) + "\n")
+        os.replace(temporary, path)
+    finally:
+        if file_descriptor != -1:
+            os.close(file_descriptor)
+        temporary.unlink(missing_ok=True)
 
 
 def build_geometry() -> Tuple[Path, Path]:

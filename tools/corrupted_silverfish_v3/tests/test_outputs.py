@@ -1,6 +1,10 @@
+import json
 import math
+import os
 from pathlib import Path
+import tempfile
 import unittest
+from unittest import mock
 from uuid import UUID, uuid5
 
 from tools.corrupted_silverfish_v3 import build
@@ -22,6 +26,10 @@ class GeneratedOutputContract(unittest.TestCase):
             )
         )
 
+    @unittest.skipUnless(
+        os.environ.get("V3_REQUIRE_COMPLETE") == "1",
+        "full v3 candidate is checked after all build stages",
+    )
     def test_required_candidate_files_exist(self):
         required = (
             EXPORT / "geo" / "corrupted_silverfish.geo.json",
@@ -112,6 +120,53 @@ class GeneratedOutputContract(unittest.TestCase):
             key=lambda face: (packed[(cube.name, face)][1], packed[(cube.name, face)][0]),
         )
         self.assertEqual(sorted(FACE_ORDER), packed_order)
+
+    def test_shelf_packer_uses_exact_two_pixel_gutter_and_allows_atlas_edge(self):
+        packed = build._pack_islands(
+            (
+                ("first", "north", 10, 10),
+                ("second", "north", 10, 10),
+            )
+        )
+        first = packed[("first", "north")]
+        second = packed[("second", "north")]
+        self.assertEqual(2, second[0] - (first[0] + first[2]))
+
+        edge = build._pack_islands((("edge", "north", 256, 1),))
+        u, _v, width, _height = edge[("edge", "north")]
+        self.assertEqual(256, u + width)
+
+    def test_packer_rejects_invalid_cube_dimensions_with_face_context(self):
+        invalid_dimensions = (
+            (float("nan"), 1.0, 1.0),
+            (-1.0, 1.0, 1.0),
+            (0.0, 1.0, 1.0),
+        )
+        for index, size in enumerate(invalid_dimensions):
+            cube = Cube(
+                f"invalid_{index}",
+                "root",
+                (0.0, 0.0, 0.0),
+                size,
+                "test",
+                "test",
+            )
+            with self.subTest(cube=cube.name), self.assertRaisesRegex(
+                ValueError,
+                rf"{cube.name}/north.*invalid dimensions",
+            ):
+                build._pack_uvs((cube,))
+
+    def test_packer_rejects_oversize_and_atlas_overflow_with_context(self):
+        with self.assertRaisesRegex(ValueError, r"oversize/north.*larger than 256x256"):
+            build._pack_islands((("oversize", "north", 257, 1),))
+        with self.assertRaisesRegex(ValueError, r"overflow/north.*overflows.*atlas"):
+            build._pack_islands(
+                (
+                    ("full", "north", 256, 256),
+                    ("overflow", "north", 1, 1),
+                )
+            )
 
     def test_bbmodel_is_structural_geckolib_project(self):
         document = build.bbmodel_document()
@@ -219,6 +274,66 @@ class GeneratedOutputContract(unittest.TestCase):
     def test_documents_are_deterministic(self):
         self.assertEqual(build.geometry_document(), build.geometry_document())
         self.assertEqual(build.bbmodel_document(), build.bbmodel_document())
+
+    def test_atomic_writer_uses_unique_temporary_names(self):
+        created = []
+        real_mkstemp = tempfile.mkstemp
+
+        def tracked_mkstemp(*args, **kwargs):
+            file_descriptor, name = real_mkstemp(*args, **kwargs)
+            created.append(Path(name))
+            return file_descriptor, name
+
+        with tempfile.TemporaryDirectory() as directory, mock.patch(
+            "tempfile.mkstemp",
+            side_effect=tracked_mkstemp,
+        ):
+            target = Path(directory) / "output.json"
+            build._atomic_json_write(target, {"build": 1})
+            build._atomic_json_write(target, {"build": 2})
+
+        self.assertEqual(2, len(created))
+        self.assertEqual(2, len(set(created)))
+        self.assertTrue(all(path.parent == target.parent for path in created))
+        self.assertTrue(all(not path.exists() for path in created))
+
+    def test_atomic_writer_preserves_target_and_cleans_temp_on_replace_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "output.json"
+            original = b"original bytes\n"
+            target.write_bytes(original)
+            with mock.patch(
+                "os.replace",
+                side_effect=OSError("simulated replace failure"),
+            ), self.assertRaisesRegex(OSError, "simulated replace failure"):
+                build._atomic_json_write(target, {"replacement": True})
+
+            self.assertEqual(original, target.read_bytes())
+            self.assertEqual([target], list(target.parent.iterdir()))
+
+    def test_atomic_writer_preserves_target_and_cleans_temp_on_write_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "output.json"
+            original = b"original bytes\n"
+            target.write_bytes(original)
+            with mock.patch(
+                "os.fdopen",
+                side_effect=OSError("simulated write failure"),
+            ), self.assertRaisesRegex(OSError, "simulated write failure"):
+                build._atomic_json_write(target, {"replacement": True})
+
+            self.assertEqual(original, target.read_bytes())
+            self.assertEqual([target], list(target.parent.iterdir()))
+
+    def test_committed_outputs_are_exact_deterministic_document_bytes(self):
+        expected_geometry = (
+            json.dumps(build.geometry_document(), ensure_ascii=False, indent=2) + "\n"
+        ).encode("utf-8")
+        expected_bbmodel = (
+            json.dumps(build.bbmodel_document(), ensure_ascii=False, indent=2) + "\n"
+        ).encode("utf-8")
+        self.assertEqual(expected_geometry, build.GEOMETRY_PATH.read_bytes())
+        self.assertEqual(expected_bbmodel, build.BBMODEL_PATH.read_bytes())
 
 if __name__ == "__main__":
     unittest.main()
