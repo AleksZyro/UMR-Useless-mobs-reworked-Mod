@@ -144,8 +144,6 @@ class AnimationContract(unittest.TestCase):
         self.assertEqual([0, 6, -2, 0], [v[2] for v in self.channel_values(hurt, "body", "rotation")])
         for bone in ("shell_front", "shell_mid", "shell_rear"):
             self.assertEqual(0.96, min(v[0] for v in self.channel_values(hurt, bone, "scale")))
-        for number in range(1, 8):
-            self.assertEqual(1.04, max(v[0] for v in self.channel_values(hurt, f"crystal_cluster_{number}", "scale")))
 
         death = self.animations["animation.corrupted_silverfish.death"]
         self.assertEqual(-1.4, self.channel_values(death, "body", "position")[-1][1])
@@ -156,6 +154,32 @@ class AnimationContract(unittest.TestCase):
                 self.assertEqual(expected, self.channel_values(death, f"leg_{side}_{position}_upper", "rotation")[-1][2])
         for number in range(1, 8):
             self.assertEqual([0.82, 0.82, 0.82], self.channel_values(death, f"crystal_cluster_{number}", "scale")[-1])
+
+    def test_hurt_crystal_world_scale_is_exact_after_parent_compensation(self):
+        hurt = self.animations["animation.corrupted_silverfish.hurt"]
+        direct_scaled_parents = {
+            "crystal_cluster_2": "shell_front",
+            "crystal_cluster_3": "shell_mid",
+            "crystal_cluster_4": "shell_rear",
+            "crystal_cluster_5": "shell_mid",
+        }
+        for number in range(1, 8):
+            cluster = f"crystal_cluster_{number}"
+            local = hurt["bones"][cluster]["scale"]
+            parent_name = direct_scaled_parents.get(cluster)
+            for time, expected_world in (("0.1", 1.04), ("0.2", 0.98)):
+                parent_scale = (
+                    hurt["bones"][parent_name]["scale"][time]["post"][0]
+                    if parent_name is not None
+                    else 1
+                )
+                self.assertEqual(
+                    expected_world,
+                    local[time]["post"][0] * parent_scale,
+                    f"{cluster} at {time}",
+                )
+        self.assertEqual(1.04 / 0.96, hurt["bones"]["crystal_cluster_2"]["scale"]["0.1"]["post"][0])
+        self.assertEqual(0.98 / 1.02, hurt["bones"]["crystal_cluster_5"]["scale"]["0.2"]["post"][0])
 
     def test_bbmodel_animations_are_derived_from_same_channels(self):
         bbmodel = build.bbmodel_document("data:image/png;base64,AA==")
@@ -276,6 +300,100 @@ class AnimationContract(unittest.TestCase):
             self.assertEqual(1, len(backups))
             self.assertEqual(b"old-animation", backups[0].read_bytes())
             self.assertIn(str(backups[0]), str(raised.exception))
+
+    def test_successful_publish_reports_all_cleanup_failures_without_rollback(self):
+        real_unlink = Path.unlink
+        cleanup_attempts = []
+
+        def fail_backup_cleanup(path, *args, **kwargs):
+            if ".backup." in path.name:
+                cleanup_attempts.append(path)
+                raise OSError(f"simulated cleanup failure: {path.name}")
+            return real_unlink(path, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as directory:
+            first = Path(directory) / "first.json"
+            second = Path(directory) / "second.json"
+            first.write_bytes(b"old-first")
+            second.write_bytes(b"old-second")
+            with mock.patch.object(Path, "unlink", autospec=True, side_effect=fail_backup_cleanup), self.assertRaisesRegex(RuntimeError, "published, cleanup incomplete") as raised:
+                build._publish_transaction(((first, b"new-first"), (second, b"new-second")))
+            self.assertEqual((b"new-first", b"new-second"), (first.read_bytes(), second.read_bytes()))
+            self.assertEqual(2, len(cleanup_attempts))
+            for failed_path in cleanup_attempts:
+                self.assertIn(str(failed_path), str(raised.exception))
+                probe = failed_path.with_suffix(".handle-check")
+                os.replace(failed_path, probe)
+                os.replace(probe, failed_path)
+
+    def test_publish_failure_keeps_primary_error_and_collects_multiple_cleanup_failures(self):
+        real_replace = os.replace
+        real_unlink = Path.unlink
+        replace_calls = 0
+        cleanup_attempts = []
+
+        def fail_last_publish(src, dst):
+            nonlocal replace_calls
+            replace_calls += 1
+            if replace_calls == 3:
+                raise OSError("primary bbmodel publish failure")
+            return real_replace(src, dst)
+
+        def fail_model_cleanup(path, *args, **kwargs):
+            if path.name.startswith(".model.bbmodel."):
+                cleanup_attempts.append(path)
+                raise OSError(f"secondary cleanup failure: {path.name}")
+            return real_unlink(path, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as directory:
+            targets, originals = self.transaction_fixture(directory)
+            with mock.patch("os.replace", side_effect=fail_last_publish), mock.patch.object(Path, "unlink", autospec=True, side_effect=fail_model_cleanup), self.assertRaisesRegex(OSError, "primary bbmodel publish failure") as raised:
+                build._publish_transaction(tuple((target, f"new-{index}".encode()) for index, target in enumerate(targets)))
+            self.assertEqual(originals, tuple(path.read_bytes() for path in targets))
+            self.assertEqual(2, len(cleanup_attempts))
+            self.assertIn("cleanup incomplete", str(raised.exception))
+            for failed_path in cleanup_attempts:
+                self.assertIn(str(failed_path), str(raised.exception))
+                probe = failed_path.with_suffix(".handle-check")
+                os.replace(failed_path, probe)
+                os.replace(probe, failed_path)
+
+    def test_rollback_failure_chain_survives_multiple_cleanup_failures(self):
+        real_replace = os.replace
+        real_unlink = Path.unlink
+        replace_calls = 0
+        cleanup_attempts = []
+
+        def fail_publish_then_rollback(src, dst):
+            nonlocal replace_calls
+            replace_calls += 1
+            if replace_calls == 3:
+                raise OSError("primary bbmodel publish failure")
+            if replace_calls == 5:
+                raise OSError("geometry rollback failure")
+            return real_replace(src, dst)
+
+        def fail_model_cleanup(path, *args, **kwargs):
+            if path.name.startswith(".model.bbmodel."):
+                cleanup_attempts.append(path)
+                raise OSError(f"secondary cleanup failure: {path.name}")
+            return real_unlink(path, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as directory:
+            targets, originals = self.transaction_fixture(directory)
+            with mock.patch("os.replace", side_effect=fail_publish_then_rollback), mock.patch.object(Path, "unlink", autospec=True, side_effect=fail_model_cleanup), self.assertRaisesRegex(RuntimeError, "rollback failed") as raised:
+                build._publish_transaction(tuple((target, f"new-{index}".encode()) for index, target in enumerate(targets)))
+            self.assertNotEqual(originals[0], targets[0].read_bytes())
+            self.assertEqual(originals[1:], tuple(path.read_bytes() for path in targets[1:]))
+            self.assertEqual(2, len(cleanup_attempts))
+            self.assertIn("cleanup incomplete", str(raised.exception))
+            retained = [path for path in Path(directory).iterdir() if ".geometry.json.backup." in path.name]
+            self.assertEqual(1, len(retained))
+            self.assertEqual(originals[0], retained[0].read_bytes())
+            for failed_path in (*cleanup_attempts, retained[0]):
+                probe = failed_path.with_suffix(".handle-check")
+                os.replace(failed_path, probe)
+                os.replace(probe, failed_path)
 
     def test_committed_animation_bytes_are_exact_and_repeatable(self):
         expected = (json.dumps(build.animation_document(), ensure_ascii=False, indent=2) + "\n").encode("utf-8")

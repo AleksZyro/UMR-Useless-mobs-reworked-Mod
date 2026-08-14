@@ -165,8 +165,14 @@ def _animation_specs() -> Dict[str, dict]:
             "scale": channel(hurt_times, ((1, 1, 1), (0.96, 0.96, 0.96), (1.02, 1.02, 1.02), (1, 1, 1)))
         }
     for number in range(1, 8):
+        parent_is_scaled = number in (2, 3, 4, 5)
+        pulse = 1.04 / 0.96 if parent_is_scaled else 1.04
+        recoil = 0.98 / 1.02 if parent_is_scaled else 0.98
         hurt_bones[f"crystal_cluster_{number}"] = {
-            "scale": channel(hurt_times, ((1, 1, 1), (1.04, 1.04, 1.04), (0.98, 0.98, 0.98), (1, 1, 1)))
+            "scale": channel(
+                hurt_times,
+                ((1, 1, 1), (pulse, pulse, pulse), (recoil, recoil, recoil), (1, 1, 1)),
+            )
         }
 
     death_times = (0, 0.55, 1.1)

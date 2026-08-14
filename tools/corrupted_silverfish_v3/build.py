@@ -180,9 +180,9 @@ def _bbmodel_animations() -> list:
                             "channel": channel_name,
                             "data_points": [
                                 {
-                                    "x": f"{vector[0]:g}",
-                                    "y": f"{vector[1]:g}",
-                                    "z": f"{vector[2]:g}",
+                                    "x": str(vector[0]),
+                                    "y": str(vector[1]),
+                                    "z": str(vector[2]),
                                 }
                             ],
                             "uuid": stable_uuid(
@@ -348,6 +348,8 @@ def _atomic_json_write(path: Path, document: dict) -> None:
         dir=str(path.parent),
     )
     temporary = Path(temporary_name)
+    operation_error = None
+    published = False
     try:
         handle = os.fdopen(
             file_descriptor,
@@ -359,14 +361,65 @@ def _atomic_json_write(path: Path, document: dict) -> None:
         with handle:
             handle.write(json.dumps(document, ensure_ascii=False, indent=2) + "\n")
         os.replace(temporary, path)
-    finally:
-        if file_descriptor != -1:
+        published = True
+    except BaseException as error:
+        operation_error = error
+
+    cleanup_failures = []
+    if file_descriptor != -1:
+        try:
             os.close(file_descriptor)
-        temporary.unlink(missing_ok=True)
+        except BaseException as error:
+            cleanup_failures.append((f"file_descriptor={file_descriptor}", error))
+    cleanup_failures.extend(_cleanup_paths((temporary,)))
+
+    if operation_error is not None:
+        if cleanup_failures:
+            _append_cleanup_details(operation_error, cleanup_failures)
+        raise operation_error.with_traceback(operation_error.__traceback__)
+    if cleanup_failures:
+        status = "published" if published else "not published"
+        raise RuntimeError(
+            f"atomic JSON {status}, cleanup incomplete: {_cleanup_details(cleanup_failures)}"
+        )
 
 
 def _json_bytes(document: dict) -> bytes:
     return (json.dumps(document, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+
+
+def _cleanup_paths(paths: Iterable[Path | None]) -> list[tuple[str, BaseException]]:
+    """Try every temporary-path cleanup and return all failures."""
+
+    failures = []
+    for path in paths:
+        if path is None:
+            continue
+        try:
+            path.unlink(missing_ok=True)
+        except BaseException as error:
+            failures.append((str(path), error))
+    return failures
+
+
+def _cleanup_details(failures: Sequence[tuple[str, BaseException]]) -> str:
+    return "; ".join(
+        f"path={path}, cleanup_error={type(error).__name__}: {error}"
+        for path, error in failures
+    )
+
+
+def _append_cleanup_details(
+    primary_error: BaseException,
+    cleanup_failures: Sequence[tuple[str, BaseException]],
+) -> None:
+    """Preserve a primary exception while making incomplete cleanup explicit."""
+
+    original = str(primary_error)
+    primary_error.args = (
+        f"{original}; cleanup incomplete: {_cleanup_details(cleanup_failures)}",
+        *primary_error.args[1:],
+    )
 
 
 def _stage_bytes(path: Path, contents: bytes, role: str) -> Path:
@@ -380,11 +433,17 @@ def _stage_bytes(path: Path, contents: bytes, role: str) -> Path:
             file_descriptor = -1
             handle.write(contents)
         return temporary
-    except BaseException:
+    except BaseException as primary_error:
+        cleanup_failures = []
         if file_descriptor != -1:
-            os.close(file_descriptor)
-        temporary.unlink(missing_ok=True)
-        raise
+            try:
+                os.close(file_descriptor)
+            except BaseException as error:
+                cleanup_failures.append((f"file_descriptor={file_descriptor}", error))
+        cleanup_failures.extend(_cleanup_paths((temporary,)))
+        if cleanup_failures:
+            _append_cleanup_details(primary_error, cleanup_failures)
+        raise primary_error.with_traceback(primary_error.__traceback__)
 
 
 def _publish_transaction(payloads: Sequence[tuple[Path, bytes]]) -> None:
@@ -397,6 +456,7 @@ def _publish_transaction(payloads: Sequence[tuple[Path, bytes]]) -> None:
     backups: dict[Path, Path | None] = {}
     published: list[Path] = []
     retained_backups: set[Path] = set()
+    operation_error = None
     try:
         for target, contents in payloads:
             candidates[target] = _stage_bytes(target, contents, "candidate")
@@ -434,15 +494,28 @@ def _publish_transaction(payloads: Sequence[tuple[Path, bytes]]) -> None:
             for _target, _backup, error in rollback_failures:
                 error.__cause__ = error_chain
                 error_chain = error
-            raise RuntimeError(
+            operation_error = RuntimeError(
                 "animation transaction rollback failed after "
                 f"publish_error={type(publish_error).__name__}: {publish_error}; {details}"
-            ) from error_chain
-        raise
-    finally:
-        for temporary in (*candidates.values(), *backups.values()):
-            if temporary is not None and temporary not in retained_backups:
-                temporary.unlink(missing_ok=True)
+            )
+            operation_error.__cause__ = error_chain
+        else:
+            operation_error = publish_error
+
+    cleanup_failures = _cleanup_paths(
+        temporary
+        for temporary in (*candidates.values(), *backups.values())
+        if temporary is not None and temporary not in retained_backups
+    )
+    if operation_error is not None:
+        if cleanup_failures:
+            _append_cleanup_details(operation_error, cleanup_failures)
+        raise operation_error.with_traceback(operation_error.__traceback__)
+    if cleanup_failures:
+        raise RuntimeError(
+            "artifacts published, cleanup incomplete: "
+            f"{_cleanup_details(cleanup_failures)}"
+        )
 
 
 def _embedded_texture_source() -> str:

@@ -763,6 +763,44 @@ class GeneratedOutputContract(unittest.TestCase):
             self.assertEqual(original, target.read_bytes())
             self.assertEqual([target], list(target.parent.iterdir()))
 
+    def test_atomic_writer_reports_cleanup_failure_after_successful_publish(self):
+        real_unlink = Path.unlink
+
+        def fail_cleanup(path, *args, **kwargs):
+            if path.suffix == ".tmp":
+                raise OSError("simulated atomic cleanup failure")
+            return real_unlink(path, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "output.json"
+            target.write_bytes(b"original")
+            with mock.patch.object(Path, "unlink", autospec=True, side_effect=fail_cleanup), self.assertRaisesRegex(RuntimeError, "published, cleanup incomplete"):
+                build._atomic_json_write(target, {"replacement": True})
+            self.assertEqual(
+                (json.dumps({"replacement": True}, ensure_ascii=False, indent=2) + "\n").encode("utf-8"),
+                target.read_bytes(),
+            )
+
+    def test_atomic_writer_keeps_replace_error_primary_when_cleanup_fails(self):
+        real_unlink = Path.unlink
+
+        def fail_cleanup(path, *args, **kwargs):
+            if path.suffix == ".tmp":
+                raise OSError("simulated atomic cleanup failure")
+            return real_unlink(path, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "output.json"
+            target.write_bytes(b"original")
+            with mock.patch("os.replace", side_effect=OSError("primary atomic replace failure")), mock.patch.object(Path, "unlink", autospec=True, side_effect=fail_cleanup), self.assertRaisesRegex(OSError, "primary atomic replace failure") as raised:
+                build._atomic_json_write(target, {"replacement": True})
+            self.assertEqual(b"original", target.read_bytes())
+            self.assertIn("cleanup incomplete", str(raised.exception))
+            temporary = next(path for path in target.parent.iterdir() if path != target)
+            probe = temporary.with_suffix(".handle-check")
+            os.replace(temporary, probe)
+            os.replace(probe, temporary)
+
     def test_committed_outputs_are_exact_deterministic_document_bytes(self):
         expected_geometry = (
             json.dumps(build.geometry_document(), ensure_ascii=False, indent=2) + "\n"
