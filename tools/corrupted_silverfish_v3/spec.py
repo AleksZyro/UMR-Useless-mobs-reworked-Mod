@@ -46,17 +46,6 @@ def cube_pivot(cube: Cube) -> Vec3:
     )
 
 
-ANIMATIONS: Mapping[str, float] = MappingProxyType(
-    {
-        "idle": 1.6,
-        "walk": 0.8,
-        "attack": 0.45,
-        "hurt": 0.3,
-        "death": 1.1,
-    }
-)
-
-
 _bones: List[Bone] = [
     Bone("root", None, (0.0, 0.0, 0.0)),
     Bone("body", "root", (0.0, 3.0, 1.0)),
@@ -205,7 +194,23 @@ def _animation_specs() -> Dict[str, dict]:
     }
 
 
-ANIMATION_SPECS: Mapping[str, dict] = MappingProxyType(_animation_specs())
+def _freeze(value):
+    """Recursively freeze canonical animation data against accidental drift."""
+
+    if isinstance(value, dict):
+        return MappingProxyType({key: _freeze(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze(item) for item in value)
+    return value
+
+
+ANIMATION_SPECS: Mapping[str, Mapping] = _freeze(_animation_specs())
+ANIMATIONS: Mapping[str, float] = MappingProxyType(
+    {
+        animation_id.removeprefix("animation.corrupted_silverfish."): animation["animation_length"]
+        for animation_id, animation in ANIMATION_SPECS.items()
+    }
+)
 
 
 _cubes: List[Cube] = []

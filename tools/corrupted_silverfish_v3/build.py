@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import base64
-import copy
 import json
 import math
 import os
@@ -153,8 +152,18 @@ def animation_document() -> dict:
 
     return {
         "format_version": "1.8.0",
-        "animations": copy.deepcopy(dict(ANIMATION_SPECS)),
+        "animations": _plain_animation_value(ANIMATION_SPECS),
     }
+
+
+def _plain_animation_value(value):
+    """Thaw immutable canonical animation values into JSON-compatible values."""
+
+    if isinstance(value, Mapping):
+        return {key: _plain_animation_value(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_plain_animation_value(item) for item in value]
+    return value
 
 
 def _bbmodel_animations() -> list:
@@ -466,9 +475,9 @@ def build_all() -> tuple[Path, Path, Path]:
     """Build geometry and publish matching animation outputs transactionally."""
 
     texture_source = _embedded_texture_source()
-    _atomic_json_write(GEOMETRY_PATH, geometry_document())
     _publish_transaction(
         (
+            (GEOMETRY_PATH, _json_bytes(geometry_document())),
             (ANIMATION_PATH, _json_bytes(animation_document())),
             (BBMODEL_PATH, _json_bytes(bbmodel_document(texture_source))),
         )

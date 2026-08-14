@@ -8,7 +8,7 @@ import unittest
 from unittest import mock
 
 from tools.corrupted_silverfish_v3 import build
-from tools.corrupted_silverfish_v3.spec import ANIMATIONS, BONES
+from tools.corrupted_silverfish_v3.spec import ANIMATIONS, ANIMATION_SPECS, BONES
 
 
 EXPECTED = {
@@ -31,6 +31,17 @@ class AnimationContract(unittest.TestCase):
             for keyframe in animation["bones"][bone][channel].values()
         ]
 
+    def transaction_fixture(self, directory):
+        root = Path(directory)
+        geometry = root / "geometry.json"
+        animations = root / "animation.json"
+        bbmodel = root / "model.bbmodel"
+        source = "data:image/png;base64," + base64.b64encode(b"embedded-texture").decode("ascii")
+        geometry.write_bytes(b"old-geometry")
+        animations.write_bytes(b"old-animation")
+        bbmodel.write_text(json.dumps(build.bbmodel_document(source)), encoding="utf-8")
+        return (geometry, animations, bbmodel), tuple(path.read_bytes() for path in (geometry, animations, bbmodel))
+
     def test_exact_ids_lengths_and_geckolib_loop_flags(self):
         self.assertEqual("1.8.0", self.document["format_version"])
         self.assertEqual(list(EXPECTED), list(self.animations))
@@ -38,6 +49,29 @@ class AnimationContract(unittest.TestCase):
             animation = self.animations[name]
             self.assertEqual(length, animation["animation_length"])
             self.assertIs(loops, animation["loop"])
+
+    def test_legacy_animation_lengths_are_derived_from_deeply_immutable_specs(self):
+        def assert_rejects_assignment(mapping, key, replacement):
+            original = mapping.get(key)
+            try:
+                with self.assertRaises(TypeError):
+                    mapping[key] = replacement
+            finally:
+                if isinstance(mapping, dict):
+                    mapping[key] = original
+
+        expected = {
+            name.removeprefix("animation.corrupted_silverfish."): animation["animation_length"]
+            for name, animation in ANIMATION_SPECS.items()
+        }
+        self.assertEqual(expected, dict(ANIMATIONS))
+        assert_rejects_assignment(ANIMATION_SPECS, "new", {})
+        idle = ANIMATION_SPECS["animation.corrupted_silverfish.idle"]
+        assert_rejects_assignment(idle, "animation_length", 99)
+        assert_rejects_assignment(idle["bones"], "body", {})
+        position = idle["bones"]["body"]["position"]
+        assert_rejects_assignment(position, "0", {})
+        self.assertIsInstance(position["0"]["post"], tuple)
 
     def test_all_channels_are_linear_valid_and_only_use_spec_bones(self):
         bone_names = {bone.name for bone in BONES}
@@ -144,31 +178,76 @@ class AnimationContract(unittest.TestCase):
                     }
                 self.assertEqual(channels, actual)
 
-    def test_full_build_preserves_embedded_texture_and_rolls_back_pair(self):
-        source = "data:image/png;base64," + base64.b64encode(b"embedded-texture").decode("ascii")
+    def test_build_all_submits_geometry_animation_and_bbmodel_to_one_transaction(self):
+        with mock.patch.object(build, "_atomic_json_write") as atomic, mock.patch.object(build, "_publish_transaction") as publish:
+            build.build_all()
+        atomic.assert_not_called()
+        publish.assert_called_once()
+        payloads = publish.call_args.args[0]
+        self.assertEqual([build.GEOMETRY_PATH, build.ANIMATION_PATH, build.BBMODEL_PATH], [path for path, _contents in payloads])
+
+    def test_full_build_write_failure_preserves_all_targets_and_cleans_temps(self):
+        real_fdopen = os.fdopen
+        calls = 0
+
+        def fail_second_write(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise OSError("simulated animation write failure")
+            return real_fdopen(*args, **kwargs)
+
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            geometry = root / "geo.json"
-            animations = root / "animation.json"
-            bbmodel = root / "model.bbmodel"
-            bbmodel.write_text(json.dumps(build.bbmodel_document(source)), encoding="utf-8")
-            animations.write_bytes(b"old-animation")
-            original_bbmodel = bbmodel.read_bytes()
-            real_replace = os.replace
-            calls = 0
-
-            def fail_second_publish(src, dst):
-                nonlocal calls
-                if ".candidate." in str(src):
-                    calls += 1
-                    if calls == 2:
-                        raise OSError("simulated pair publish failure")
-                return real_replace(src, dst)
-
-            with mock.patch.multiple(build, GEOMETRY_PATH=geometry, ANIMATION_PATH=animations, BBMODEL_PATH=bbmodel), mock.patch("os.replace", side_effect=fail_second_publish), self.assertRaisesRegex(OSError, "simulated pair publish failure"):
+            targets, originals = self.transaction_fixture(directory)
+            with mock.patch.multiple(build, GEOMETRY_PATH=targets[0], ANIMATION_PATH=targets[1], BBMODEL_PATH=targets[2]), mock.patch("os.fdopen", side_effect=fail_second_write), self.assertRaisesRegex(OSError, "simulated animation write failure"):
                 build.build_all()
-            self.assertEqual(b"old-animation", animations.read_bytes())
-            self.assertEqual(original_bbmodel, bbmodel.read_bytes())
+            self.assertEqual(originals, tuple(path.read_bytes() for path in targets))
+            self.assertEqual(set(targets), set(Path(directory).iterdir()))
+
+    def test_full_build_last_publish_failure_restores_all_three_targets(self):
+        real_replace = os.replace
+        calls = 0
+
+        def fail_bbmodel_publish(src, dst):
+            nonlocal calls
+            calls += 1
+            if calls == 3:
+                raise OSError("simulated bbmodel publish failure")
+            return real_replace(src, dst)
+
+        with tempfile.TemporaryDirectory() as directory:
+            targets, originals = self.transaction_fixture(directory)
+            with mock.patch.multiple(build, GEOMETRY_PATH=targets[0], ANIMATION_PATH=targets[1], BBMODEL_PATH=targets[2]), mock.patch("os.replace", side_effect=fail_bbmodel_publish), self.assertRaisesRegex(OSError, "simulated bbmodel publish failure"):
+                build.build_all()
+            self.assertEqual(originals, tuple(path.read_bytes() for path in targets))
+            self.assertEqual(set(targets), set(Path(directory).iterdir()))
+
+    def test_full_build_combined_failure_retains_unrestored_geometry_backup(self):
+        real_replace = os.replace
+        calls = 0
+
+        def fail_publish_then_geometry_rollback(src, dst):
+            nonlocal calls
+            calls += 1
+            if calls == 3:
+                raise OSError("simulated bbmodel publish failure")
+            if calls == 5:
+                raise OSError("simulated geometry rollback failure")
+            return real_replace(src, dst)
+
+        with tempfile.TemporaryDirectory() as directory:
+            targets, originals = self.transaction_fixture(directory)
+            with mock.patch.multiple(build, GEOMETRY_PATH=targets[0], ANIMATION_PATH=targets[1], BBMODEL_PATH=targets[2]), mock.patch("os.replace", side_effect=fail_publish_then_geometry_rollback), self.assertRaisesRegex(RuntimeError, "animation transaction rollback failed") as raised:
+                build.build_all()
+            self.assertNotEqual(originals[0], targets[0].read_bytes())
+            self.assertEqual(originals[1:], tuple(path.read_bytes() for path in targets[1:]))
+            backups = [path for path in Path(directory).iterdir() if path not in targets]
+            self.assertEqual(1, len(backups))
+            self.assertEqual(originals[0], backups[0].read_bytes())
+            self.assertIn(str(backups[0]), str(raised.exception))
+            probe = backups[0].with_suffix(".handle-check")
+            os.replace(backups[0], probe)
+            os.replace(probe, backups[0])
 
     def test_pair_publish_retains_backup_when_rollback_itself_fails(self):
         real_replace = os.replace
