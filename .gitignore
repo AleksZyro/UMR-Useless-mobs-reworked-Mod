@@ -124,5 +124,10 @@ run/
 runs/
 /run-data/
 
+# Python bytecode caches
+__pycache__/
+*.py[cod]
+*$py.class
+
 # Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
 !gradle-wrapper.jar
