@@ -1,0 +1,208 @@
+import base64
+import json
+import math
+import os
+from pathlib import Path
+import tempfile
+import unittest
+from unittest import mock
+
+from tools.corrupted_silverfish_v3 import build
+from tools.corrupted_silverfish_v3.spec import ANIMATIONS, BONES
+
+
+EXPECTED = {
+    "animation.corrupted_silverfish.idle": (1.6, True),
+    "animation.corrupted_silverfish.walk": (0.8, True),
+    "animation.corrupted_silverfish.attack": (0.45, False),
+    "animation.corrupted_silverfish.hurt": (0.3, False),
+    "animation.corrupted_silverfish.death": (1.1, False),
+}
+
+
+class AnimationContract(unittest.TestCase):
+    def setUp(self):
+        self.document = build.animation_document()
+        self.animations = self.document["animations"]
+
+    def channel_values(self, animation, bone, channel):
+        return [
+            keyframe["post"]
+            for keyframe in animation["bones"][bone][channel].values()
+        ]
+
+    def test_exact_ids_lengths_and_geckolib_loop_flags(self):
+        self.assertEqual("1.8.0", self.document["format_version"])
+        self.assertEqual(list(EXPECTED), list(self.animations))
+        for name, (length, loops) in EXPECTED.items():
+            animation = self.animations[name]
+            self.assertEqual(length, animation["animation_length"])
+            self.assertIs(loops, animation["loop"])
+
+    def test_all_channels_are_linear_valid_and_only_use_spec_bones(self):
+        bone_names = {bone.name for bone in BONES}
+        for name, animation in self.animations.items():
+            length = animation["animation_length"]
+            self.assertTrue(set(animation["bones"]).issubset(bone_names))
+            self.assertEqual(len(animation["bones"]), len(set(animation["bones"])))
+            for bone, channels in animation["bones"].items():
+                for channel_name, keyframes in channels.items():
+                    self.assertIn(channel_name, {"rotation", "position", "scale"})
+                    numeric_times = []
+                    for encoded_time, keyframe in keyframes.items():
+                        time = float(encoded_time)
+                        numeric_times.append(time)
+                        self.assertTrue(math.isfinite(time))
+                        self.assertGreaterEqual(time, 0)
+                        self.assertLessEqual(time, length)
+                        self.assertEqual("linear", keyframe["lerp_mode"])
+                        vector = keyframe["post"]
+                        self.assertEqual(3, len(vector))
+                        self.assertTrue(all(
+                            isinstance(value, (int, float))
+                            and not isinstance(value, bool)
+                            and math.isfinite(value)
+                            for value in vector
+                        ))
+                    self.assertEqual(numeric_times, sorted(numeric_times))
+                    if animation["loop"]:
+                        self.assertEqual(0, numeric_times[0])
+                        self.assertEqual(length, numeric_times[-1])
+                        self.assertEqual(
+                            next(iter(keyframes.values()))["post"],
+                            next(reversed(keyframes.values()))["post"],
+                        )
+
+    def test_idle_motion_contract(self):
+        idle = self.animations["animation.corrupted_silverfish.idle"]
+        self.assertEqual([0, 0.12, 0], [v[1] for v in self.channel_values(idle, "body", "position")])
+        for bone in ("head", "thorax", "shell_front", "shell_mid", "shell_rear", "abdomen", "tail_base", "tail_tip"):
+            values = self.channel_values(idle, bone, "rotation")
+            self.assertEqual(1.5, max(abs(vector[1]) for vector in values))
+        for number in range(1, 8):
+            values = self.channel_values(idle, f"crystal_cluster_{number}", "scale")
+            self.assertEqual([1, 1.025, 1], [vector[0] for vector in values])
+
+    def test_walk_motion_contract(self):
+        walk = self.animations["animation.corrupted_silverfish.walk"]
+        visible = ("head", "thorax", "shell_front", "shell_mid", "shell_rear", "abdomen", "tail_base", "tail_tip")
+        for bone in visible:
+            rotations = walk["bones"][bone]["rotation"]
+            self.assertEqual(5, len(rotations))
+            self.assertEqual(next(iter(rotations.values()))["post"], next(reversed(rotations.values()))["post"])
+        for side in ("left", "right"):
+            for position in ("front", "mid", "rear"):
+                upper = self.channel_values(walk, f"leg_{side}_{position}_upper", "rotation")
+                lower = self.channel_values(walk, f"leg_{side}_{position}_lower", "rotation")
+                self.assertEqual(16, max(abs(vector[0]) for vector in upper))
+                self.assertEqual(10, max(abs(vector[0]) for vector in lower))
+
+    def test_attack_hurt_and_death_motion_contracts(self):
+        attack = self.animations["animation.corrupted_silverfish.attack"]
+        self.assertEqual([0, -1.2, 0], [v[2] for v in self.channel_values(attack, "head", "position")])
+        self.assertEqual(24, max(v[1] for v in self.channel_values(attack, "mandible_left", "rotation")))
+        self.assertEqual(-24, min(v[1] for v in self.channel_values(attack, "mandible_right", "rotation")))
+        for side in ("left", "right"):
+            values = self.channel_values(attack, f"leg_{side}_front_upper", "rotation")
+            self.assertEqual(8, max(abs(v[0]) for v in values))
+
+        hurt = self.animations["animation.corrupted_silverfish.hurt"]
+        self.assertEqual([0, 6, -2, 0], [v[2] for v in self.channel_values(hurt, "body", "rotation")])
+        for bone in ("shell_front", "shell_mid", "shell_rear"):
+            self.assertEqual(0.96, min(v[0] for v in self.channel_values(hurt, bone, "scale")))
+        for number in range(1, 8):
+            self.assertEqual(1.04, max(v[0] for v in self.channel_values(hurt, f"crystal_cluster_{number}", "scale")))
+
+        death = self.animations["animation.corrupted_silverfish.death"]
+        self.assertEqual(-1.4, self.channel_values(death, "body", "position")[-1][1])
+        self.assertEqual(12, abs(self.channel_values(death, "tail_tip", "rotation")[-1][0]))
+        for side in ("left", "right"):
+            expected = 48 if side == "left" else -48
+            for position in ("front", "mid", "rear"):
+                self.assertEqual(expected, self.channel_values(death, f"leg_{side}_{position}_upper", "rotation")[-1][2])
+        for number in range(1, 8):
+            self.assertEqual([0.82, 0.82, 0.82], self.channel_values(death, f"crystal_cluster_{number}", "scale")[-1])
+
+    def test_bbmodel_animations_are_derived_from_same_channels(self):
+        bbmodel = build.bbmodel_document("data:image/png;base64,AA==")
+        self.assertEqual(5, len(bbmodel["animations"]))
+        by_name = {animation["name"]: animation for animation in bbmodel["animations"]}
+        self.assertEqual(set(self.animations), set(by_name))
+        group_names = {group["name"]: group["uuid"] for group in bbmodel["groups"]}
+        for name, gecko in self.animations.items():
+            blockbench = by_name[name]
+            self.assertEqual(gecko["animation_length"], blockbench["length"])
+            self.assertEqual("loop" if gecko["loop"] else "once", blockbench["loop"])
+            for bone, channels in gecko["bones"].items():
+                animator = blockbench["animators"][group_names[bone]]
+                self.assertEqual(bone, animator["name"])
+                actual = {}
+                for keyframe in animator["keyframes"]:
+                    actual.setdefault(keyframe["channel"], {})[f"{keyframe['time']:g}"] = {
+                        "post": [float(keyframe["data_points"][0][axis]) for axis in "xyz"],
+                        "lerp_mode": keyframe["interpolation"],
+                    }
+                self.assertEqual(channels, actual)
+
+    def test_full_build_preserves_embedded_texture_and_rolls_back_pair(self):
+        source = "data:image/png;base64," + base64.b64encode(b"embedded-texture").decode("ascii")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            geometry = root / "geo.json"
+            animations = root / "animation.json"
+            bbmodel = root / "model.bbmodel"
+            bbmodel.write_text(json.dumps(build.bbmodel_document(source)), encoding="utf-8")
+            animations.write_bytes(b"old-animation")
+            original_bbmodel = bbmodel.read_bytes()
+            real_replace = os.replace
+            calls = 0
+
+            def fail_second_publish(src, dst):
+                nonlocal calls
+                if ".candidate." in str(src):
+                    calls += 1
+                    if calls == 2:
+                        raise OSError("simulated pair publish failure")
+                return real_replace(src, dst)
+
+            with mock.patch.multiple(build, GEOMETRY_PATH=geometry, ANIMATION_PATH=animations, BBMODEL_PATH=bbmodel), mock.patch("os.replace", side_effect=fail_second_publish), self.assertRaisesRegex(OSError, "simulated pair publish failure"):
+                build.build_all()
+            self.assertEqual(b"old-animation", animations.read_bytes())
+            self.assertEqual(original_bbmodel, bbmodel.read_bytes())
+
+    def test_pair_publish_retains_backup_when_rollback_itself_fails(self):
+        real_replace = os.replace
+        calls = 0
+
+        def fail_publish_then_rollback(src, dst):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise OSError("simulated bbmodel publish failure")
+            if calls == 3:
+                raise OSError("simulated animation rollback failure")
+            return real_replace(src, dst)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            animation = root / "animations" / "animation.json"
+            bbmodel = root / "model" / "model.bbmodel"
+            animation.parent.mkdir()
+            bbmodel.parent.mkdir()
+            animation.write_bytes(b"old-animation")
+            bbmodel.write_bytes(b"old-bbmodel")
+            with mock.patch("os.replace", side_effect=fail_publish_then_rollback), self.assertRaisesRegex(RuntimeError, "animation transaction rollback failed") as raised:
+                build._publish_transaction(((animation, b"new-animation"), (bbmodel, b"new-bbmodel")))
+            backups = [path for path in animation.parent.iterdir() if path != animation]
+            self.assertEqual(1, len(backups))
+            self.assertEqual(b"old-animation", backups[0].read_bytes())
+            self.assertIn(str(backups[0]), str(raised.exception))
+
+    def test_committed_animation_bytes_are_exact_and_repeatable(self):
+        expected = (json.dumps(build.animation_document(), ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+        self.assertEqual(expected, build.ANIMATION_PATH.read_bytes())
+        self.assertEqual(build.animation_document(), build.animation_document())
+
+
+if __name__ == "__main__":
+    unittest.main()

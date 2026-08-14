@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import copy
 import json
 import math
 import os
@@ -11,12 +13,13 @@ import tempfile
 from typing import Dict, Iterable, Mapping, Sequence, Tuple
 from uuid import UUID, uuid5
 
-from .spec import BONES, CUBES, Cube, cube_pivot
+from .spec import ANIMATION_SPECS, BONES, CUBES, Cube, cube_pivot
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 EXPORT_ROOT = PROJECT_ROOT / "Modelle" / "Exports" / "corrupted_silverfish_v3"
 GEOMETRY_PATH = EXPORT_ROOT / "geo" / "corrupted_silverfish.geo.json"
+ANIMATION_PATH = EXPORT_ROOT / "animations" / "corrupted_silverfish.animation.json"
 BBMODEL_PATH = PROJECT_ROOT / "Modelle" / "Editierbar" / "Corrupted Silverfish v3.bbmodel"
 
 TEXTURE_SIZE = 256
@@ -145,6 +148,70 @@ def geometry_document() -> dict:
     }
 
 
+def animation_document() -> dict:
+    """Build GeckoLib animations from the canonical animation specification."""
+
+    return {
+        "format_version": "1.8.0",
+        "animations": copy.deepcopy(dict(ANIMATION_SPECS)),
+    }
+
+
+def _bbmodel_animations() -> list:
+    animations = []
+    for name, animation in ANIMATION_SPECS.items():
+        animators = {}
+        for bone_name, channels in animation["bones"].items():
+            keyframes = []
+            for channel_name, channel_keyframes in channels.items():
+                for encoded_time, keyframe in channel_keyframes.items():
+                    vector = keyframe["post"]
+                    keyframes.append(
+                        {
+                            "channel": channel_name,
+                            "data_points": [
+                                {
+                                    "x": f"{vector[0]:g}",
+                                    "y": f"{vector[1]:g}",
+                                    "z": f"{vector[2]:g}",
+                                }
+                            ],
+                            "uuid": stable_uuid(
+                                "keyframe",
+                                f"{name}:{bone_name}:{channel_name}:{encoded_time}",
+                            ),
+                            "time": float(encoded_time),
+                            "color": -1,
+                            "interpolation": keyframe["lerp_mode"],
+                        }
+                    )
+            animators[stable_uuid("group", bone_name)] = {
+                "name": bone_name,
+                "type": "bone",
+                "rotation_global": False,
+                "quaternion_interpolation": False,
+                "keyframes": keyframes,
+            }
+        animations.append(
+            {
+                "uuid": stable_uuid("animation", name),
+                "name": name,
+                "path": "corrupted_silverfish.animation.json",
+                "loop": "loop" if animation["loop"] else "once",
+                "override": False,
+                "snapping": 20,
+                "length": animation["animation_length"],
+                "selected_item": None,
+                "anim_time_update": "",
+                "blend_weight": "",
+                "start_delay": "",
+                "loop_delay": "",
+                "animators": animators,
+            }
+        )
+    return animations
+
+
 def _bbmodel_element(
     cube: Cube,
     uvs: Mapping[FaceKey, UvRect],
@@ -259,7 +326,7 @@ def bbmodel_document(texture_source: str | None = None) -> dict:
                 }
             ]
         ),
-        "animations": [],
+        "animations": _bbmodel_animations(),
         "geckolib_model_type": "Entity",
     }
 
@@ -289,6 +356,98 @@ def _atomic_json_write(path: Path, document: dict) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def _json_bytes(document: dict) -> bytes:
+    return (json.dumps(document, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+
+
+def _stage_bytes(path: Path, contents: bytes, role: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    file_descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.{role}.", suffix=".tmp", dir=str(path.parent)
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(file_descriptor, "wb") as handle:
+            file_descriptor = -1
+            handle.write(contents)
+        return temporary
+    except BaseException:
+        if file_descriptor != -1:
+            os.close(file_descriptor)
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def _publish_transaction(payloads: Sequence[tuple[Path, bytes]]) -> None:
+    """Publish related artifacts together, restoring every old byte on failure."""
+
+    targets = [target for target, _contents in payloads]
+    if len(targets) != len(set(targets)):
+        raise ValueError("transaction targets must be unique")
+    candidates: dict[Path, Path] = {}
+    backups: dict[Path, Path | None] = {}
+    published: list[Path] = []
+    retained_backups: set[Path] = set()
+    try:
+        for target, contents in payloads:
+            candidates[target] = _stage_bytes(target, contents, "candidate")
+        for target in targets:
+            backups[target] = (
+                _stage_bytes(target, target.read_bytes(), "backup")
+                if target.is_file()
+                else None
+            )
+        for target in targets:
+            os.replace(candidates[target], target)
+            published.append(target)
+    except BaseException as publish_error:
+        rollback_failures = []
+        for target in reversed(published):
+            backup = backups[target]
+            try:
+                if backup is None:
+                    target.unlink(missing_ok=True)
+                else:
+                    os.replace(backup, target)
+            except BaseException as rollback_error:
+                rollback_failures.append((target, backup, rollback_error))
+                if backup is not None:
+                    retained_backups.add(backup)
+            else:
+                backups.pop(target)
+        if rollback_failures:
+            details = "; ".join(
+                f"target={target}, retained_backup={backup or '<none>'}, "
+                f"rollback_error={type(error).__name__}: {error}"
+                for target, backup, error in rollback_failures
+            )
+            error_chain = publish_error
+            for _target, _backup, error in rollback_failures:
+                error.__cause__ = error_chain
+                error_chain = error
+            raise RuntimeError(
+                "animation transaction rollback failed after "
+                f"publish_error={type(publish_error).__name__}: {publish_error}; {details}"
+            ) from error_chain
+        raise
+    finally:
+        for temporary in (*candidates.values(), *backups.values()):
+            if temporary is not None and temporary not in retained_backups:
+                temporary.unlink(missing_ok=True)
+
+
+def _embedded_texture_source() -> str:
+    """Reuse the editable project's texture bytes, falling back to the atlas."""
+
+    if BBMODEL_PATH.is_file():
+        document = json.loads(BBMODEL_PATH.read_text(encoding="utf-8"))
+        textures = document.get("textures", [])
+        if len(textures) == 1 and isinstance(textures[0].get("source"), str):
+            return textures[0]["source"]
+    main_texture = EXPORT_ROOT / "textures" / "entity" / "corrupted_silverfish.png"
+    return "data:image/png;base64," + base64.b64encode(main_texture.read_bytes()).decode("ascii")
+
+
 def build_geometry() -> Path:
     """Write only the geometry artifact, leaving the editable project untouched."""
 
@@ -303,6 +462,20 @@ def write_textured_bbmodel(texture_source: str) -> Path:
     return BBMODEL_PATH
 
 
+def build_all() -> tuple[Path, Path, Path]:
+    """Build geometry and publish matching animation outputs transactionally."""
+
+    texture_source = _embedded_texture_source()
+    _atomic_json_write(GEOMETRY_PATH, geometry_document())
+    _publish_transaction(
+        (
+            (ANIMATION_PATH, _json_bytes(animation_document())),
+            (BBMODEL_PATH, _json_bytes(bbmodel_document(texture_source))),
+        )
+    )
+    return GEOMETRY_PATH, ANIMATION_PATH, BBMODEL_PATH
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -311,10 +484,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="write only the geometry JSON",
     )
     arguments = parser.parse_args(argv)
-    if not arguments.geometry_only:
-        parser.error("this build stage requires --geometry-only")
-    geometry_path = build_geometry()
+    if arguments.geometry_only:
+        geometry_path = build_geometry()
+        print(f"Geometry: {geometry_path} (32 bones, 112 cubes)")
+        return 0
+    geometry_path, animation_path, bbmodel_path = build_all()
     print(f"Geometry: {geometry_path} (32 bones, 112 cubes)")
+    print(f"Animations: {animation_path} (5 animations)")
+    print(f"Blockbench: {bbmodel_path} (one embedded texture, 5 animations)")
     return 0
 
 

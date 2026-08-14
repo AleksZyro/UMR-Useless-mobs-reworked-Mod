@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import List, Mapping, Optional, Sequence, Tuple
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 
 Vec3 = Tuple[float, float, float]
@@ -99,6 +99,113 @@ for number, (parent, pivot) in enumerate(
     _bones.append(Bone(f"crystal_cluster_{number}", parent, pivot))
 
 BONES: Tuple[Bone, ...] = tuple(_bones)
+
+
+def channel(times: Sequence[float], vectors: Sequence[Vec3]) -> Dict[str, dict]:
+    """Create a deterministic GeckoLib channel with linear Vec3 keyframes."""
+
+    if len(times) != len(vectors):
+        raise ValueError("animation channel times and vectors must have equal lengths")
+    return {
+        f"{time:g}": {"post": list(vector), "lerp_mode": "linear"}
+        for time, vector in zip(times, vectors)
+    }
+
+
+def _animation_specs() -> Dict[str, dict]:
+    """Return the single canonical source used by all animation exporters."""
+
+    idle_bones: Dict[str, dict] = {
+        "body": {"position": channel((0, 0.8, 1.6), ((0, 0, 0), (0, 0.12, 0), (0, 0, 0)))},
+    }
+    main_segments = (
+        "head", "thorax", "shell_front", "shell_mid",
+        "shell_rear", "abdomen", "tail_base", "tail_tip",
+    )
+    for index, bone in enumerate(main_segments):
+        amplitude = 1.5 if index % 2 == 0 else -1.5
+        idle_bones[bone] = {
+            "rotation": channel((0, 0.8, 1.6), ((0, 0, 0), (0, amplitude, 0), (0, 0, 0)))
+        }
+    for number in range(1, 8):
+        idle_bones[f"crystal_cluster_{number}"] = {
+            "scale": channel((0, 0.8, 1.6), ((1, 1, 1), (1.025, 1.025, 1.025), (1, 1, 1)))
+        }
+
+    walk_times = (0, 0.2, 0.4, 0.6, 0.8)
+    walk_bones: Dict[str, dict] = {}
+    for index, bone in enumerate(main_segments):
+        amplitude = 3 if index % 2 == 0 else -3
+        walk_bones[bone] = {
+            "rotation": channel(
+                walk_times,
+                ((0, amplitude, 0), (0, 0, 0), (0, -amplitude, 0), (0, 0, 0), (0, amplitude, 0)),
+            )
+        }
+    first_tripod = {("left", "front"), ("right", "mid"), ("left", "rear")}
+    for side in ("left", "right"):
+        for position in ("front", "mid", "rear"):
+            phase = 1 if (side, position) in first_tripod else -1
+            walk_bones[f"leg_{side}_{position}_upper"] = {
+                "rotation": channel(
+                    walk_times,
+                    tuple((phase * value, 0, 0) for value in (16, 0, -16, 0, 16)),
+                )
+            }
+            walk_bones[f"leg_{side}_{position}_lower"] = {
+                "rotation": channel(
+                    walk_times,
+                    tuple((-phase * value, 0, 0) for value in (10, 0, -10, 0, 10)),
+                )
+            }
+
+    attack_bones: Dict[str, dict] = {
+        "head": {"position": channel((0, 0.225, 0.45), ((0, 0, 0), (0, 0, -1.2), (0, 0, 0)))},
+        "mandible_left": {"rotation": channel((0, 0.225, 0.45), ((0, 0, 0), (0, 24, 0), (0, 0, 0)))},
+        "mandible_right": {"rotation": channel((0, 0.225, 0.45), ((0, 0, 0), (0, -24, 0), (0, 0, 0)))},
+        "leg_left_front_upper": {"rotation": channel((0, 0.225, 0.45), ((0, 0, 0), (8, 0, 0), (0, 0, 0)))},
+        "leg_right_front_upper": {"rotation": channel((0, 0.225, 0.45), ((0, 0, 0), (-8, 0, 0), (0, 0, 0)))},
+    }
+
+    hurt_times = (0, 0.1, 0.2, 0.3)
+    hurt_bones: Dict[str, dict] = {
+        "body": {"rotation": channel(hurt_times, ((0, 0, 0), (0, 0, 6), (0, 0, -2), (0, 0, 0)))},
+    }
+    for bone in ("shell_front", "shell_mid", "shell_rear"):
+        hurt_bones[bone] = {
+            "scale": channel(hurt_times, ((1, 1, 1), (0.96, 0.96, 0.96), (1.02, 1.02, 1.02), (1, 1, 1)))
+        }
+    for number in range(1, 8):
+        hurt_bones[f"crystal_cluster_{number}"] = {
+            "scale": channel(hurt_times, ((1, 1, 1), (1.04, 1.04, 1.04), (0.98, 0.98, 0.98), (1, 1, 1)))
+        }
+
+    death_times = (0, 0.55, 1.1)
+    death_bones: Dict[str, dict] = {
+        "body": {"position": channel(death_times, ((0, 0, 0), (0, -0.4, 0), (0, -1.4, 0)))},
+        "tail_base": {"rotation": channel(death_times, ((0, 0, 0), (3, 0, 0), (6, 0, 0)))},
+        "tail_tip": {"rotation": channel(death_times, ((0, 0, 0), (6, 0, 0), (12, 0, 0)))},
+    }
+    for side, fold in (("left", 48), ("right", -48)):
+        for position in ("front", "mid", "rear"):
+            death_bones[f"leg_{side}_{position}_upper"] = {
+                "rotation": channel(death_times, ((0, 0, 0), (0, 0, fold / 2), (0, 0, fold)))
+            }
+    for number in range(1, 8):
+        death_bones[f"crystal_cluster_{number}"] = {
+            "scale": channel(death_times, ((1, 1, 1), (0.94, 0.94, 0.94), (0.82, 0.82, 0.82)))
+        }
+
+    return {
+        "animation.corrupted_silverfish.idle": {"loop": True, "animation_length": 1.6, "bones": idle_bones},
+        "animation.corrupted_silverfish.walk": {"loop": True, "animation_length": 0.8, "bones": walk_bones},
+        "animation.corrupted_silverfish.attack": {"loop": False, "animation_length": 0.45, "bones": attack_bones},
+        "animation.corrupted_silverfish.hurt": {"loop": False, "animation_length": 0.3, "bones": hurt_bones},
+        "animation.corrupted_silverfish.death": {"loop": False, "animation_length": 1.1, "bones": death_bones},
+    }
+
+
+ANIMATION_SPECS: Mapping[str, dict] = MappingProxyType(_animation_specs())
 
 
 _cubes: List[Cube] = []

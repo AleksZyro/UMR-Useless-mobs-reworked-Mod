@@ -212,7 +212,7 @@ class PaintedTextureContract(unittest.TestCase):
         self.assertEqual(source, texture["source"])
         self.assertEqual(5, UUID(texture["uuid"]).version)
         self.assertEqual(main_bytes, base64.b64decode(texture["source"].split(",", 1)[1]))
-        self.assertEqual([], document["animations"])
+        self.assertEqual(5, len(document["animations"]))
         self.assertEqual((32, 112), (len(document["groups"]), len(document["elements"])))
         self.assertTrue(
             all(
@@ -452,10 +452,6 @@ class GeneratedOutputContract(unittest.TestCase):
             )
         )
 
-    @unittest.skipUnless(
-        os.environ.get("V3_REQUIRE_COMPLETE") == "1",
-        "full v3 candidate is checked after all build stages",
-    )
     def test_required_candidate_files_exist(self):
         required = (
             EXPORT / "geo" / "corrupted_silverfish.geo.json",
@@ -609,7 +605,7 @@ class GeneratedOutputContract(unittest.TestCase):
         self.assertEqual(32, len(document["groups"]))
         self.assertEqual(112, len(document["elements"]))
         self.assertEqual([], document["textures"])
-        self.assertEqual([], document["animations"])
+        self.assertEqual(5, len(document["animations"]))
         for element in document["elements"]:
             with self.subTest(element=element["name"]):
                 self.assertEqual("cube", element["type"])
