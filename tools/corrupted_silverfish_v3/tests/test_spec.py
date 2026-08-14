@@ -92,6 +92,9 @@ class ModelSpecContract(unittest.TestCase):
         with self.assertRaises(TypeError):
             ANIMATIONS["mutant"] = 9.9
 
+    def test_animation_metadata_has_no_mutable_backing_alias(self):
+        self.assertFalse(hasattr(spec, "_animations"))
+
     def test_rotated_cube_pivot_is_its_exact_geometric_center(self):
         cube = next(cube for cube in CUBES if cube.name == "forehead_left")
         self.assertNotEqual((0.0, 0.0, 0.0), cube.rotation)

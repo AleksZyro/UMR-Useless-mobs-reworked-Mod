@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import List, Mapping, Optional, Sequence, Tuple
 
 
 Vec3 = Tuple[float, float, float]
@@ -46,14 +46,15 @@ def cube_pivot(cube: Cube) -> Vec3:
     )
 
 
-_animations: Dict[str, float] = {
-    "idle": 1.6,
-    "walk": 0.8,
-    "attack": 0.45,
-    "hurt": 0.3,
-    "death": 1.1,
-}
-ANIMATIONS: Mapping[str, float] = MappingProxyType(_animations)
+ANIMATIONS: Mapping[str, float] = MappingProxyType(
+    {
+        "idle": 1.6,
+        "walk": 0.8,
+        "attack": 0.45,
+        "hurt": 0.3,
+        "death": 1.1,
+    }
+)
 
 
 _bones: List[Bone] = [
