@@ -34,7 +34,6 @@ PALETTE: Mapping[str, tuple[int, int, int, int]] = MappingProxyType(
         "magenta": (234, 55, 112, 255),
         "violet": (82, 37, 104, 255),
         "eye": (86, 190, 255, 255),
-        "eye_highlight": (184, 235, 255, 255),
     }
 )
 TRANSPARENT = (0, 0, 0, 0)
@@ -155,8 +154,8 @@ def _paint_eye(
     glow_pixels[eye_x, eye_y] = PALETTE["eye"]
     if width > 1:
         highlight_x = max(u, eye_x - 1)
-        pixels[highlight_x, eye_y] = PALETTE["eye_highlight"]
-        glow_pixels[highlight_x, eye_y] = PALETTE["eye_highlight"]
+        pixels[highlight_x, eye_y] = PALETTE["eye"]
+        glow_pixels[highlight_x, eye_y] = PALETTE["eye"]
 
 
 def paint_images() -> tuple[Image.Image, Image.Image]:

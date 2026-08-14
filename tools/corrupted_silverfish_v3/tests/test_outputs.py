@@ -74,11 +74,25 @@ class PaintedTextureContract(unittest.TestCase):
 
     def test_palette_and_alpha_are_exact_without_antialias_colours(self):
         main, glow = paint.paint_images()
-        allowed_main = set(paint.PALETTE.values())
+        specified_palette = {
+            "seam": (22, 18, 28, 255),
+            "underside": (38, 34, 46, 255),
+            "steel_dark": (76, 82, 92, 255),
+            "steel": (126, 136, 147, 255),
+            "steel_light": (188, 198, 207, 255),
+            "steel_highlight": (224, 230, 235, 255),
+            "corruption_root": (45, 10, 43, 255),
+            "corruption_dark": (91, 15, 58, 255),
+            "crimson": (181, 31, 82, 255),
+            "magenta": (234, 55, 112, 255),
+            "violet": (82, 37, 104, 255),
+            "eye": (86, 190, 255, 255),
+        }
+        self.assertEqual(specified_palette, dict(paint.PALETTE))
+        allowed_main = set(specified_palette.values())
         allowed_glow = {
-            paint.PALETTE["eye"],
-            paint.PALETTE["eye_highlight"],
-            paint.PALETTE["magenta"],
+            (86, 190, 255, 255),
+            (234, 55, 112, 255),
         }
         self.assertTrue({pixel for pixel in main.getdata() if pixel[3]} <= allowed_main)
         self.assertTrue({pixel for pixel in glow.getdata() if pixel[3]} <= allowed_glow)
