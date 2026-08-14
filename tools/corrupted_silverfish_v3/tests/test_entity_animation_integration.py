@@ -99,6 +99,56 @@ def guarded_body(source: str, condition_pattern: str) -> str:
     return brace_body(source, structure.rfind("{", guard.start(), guard.end()))
 
 
+def top_level_statements(source: str) -> list[str]:
+    """Split a Java method body without treating nested statements as top-level."""
+
+    structure = java_lexical_view(source, mask_literals=True)
+    clean = java_without_comments(source)
+    statements = []
+    start = 0
+    parentheses = 0
+    brackets = 0
+    braces = 0
+    index = 0
+    while index < len(structure):
+        char = structure[index]
+        if char == "(":
+            parentheses += 1
+        elif char == ")":
+            parentheses -= 1
+        elif char == "[":
+            brackets += 1
+        elif char == "]":
+            brackets -= 1
+        elif char == "{":
+            braces += 1
+        elif char == "}":
+            braces -= 1
+            if braces == 0 and parentheses == 0 and brackets == 0:
+                following = index + 1
+                while following < len(structure) and structure[following].isspace():
+                    following += 1
+                if not re.match(r"(?:else|catch|finally)\b", structure[following:]):
+                    statement = clean[start : index + 1].strip()
+                    if statement:
+                        statements.append(statement)
+                    start = index + 1
+        elif char == ";" and braces == 0 and parentheses == 0 and brackets == 0:
+            statement = clean[start : index + 1].strip()
+            if statement:
+                statements.append(statement)
+            start = index + 1
+        index += 1
+    if clean[start:].strip():
+        raise AssertionError(f"unterminated top-level Java statement: {clean[start:].strip()}")
+    return statements
+
+
+def return_statement_count(source: str) -> int:
+    structure = java_lexical_view(source, mask_literals=True)
+    return len(re.findall(r"\breturn\b", structure))
+
+
 def compact(source: str) -> str:
     return re.sub(r"\s+", " ", source).strip()
 
@@ -153,6 +203,9 @@ class EntityAnimationIntegrationContract(unittest.TestCase):
             r"\bvoid\s+registerControllers\s*\(\s*"
             r"AnimatableManager\.ControllerRegistrar\s+\w+\s*\)",
         )
+        statements = top_level_statements(body)
+        self.assertEqual(2, len(statements))
+        self.assertEqual(0, return_statement_count(body))
         self.assertEqual(2, len(re.findall(r"\bcontrollers\.add\s*\(", body)))
         self.assertEqual(2, len(re.findall(r"\bcontrollers\.add\s*\(", source)))
         self.assertEqual(2, len(re.findall(r"\bnew\s+AnimationController\b", source)))
@@ -198,6 +251,22 @@ class EntityAnimationIntegrationContract(unittest.TestCase):
             self.source,
             r"\bboolean\s+doHurtTarget\s*\(\s*Entity\s+target\s*\)",
         )
+        statements = top_level_statements(body)
+        self.assertEqual(4, len(statements))
+        self.assertRegex(
+            compact(statements[0]),
+            r"^boolean\s+hurt\s*=\s*super\.doHurtTarget\s*\(\s*target\s*\)\s*;$",
+        )
+        self.assertRegex(
+            compact(statements[1]),
+            r"^if\s*\(\s*hurt\s*&&\s*!\s*this\.level\s*\(\s*\)\.isClientSide\s*\)\s*\{",
+        )
+        self.assertRegex(
+            compact(statements[2]),
+            r"^if\s*\(\s*hurt\s*&&\s*target\s+instanceof\s+LivingEntity\s+living\s*\)\s*\{",
+        )
+        self.assertRegex(compact(statements[3]), r"^return\s+hurt\s*;$")
+        self.assertEqual(1, return_statement_count(body))
         self.assertEqual(1, len(re.findall(r"\bsuper\.doHurtTarget\s*\(", source)))
         self.assertEqual(
             [("action", "attack"), ("action", "hurt"), ("action", "death")],
@@ -249,6 +318,25 @@ class EntityAnimationIntegrationContract(unittest.TestCase):
             self.source,
             r"\bboolean\s+hurt\s*\(\s*DamageSource\s+source\s*,\s*float\s+amount\s*\)",
         )
+        statements = top_level_statements(body)
+        self.assertEqual(4, len(statements))
+        self.assertRegex(
+            compact(statements[0]),
+            r"^boolean\s+hurt\s*=\s*super\.hurt\s*\(\s*source\s*,\s*amount\s*\)\s*;$",
+        )
+        self.assertRegex(
+            compact(statements[1]),
+            r"^if\s*\(\s*hurt\s*&&\s*!\s*this\.level\s*\(\s*\)\.isClientSide\s*&&\s*"
+            r"!\s*this\.isDeadOrDying\s*\(\s*\)\s*\)\s*\{",
+        )
+        self.assertRegex(
+            compact(statements[2]),
+            r"^if\s*\(\s*hurt\s*&&\s*!\s*this\.level\s*\(\s*\)\.isClientSide\s*&&\s*"
+            r"this\.swarmCallCooldown\s*<=\s*0\s*&&\s*source\.getEntity\s*\(\s*\)\s*"
+            r"instanceof\s+LivingEntity\s+attacker\s*\)\s*\{",
+        )
+        self.assertRegex(compact(statements[3]), r"^return\s+hurt\s*;$")
+        self.assertEqual(1, return_statement_count(body))
         self.assertEqual(1, len(re.findall(r"\bsuper\.hurt\s*\(", source)))
         hurt_guard = guarded_body(
             body,
@@ -294,6 +382,16 @@ class EntityAnimationIntegrationContract(unittest.TestCase):
             self.source,
             r"\bvoid\s+die\s*\(\s*DamageSource\s+source\s*\)",
         )
+        statements = top_level_statements(body)
+        self.assertEqual(3, len(statements))
+        self.assertRegex(compact(statements[0]), r"^boolean\s+wasDead\s*=\s*this\.dead\s*;$")
+        self.assertRegex(compact(statements[1]), r"^super\.die\s*\(\s*source\s*\)\s*;$")
+        self.assertRegex(
+            compact(statements[2]),
+            r"^if\s*\(\s*!\s*this\.level\s*\(\s*\)\.isClientSide\s*&&\s*!\s*wasDead\s*&&\s*"
+            r"this\.dead\s*\)\s*\{",
+        )
+        self.assertEqual(0, return_statement_count(body))
         self.assertEqual(1, len(re.findall(r"\bsuper\.die\s*\(", source)))
         self.assertEqual(1, len(re.findall(r"\bboolean\s+wasDead\s*=\s*this\.dead\s*;", body)))
         death_guard = guarded_body(
@@ -348,6 +446,32 @@ class EntityAnimationIntegrationContract(unittest.TestCase):
             "        boolean   hurt = super.doHurtTarget( target );",
         )
         self.assert_mutant_accepted(
+            mutant, "test_attack_triggers_only_after_successful_server_hit_and_keeps_effects"
+        )
+
+    def test_contract_rejects_hidden_early_return(self):
+        mutant = self.source.replace(
+            "boolean hurt = super.doHurtTarget(target);",
+            "if (Boolean.TRUE.booleanValue()) { return false; }\n"
+            "        boolean hurt = super.doHurtTarget(target);",
+        )
+        self.assert_mutant_rejected(
+            mutant, "test_attack_triggers_only_after_successful_server_hit_and_keeps_effects"
+        )
+
+    def test_contract_rejects_expected_logic_nested_under_false_guard(self):
+        start = self.source.index("        boolean hurt = super.doHurtTarget(target);")
+        end = self.source.index("\n    }\n\n    @Override\n    public void aiStep", start)
+        original_body = self.source[start:end]
+        nested_body = "\n".join("    " + line for line in original_body.splitlines())
+        mutant = (
+            self.source[:start]
+            + "        if (false) {\n"
+            + nested_body
+            + "\n        }\n        return false;"
+            + self.source[end:]
+        )
+        self.assert_mutant_rejected(
             mutant, "test_attack_triggers_only_after_successful_server_hit_and_keeps_effects"
         )
 
