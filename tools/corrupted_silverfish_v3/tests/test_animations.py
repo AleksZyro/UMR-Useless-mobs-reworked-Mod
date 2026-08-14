@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from tools.corrupted_silverfish_v3 import build
+from tools.corrupted_silverfish_v3 import build, spec
 from tools.corrupted_silverfish_v3.spec import ANIMATIONS, ANIMATION_SPECS, BONES
 
 
@@ -157,29 +157,45 @@ class AnimationContract(unittest.TestCase):
 
     def test_hurt_crystal_world_scale_is_exact_after_parent_compensation(self):
         hurt = self.animations["animation.corrupted_silverfish.hurt"]
-        direct_scaled_parents = {
-            "crystal_cluster_2": "shell_front",
-            "crystal_cluster_3": "shell_mid",
-            "crystal_cluster_4": "shell_rear",
-            "crystal_cluster_5": "shell_mid",
-        }
+        parents = {bone.name: bone.parent for bone in BONES}
+        expected_scaled_ancestors = (0, 1, 2, 3, 2, 3, 0)
         for number in range(1, 8):
             cluster = f"crystal_cluster_{number}"
             local = hurt["bones"][cluster]["scale"]
-            parent_name = direct_scaled_parents.get(cluster)
+            scaled_ancestors = spec._scaled_ancestor_count(
+                cluster,
+                parents,
+                frozenset(("shell_front", "shell_mid", "shell_rear")),
+            )
+            self.assertEqual(expected_scaled_ancestors[number - 1], scaled_ancestors)
             for time, expected_world in (("0.1", 1.04), ("0.2", 0.98)):
-                parent_scale = (
-                    hurt["bones"][parent_name]["scale"][time]["post"][0]
-                    if parent_name is not None
-                    else 1
-                )
-                self.assertEqual(
+                world_scale = local[time]["post"][0]
+                current = parents[cluster]
+                visited = {cluster}
+                while current is not None:
+                    if current in visited:
+                        self.fail(f"cycle while traversing {cluster}: {current}")
+                    visited.add(current)
+                    animated_scale = hurt["bones"].get(current, {}).get("scale")
+                    if animated_scale is not None:
+                        world_scale *= animated_scale[time]["post"][0]
+                    current = parents[current]
+                self.assertAlmostEqual(
                     expected_world,
-                    local[time]["post"][0] * parent_scale,
-                    f"{cluster} at {time}",
+                    world_scale,
+                    places=14,
+                    msg=f"{cluster} at {time}",
                 )
         self.assertEqual(1.04 / 0.96, hurt["bones"]["crystal_cluster_2"]["scale"]["0.1"]["post"][0])
-        self.assertEqual(0.98 / 1.02, hurt["bones"]["crystal_cluster_5"]["scale"]["0.2"]["post"][0])
+        self.assertEqual(0.98 / (1.02 ** 3), hurt["bones"]["crystal_cluster_6"]["scale"]["0.2"]["post"][0])
+
+    def test_scaled_ancestor_counter_rejects_cycles(self):
+        with self.assertRaisesRegex(ValueError, "cycle.*a"):
+            spec._scaled_ancestor_count(
+                "a",
+                {"a": "b", "b": "a"},
+                frozenset(("a", "b")),
+            )
 
     def test_bbmodel_animations_are_derived_from_same_channels(self):
         bbmodel = build.bbmodel_document("data:image/png;base64,AA==")

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import AbstractSet, Dict, List, Mapping, Optional, Sequence, Tuple
 
 
 Vec3 = Tuple[float, float, float]
@@ -90,6 +90,30 @@ for number, (parent, pivot) in enumerate(
 BONES: Tuple[Bone, ...] = tuple(_bones)
 
 
+def _scaled_ancestor_count(
+    bone_name: str,
+    parent_by_bone: Mapping[str, Optional[str]],
+    scaled_bones: AbstractSet[str],
+) -> int:
+    """Count scaled ancestors up to root, rejecting malformed hierarchies."""
+
+    count = 0
+    current = bone_name
+    visited = set()
+    while True:
+        if current in visited:
+            raise ValueError(f"bone parent cycle detected at {current}")
+        visited.add(current)
+        if current not in parent_by_bone:
+            raise ValueError(f"unknown bone in parent hierarchy: {current}")
+        parent = parent_by_bone[current]
+        if parent is None:
+            return count
+        if parent in scaled_bones:
+            count += 1
+        current = parent
+
+
 def channel(times: Sequence[float], vectors: Sequence[Vec3]) -> Dict[str, dict]:
     """Create a deterministic GeckoLib channel with linear Vec3 keyframes."""
 
@@ -164,11 +188,16 @@ def _animation_specs() -> Dict[str, dict]:
         hurt_bones[bone] = {
             "scale": channel(hurt_times, ((1, 1, 1), (0.96, 0.96, 0.96), (1.02, 1.02, 1.02), (1, 1, 1)))
         }
+    parent_by_bone = {bone.name: bone.parent for bone in BONES}
+    scaled_shell_bones = frozenset(("shell_front", "shell_mid", "shell_rear"))
     for number in range(1, 8):
-        parent_is_scaled = number in (2, 3, 4, 5)
-        pulse = 1.04 / 0.96 if parent_is_scaled else 1.04
-        recoil = 0.98 / 1.02 if parent_is_scaled else 0.98
-        hurt_bones[f"crystal_cluster_{number}"] = {
+        cluster = f"crystal_cluster_{number}"
+        scaled_ancestors = _scaled_ancestor_count(
+            cluster, parent_by_bone, scaled_shell_bones
+        )
+        pulse = 1.04 / (0.96 ** scaled_ancestors)
+        recoil = 0.98 / (1.02 ** scaled_ancestors)
+        hurt_bones[cluster] = {
             "scale": channel(
                 hurt_times,
                 ((1, 1, 1), (pulse, pulse, pulse), (recoil, recoil, recoil), (1, 1, 1)),
