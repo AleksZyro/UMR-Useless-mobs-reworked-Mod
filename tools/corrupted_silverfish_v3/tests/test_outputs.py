@@ -1,3 +1,5 @@
+import base64
+import io
 import json
 import math
 import os
@@ -7,12 +9,199 @@ import unittest
 from unittest import mock
 from uuid import UUID, uuid5
 
+from PIL import Image
+
 from tools.corrupted_silverfish_v3 import build
+try:
+    from tools.corrupted_silverfish_v3 import paint
+except ImportError:
+    paint = None
 from tools.corrupted_silverfish_v3.spec import BONES, CUBES, Cube, cube_pivot
 
 ROOT = Path(__file__).resolve().parents[3]
 EXPORT = ROOT / "Modelle" / "Exports" / "corrupted_silverfish_v3"
 FACE_ORDER = ("north", "east", "south", "west", "up", "down")
+
+
+class PaintedTextureContract(unittest.TestCase):
+    def setUp(self):
+        self.assertIsNotNone(paint, "tools.corrupted_silverfish_v3.paint is required")
+        self.uvs = build._pack_uvs()
+        self.cubes = {cube.name: cube for cube in CUBES}
+
+    def face_pixels(self, image, cube_name, face):
+        u, v, width, height = self.uvs[(cube_name, face)]
+        return [
+            image.getpixel((x, y))
+            for y in range(v, v + height)
+            for x in range(u, u + width)
+        ]
+
+    def test_committed_pngs_are_rgba_atlas_images_without_pure_green(self):
+        for path in (paint.MAIN_TEXTURE_PATH, paint.GLOWMASK_PATH):
+            with self.subTest(path=path):
+                self.assertTrue(path.is_file())
+                with Image.open(path) as image:
+                    self.assertEqual("RGBA", image.mode)
+                    self.assertEqual((256, 256), image.size)
+                    self.assertNotIn(
+                        (0, 255, 0),
+                        {pixel[:3] for pixel in image.getdata() if pixel[3]},
+                    )
+
+    def test_main_fills_every_uv_island_and_keeps_gutters_transparent(self):
+        main, _glow = paint.paint_images()
+        inside = set()
+        face_area = 0
+        for (cube_name, face), (u, v, width, height) in self.uvs.items():
+            pixels = self.face_pixels(main, cube_name, face)
+            self.assertTrue(any(pixel[3] for pixel in pixels), f"empty {cube_name}/{face}")
+            face_area += width * height
+            inside.update(
+                (x, y)
+                for y in range(v, v + height)
+                for x in range(u, u + width)
+            )
+        opaque = {
+            (x, y)
+            for y in range(256)
+            for x in range(256)
+            if main.getpixel((x, y))[3]
+        }
+        self.assertEqual(18918, face_area)
+        self.assertGreaterEqual(len(opaque), 8000)
+        self.assertTrue(opaque <= inside)
+
+    def test_palette_and_alpha_are_exact_without_antialias_colours(self):
+        main, glow = paint.paint_images()
+        allowed_main = set(paint.PALETTE.values())
+        allowed_glow = {
+            paint.PALETTE["eye"],
+            paint.PALETTE["eye_highlight"],
+            paint.PALETTE["magenta"],
+        }
+        self.assertTrue({pixel for pixel in main.getdata() if pixel[3]} <= allowed_main)
+        self.assertTrue({pixel for pixel in glow.getdata() if pixel[3]} <= allowed_glow)
+        self.assertEqual({0, 255}, {pixel[3] for pixel in main.getdata()})
+        self.assertTrue({pixel[3] for pixel in glow.getdata()} <= {0, 255})
+
+    def test_glow_is_small_main_aligned_and_limited_to_eye_or_crystal_faces(self):
+        main, glow = paint.paint_images()
+        glow_positions = {
+            (x, y)
+            for y in range(256)
+            for x in range(256)
+            if glow.getpixel((x, y))[3]
+        }
+        self.assertGreaterEqual(len(glow_positions), 20)
+        self.assertLessEqual(len(glow_positions), 800)
+        self.assertTrue(all(main.getpixel(position)[3] for position in glow_positions))
+
+        permitted = set()
+        for (cube_name, _face), (u, v, width, height) in self.uvs.items():
+            if self.cubes[cube_name].material in {"eye", "crystal"}:
+                permitted.update(
+                    (x, y)
+                    for y in range(v, v + height)
+                    for x in range(u, u + width)
+                )
+        self.assertTrue(glow_positions <= permitted)
+
+    def test_material_faces_have_expected_semantic_colours_and_shading(self):
+        main, _glow = paint.paint_images()
+
+        def mean_luma(material, face):
+            pixels = [
+                pixel
+                for cube in CUBES
+                if cube.material == material
+                for pixel in self.face_pixels(main, cube.name, face)
+                if pixel[3]
+            ]
+            return sum(sum(pixel[:3]) for pixel in pixels) / len(pixels)
+
+        for material in ("armor", "armor_dark"):
+            self.assertGreater(mean_luma(material, "up"), mean_luma(material, "down"))
+        self.assertLess(mean_luma("underside", "up"), mean_luma("armor_dark", "up"))
+
+        crystal_colours = {
+            pixel
+            for cube in CUBES
+            if cube.material == "crystal"
+            for face in FACE_ORDER
+            for pixel in self.face_pixels(main, cube.name, face)
+            if pixel[3]
+        }
+        self.assertIn(paint.PALETTE["corruption_root"], crystal_colours)
+        self.assertTrue(
+            {paint.PALETTE["crimson"], paint.PALETTE["magenta"]} <= crystal_colours
+        )
+        eye_colours = {
+            pixel
+            for cube in CUBES
+            if cube.material == "eye"
+            for face in FACE_ORDER
+            for pixel in self.face_pixels(main, cube.name, face)
+            if pixel[3]
+        }
+        self.assertIn(paint.PALETTE["eye"], eye_colours)
+
+        left = next(cube for cube in CUBES if cube.name == "forehead_left")
+        right = next(cube for cube in CUBES if cube.name == "forehead_right")
+        left_bytes = bytes(
+            sum((list(pixel) for pixel in self.face_pixels(main, left.name, "north")), [])
+        )
+        right_bytes = bytes(
+            sum((list(pixel) for pixel in self.face_pixels(main, right.name, "north")), [])
+        )
+        self.assertNotEqual(left_bytes, right_bytes)
+
+    def test_painting_is_deterministic(self):
+        first = paint.paint_images()
+        second = paint.paint_images()
+        self.assertEqual(first[0].tobytes(), second[0].tobytes())
+        self.assertEqual(first[1].tobytes(), second[1].tobytes())
+
+    def test_bbmodel_embeds_exactly_the_main_texture(self):
+        main_bytes = paint.MAIN_TEXTURE_PATH.read_bytes()
+        source = "data:image/png;base64," + base64.b64encode(main_bytes).decode("ascii")
+        document = build.bbmodel_document(source)
+        self.assertEqual(1, len(document["textures"]))
+        texture = document["textures"][0]
+        self.assertEqual("", texture["path"])
+        self.assertEqual("corrupted_silverfish.png", texture["name"])
+        self.assertEqual("entity", texture["folder"])
+        self.assertEqual("usless_mobs", texture["namespace"])
+        self.assertEqual("0", texture["id"])
+        self.assertEqual("bitmap", texture["mode"])
+        self.assertTrue(texture["saved"])
+        self.assertEqual("default", texture["render_mode"])
+        self.assertEqual(source, texture["source"])
+        self.assertEqual(5, UUID(texture["uuid"]).version)
+        self.assertEqual(main_bytes, base64.b64decode(texture["source"].split(",", 1)[1]))
+        self.assertEqual([], document["animations"])
+        self.assertEqual((32, 112), (len(document["groups"]), len(document["elements"])))
+        self.assertTrue(
+            all(
+                face["texture"] == 0
+                for element in document["elements"]
+                for face in element["faces"].values()
+            )
+        )
+
+    def test_committed_outputs_match_fresh_paint_and_embedded_document(self):
+        main, glow = paint.paint_images()
+        for image, path in ((main, paint.MAIN_TEXTURE_PATH), (glow, paint.GLOWMASK_PATH)):
+            buffer = io.BytesIO()
+            image.save(buffer, format="PNG")
+            self.assertEqual(buffer.getvalue(), path.read_bytes())
+        source = "data:image/png;base64," + base64.b64encode(
+            paint.MAIN_TEXTURE_PATH.read_bytes()
+        ).decode("ascii")
+        expected = (
+            json.dumps(build.bbmodel_document(source), ensure_ascii=False, indent=2) + "\n"
+        ).encode("utf-8")
+        self.assertEqual(expected, build.BBMODEL_PATH.read_bytes())
 
 class GeneratedOutputContract(unittest.TestCase):
     def assert_finite_vec3(self, value):
@@ -329,8 +518,15 @@ class GeneratedOutputContract(unittest.TestCase):
         expected_geometry = (
             json.dumps(build.geometry_document(), ensure_ascii=False, indent=2) + "\n"
         ).encode("utf-8")
+        main_texture = EXPORT / "textures" / "entity" / "corrupted_silverfish.png"
+        texture_source = "data:image/png;base64," + base64.b64encode(
+            main_texture.read_bytes()
+        ).decode("ascii")
         expected_bbmodel = (
-            json.dumps(build.bbmodel_document(), ensure_ascii=False, indent=2) + "\n"
+            json.dumps(
+                build.bbmodel_document(texture_source), ensure_ascii=False, indent=2
+            )
+            + "\n"
         ).encode("utf-8")
         self.assertEqual(expected_geometry, build.GEOMETRY_PATH.read_bytes())
         self.assertEqual(expected_bbmodel, build.BBMODEL_PATH.read_bytes())

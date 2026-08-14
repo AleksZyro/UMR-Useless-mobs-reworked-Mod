@@ -145,13 +145,17 @@ def geometry_document() -> dict:
     }
 
 
-def _bbmodel_element(cube: Cube, uvs: Mapping[FaceKey, UvRect]) -> dict:
+def _bbmodel_element(
+    cube: Cube,
+    uvs: Mapping[FaceKey, UvRect],
+    texture_id: int | None = None,
+) -> dict:
     faces = {}
     for face in FACE_ORDER:
         u, v, width, height = uvs[(cube.name, face)]
         faces[face] = {
             "uv": [u, v, u + width, v + height],
-            "texture": None,
+            "texture": texture_id,
         }
     return {
         "name": cube.name,
@@ -207,7 +211,7 @@ def _outliner() -> list:
     return [node("root")]
 
 
-def bbmodel_document() -> dict:
+def bbmodel_document(texture_source: str | None = None) -> dict:
     """Build an editable structural GeckoLib Blockbench project."""
 
     uvs = _pack_uvs()
@@ -229,10 +233,32 @@ def bbmodel_document() -> dict:
         "geckolib_modid": "usless_mobs",
         "geckolib_filepath_cache": "",
         "resolution": {"width": TEXTURE_SIZE, "height": TEXTURE_SIZE},
-        "elements": [_bbmodel_element(cube, uvs) for cube in cubes_in_hierarchy_order],
+        "elements": [
+            _bbmodel_element(cube, uvs, 0 if texture_source is not None else None)
+            for cube in cubes_in_hierarchy_order
+        ],
         "groups": [_bbmodel_group(bone.name, bone.pivot) for bone in BONES],
         "outliner": _outliner(),
-        "textures": [],
+        "textures": (
+            []
+            if texture_source is None
+            else [
+                {
+                    "path": "",
+                    "name": "corrupted_silverfish.png",
+                    "folder": "entity",
+                    "namespace": "usless_mobs",
+                    "id": "0",
+                    "particle": False,
+                    "render_mode": "default",
+                    "visible": True,
+                    "mode": "bitmap",
+                    "saved": True,
+                    "uuid": stable_uuid("texture", "corrupted_silverfish.png"),
+                    "source": texture_source,
+                }
+            ]
+        ),
         "animations": [],
         "geckolib_model_type": "Entity",
     }
@@ -269,6 +295,13 @@ def build_geometry() -> Tuple[Path, Path]:
     _atomic_json_write(GEOMETRY_PATH, geometry_document())
     _atomic_json_write(BBMODEL_PATH, bbmodel_document())
     return GEOMETRY_PATH, BBMODEL_PATH
+
+
+def write_textured_bbmodel(texture_source: str) -> Path:
+    """Write the editable project with one caller-supplied embedded texture."""
+
+    _atomic_json_write(BBMODEL_PATH, bbmodel_document(texture_source))
+    return BBMODEL_PATH
 
 
 def main(argv: Sequence[str] | None = None) -> int:
