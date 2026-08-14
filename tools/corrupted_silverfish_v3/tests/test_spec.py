@@ -2,6 +2,7 @@ import math
 import unittest
 from collections import Counter
 
+from tools.corrupted_silverfish_v3 import spec
 from tools.corrupted_silverfish_v3.spec import ANIMATIONS, BONES, CUBES
 
 
@@ -20,6 +21,27 @@ class ModelSpecContract(unittest.TestCase):
         bone_names = {bone.name for bone in BONES}
         self.assertTrue(all(bone.parent is None or bone.parent in bone_names for bone in BONES))
         self.assertTrue(all(cube.bone in bone_names for cube in CUBES))
+
+    def test_bone_pivots_are_finite_vec3_values(self):
+        for bone in BONES:
+            with self.subTest(bone=bone.name):
+                self.assertEqual(3, len(bone.pivot))
+                self.assertTrue(all(math.isfinite(value) for value in bone.pivot))
+
+    def test_bone_hierarchy_has_one_root_and_no_cycles(self):
+        parents = {bone.name: bone.parent for bone in BONES}
+        roots = [name for name, parent in parents.items() if parent is None]
+        self.assertEqual(["root"], roots)
+
+        for bone_name in parents:
+            with self.subTest(bone=bone_name):
+                current = bone_name
+                visited = set()
+                while parents[current] is not None:
+                    self.assertNotIn(current, visited)
+                    visited.add(current)
+                    current = parents[current]
+                self.assertEqual("root", current)
 
     def test_cube_geometry_is_positive_and_finite(self):
         for cube in CUBES:
@@ -65,6 +87,16 @@ class ModelSpecContract(unittest.TestCase):
             ANIMATIONS,
         )
         self.assertEqual(["idle", "walk", "attack", "hurt", "death"], list(ANIMATIONS))
+
+    def test_animation_metadata_rejects_assignment(self):
+        with self.assertRaises(TypeError):
+            ANIMATIONS["mutant"] = 9.9
+
+    def test_rotated_cube_pivot_is_its_exact_geometric_center(self):
+        cube = next(cube for cube in CUBES if cube.name == "forehead_left")
+        self.assertNotEqual((0.0, 0.0, 0.0), cube.rotation)
+        for actual, expected in zip(spec.cube_pivot(cube), (-2.3, 6.05, -10.8)):
+            self.assertAlmostEqual(expected, actual)
 
     def test_cube_category_budgets_are_exact(self):
         self.assertEqual(

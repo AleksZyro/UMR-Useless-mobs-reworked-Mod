@@ -1,10 +1,15 @@
 """Canonical deterministic model specification for Corrupted Silverfish v3."""
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence, Tuple
+from types import MappingProxyType
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 
 Vec3 = Tuple[float, float, float]
+CUBE_ROTATION_CONVENTION = (
+    "rotation contains three Euler angles in degrees in X/Y/Z order and rotates "
+    "around the cube center returned by cube_pivot(cube): origin + size / 2"
+)
 
 
 @dataclass(frozen=True)
@@ -16,6 +21,12 @@ class Bone:
 
 @dataclass(frozen=True)
 class Cube:
+    """Cuboid whose rotation is X/Y/Z Euler degrees around its geometric center.
+
+    The center of rotation is ``origin + size / 2`` on every axis, exactly as
+    returned by :func:`cube_pivot`.
+    """
+
     name: str
     bone: str
     origin: Vec3
@@ -25,13 +36,24 @@ class Cube:
     rotation: Vec3 = (0.0, 0.0, 0.0)
 
 
-ANIMATIONS: Dict[str, float] = {
+def cube_pivot(cube: Cube) -> Vec3:
+    """Return the cube rotation pivot, its exact geometric center."""
+
+    return (
+        cube.origin[0] + cube.size[0] / 2.0,
+        cube.origin[1] + cube.size[1] / 2.0,
+        cube.origin[2] + cube.size[2] / 2.0,
+    )
+
+
+_animations: Dict[str, float] = {
     "idle": 1.6,
     "walk": 0.8,
     "attack": 0.45,
     "hurt": 0.3,
     "death": 1.1,
 }
+ANIMATIONS: Mapping[str, float] = MappingProxyType(_animations)
 
 
 _bones: List[Bone] = [
