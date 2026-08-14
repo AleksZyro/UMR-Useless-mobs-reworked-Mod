@@ -38,6 +38,10 @@ public class CorruptedSilverfishEntity extends Silverfish implements GeoEntity {
     private static final DustParticleOptions CORRUPTION_DUST =
             new DustParticleOptions(new Vector3f(0.45F, 0.10F, 0.75F), 1.0F);
     private static final RawAnimation IDLE_ANIM = RawAnimation.begin().thenLoop("animation.corrupted_silverfish.idle");
+    private static final RawAnimation WALK_ANIM = RawAnimation.begin().thenLoop("animation.corrupted_silverfish.walk");
+    private static final RawAnimation ATTACK_ANIM = RawAnimation.begin().thenPlay("animation.corrupted_silverfish.attack");
+    private static final RawAnimation HURT_ANIM = RawAnimation.begin().thenPlay("animation.corrupted_silverfish.hurt");
+    private static final RawAnimation DEATH_ANIM = RawAnimation.begin().thenPlay("animation.corrupted_silverfish.death");
     private boolean panicBurstUsed = false;
     private int swarmCallCooldown = 80;
     private final AnimatableInstanceCache geoCache = GeckoLibUtil.createInstanceCache(this);
@@ -80,6 +84,9 @@ public class CorruptedSilverfishEntity extends Silverfish implements GeoEntity {
     @Override
     public boolean doHurtTarget(Entity target) {
         boolean hurt = super.doHurtTarget(target);
+        if (hurt && !this.level().isClientSide) {
+            this.triggerAnim("action", "attack");
+        }
         if (hurt && target instanceof LivingEntity living) {
             living.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, 70, 0));
             if (this.level().getMaxLocalRawBrightness(this.blockPosition()) <= 4) {
@@ -120,11 +127,23 @@ public class CorruptedSilverfishEntity extends Silverfish implements GeoEntity {
     @Override
     public boolean hurt(DamageSource source, float amount) {
         boolean hurt = super.hurt(source, amount);
+        if (hurt && !this.level().isClientSide && !this.isDeadOrDying()) {
+            this.triggerAnim("action", "hurt");
+        }
         if (hurt && !this.level().isClientSide && this.swarmCallCooldown <= 0 && source.getEntity() instanceof LivingEntity attacker) {
             callSwarm(attacker);
             this.swarmCallCooldown = 150 + this.random.nextInt(60);
         }
         return hurt;
+    }
+
+    @Override
+    public void die(DamageSource source) {
+        boolean wasDead = this.dead;
+        super.die(source);
+        if (!this.level().isClientSide && !wasDead && this.dead) {
+            this.triggerAnim("action", "death");
+        }
     }
 
     private void panicBurst() {
@@ -199,10 +218,12 @@ public class CorruptedSilverfishEntity extends Silverfish implements GeoEntity {
 
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-        controllers.add(new AnimationController<>(this, "main", 5, state -> {
-            state.setAnimation(IDLE_ANIM);
-            return PlayState.CONTINUE;
-        }));
+        controllers.add(new AnimationController<>(this, "movement", 3,
+                state -> state.setAndContinue(state.isMoving() ? WALK_ANIM : IDLE_ANIM)));
+        controllers.add(new AnimationController<>(this, "action", 0, state -> PlayState.STOP)
+                .triggerableAnim("attack", ATTACK_ANIM)
+                .triggerableAnim("hurt", HURT_ANIM)
+                .triggerableAnim("death", DEATH_ANIM));
     }
 
     @Override
