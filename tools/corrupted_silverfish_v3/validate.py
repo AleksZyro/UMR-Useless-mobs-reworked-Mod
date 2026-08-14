@@ -802,47 +802,78 @@ def _manifest_bytes(snapshots: Sequence[bytes]) -> bytes:
     return (json.dumps(payload, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
 
 
+def _write_synced_unique(path: Path, prefix: str, suffix: str, contents: bytes) -> Path:
+    descriptor, name = tempfile.mkstemp(prefix=prefix, suffix=suffix, dir=str(path.parent))
+    unique_path = Path(name)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(contents)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except BaseException:
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+        try:
+            unique_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
+    return unique_path
+
+
+def _file_identity(path: Path) -> Tuple[int, int, int, int]:
+    stat_result = path.stat()
+    return (stat_result.st_dev, stat_result.st_ino, stat_result.st_size, stat_result.st_mtime_ns)
+
+
 def _atomic_write(path: Path, contents: bytes) -> None:
     temp_path: Optional[Path] = None
     backup_path: Optional[Path] = None
     old_snapshot: Optional[bytes] = None
-    old_moved = False
+    old_identity: Optional[Tuple[int, int, int, int]] = None
+    candidate_identity: Optional[Tuple[int, int, int, int]] = None
+    backup_ready = False
     target_existed = path.exists()
+    commit_returned = False
     primary: Optional[BaseException] = None
-    rollback_errors: List[str] = []
+    rollback_messages: List[str] = []
     cleanup_errors: List[str] = []
     retain_backup = False
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
-        temp_path = Path(name)
-        try:
-            with os.fdopen(descriptor, "wb") as handle:
-                handle.write(contents)
-                handle.flush()
-                os.fsync(handle.fileno())
-        except BaseException:
-            try:
-                os.close(descriptor)
-            except OSError:
-                pass
-            raise
+        temp_path = _write_synced_unique(path, f".{path.name}.", ".tmp", contents)
+        candidate_identity = _file_identity(temp_path)
         if target_existed:
-            backup_descriptor, backup_name = tempfile.mkstemp(prefix=f".{path.name}.backup.", suffix=".tmp", dir=str(path.parent))
-            os.close(backup_descriptor)
-            backup_path = Path(backup_name)
-            os.replace(path, backup_path)
-            if path.exists():
-                raise OSError("manifest backup verification failed: original target still exists")
-            old_moved = True
             try:
-                old_snapshot = backup_path.read_bytes()
+                old_identity = _file_identity(path)
+                old_snapshot = path.read_bytes()
+                if _file_identity(path) != old_identity:
+                    raise OSError(f"concurrent target change detected while reading old manifest: {path}")
+            except OSError as exc:
+                raise OSError(f"manifest pre-publish read failed: {exc}") from exc
+            backup_path = _write_synced_unique(path, f".{path.name}.backup.", ".tmp", old_snapshot)
+            try:
+                backup_bytes = backup_path.read_bytes()
             except OSError as exc:
                 raise OSError(f"manifest backup verification read failed: {exc}") from exc
+            if backup_bytes != old_snapshot or hashlib.sha256(backup_bytes).digest() != hashlib.sha256(old_snapshot).digest():
+                raise OSError("manifest backup verification byte/hash mismatch")
+            backup_ready = True
+            if not path.exists() or _file_identity(path) != old_identity:
+                retain_backup = True
+                raise OSError(f"concurrent target change detected before publish: {path}")
         os.replace(temp_path, path)
-        if temp_path.exists():
-            raise OSError("manifest publish verification failed: temporary file still exists")
-        temp_path = None
+        commit_returned = True
+        if not temp_path.exists():
+            temp_path = None
+        current_identity = _file_identity(path)
+        if current_identity != candidate_identity:
+            if target_existed and current_identity == old_identity:
+                raise OSError("manifest publish verification failed: target was not replaced")
+            retain_backup = backup_ready
+            raise OSError(f"concurrent target change detected immediately after publish: {path}")
         try:
             published = path.read_bytes()
         except OSError as exc:
@@ -853,21 +884,36 @@ def _atomic_write(path: Path, contents: bytes) -> None:
             raise OSError("manifest verification hash mismatch")
     except BaseException as exc:
         primary = exc
-        if old_moved and backup_path is not None:
+        current_identity: Optional[Tuple[int, int, int, int]] = None
+        if path.exists():
+            try:
+                current_identity = _file_identity(path)
+            except OSError as identity_exc:
+                retain_backup = True
+                rollback_messages.append(f"rollback safety check failed for {path}: {identity_exc}")
+        replace_consumed_candidate = temp_path is not None and not temp_path.exists()
+        safely_published_target = (commit_returned or replace_consumed_candidate) and current_identity == candidate_identity
+        if safely_published_target and backup_ready and backup_path is not None:
             try:
                 os.replace(backup_path, path)
                 restored = path.read_bytes()
                 if old_snapshot is None or restored != old_snapshot:
                     raise OSError("restored manifest bytes mismatch backup")
                 backup_path = None
+                rollback_messages.append(f"rollback completed for {path}")
             except OSError as rollback_exc:
                 retain_backup = True
-                rollback_errors.append(f"rollback failed from {backup_path} to {path}: {rollback_exc}")
-        elif not target_existed and path.exists():
+                rollback_messages.append(f"rollback failed from {backup_path} to {path}: {rollback_exc}")
+        elif safely_published_target and not target_existed:
             try:
                 path.unlink()
+                rollback_messages.append(f"rollback completed by removing new target {path}")
             except OSError as rollback_exc:
-                rollback_errors.append(f"rollback failed removing new target {path}: {rollback_exc}")
+                rollback_messages.append(f"rollback failed removing new target {path}: {rollback_exc}")
+        elif (commit_returned or replace_consumed_candidate) and current_identity != candidate_identity:
+            if not (target_existed and current_identity == old_identity):
+                retain_backup = backup_ready
+                rollback_messages.append(f"rollback skipped because concurrent target must not be overwritten: {path}")
     finally:
         if temp_path is not None:
             try:
@@ -879,13 +925,11 @@ def _atomic_write(path: Path, contents: bytes) -> None:
                 backup_path.unlink(missing_ok=True)
             except OSError as exc:
                 cleanup_errors.append(f"cleanup failed for {backup_path}: {exc}")
-    if primary is not None or rollback_errors or cleanup_errors:
+    if primary is not None or rollback_messages or cleanup_errors:
         details = []
         if primary is not None:
             details.append(f"manifest write failed ({path}): {primary}")
-        if primary is not None and not rollback_errors:
-            details.append(f"rollback completed for {path}")
-        details.extend(rollback_errors)
+        details.extend(rollback_messages)
         details.extend(cleanup_errors)
         fail("; ".join(details))
 

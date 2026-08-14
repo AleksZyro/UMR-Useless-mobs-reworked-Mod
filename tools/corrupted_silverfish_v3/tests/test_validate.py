@@ -566,7 +566,8 @@ class ValidatorContract(unittest.TestCase):
                     nonlocal reads
                     if path == target:
                         reads += 1
-                        if reads == 1:
+                        verification_read = 2 if initially_present else 1
+                        if reads == verification_read:
                             raise OSError("simulated post-publish verification failure")
                     return real_read(path)
 
@@ -589,15 +590,19 @@ class ValidatorContract(unittest.TestCase):
             def fail_rollback(source, destination):
                 nonlocal replace_calls
                 replace_calls += 1
-                if replace_calls == 3:
+                if replace_calls == 2:
                     raise OSError("simulated rollback failure")
                 return real_replace(source, destination)
 
             real_read = Path.read_bytes
+            target_reads = 0
 
             def fail_target_verification(path):
+                nonlocal target_reads
                 if path == target:
-                    raise OSError("verification read failure")
+                    target_reads += 1
+                    if target_reads == 2:
+                        raise OSError("verification read failure")
                 return real_read(path)
 
             with mock.patch("os.replace", side_effect=fail_rollback), mock.patch.object(Path, "read_bytes", autospec=True, side_effect=fail_target_verification):
@@ -607,6 +612,86 @@ class ValidatorContract(unittest.TestCase):
             self.assertEqual(1, len(backups))
             self.assertEqual(b"old manifest\n", backups[0].read_bytes())
             self.assertIn(str(backups[0]), str(raised.exception))
+
+    def test_crash_after_backup_or_immediately_before_publish_keeps_canonical_target(self):
+        script = r'''
+import os
+from pathlib import Path
+import sys
+from tools.corrupted_silverfish_v3 import validate
+target = Path(sys.argv[1])
+mode = sys.argv[2]
+if mode == "after_backup":
+    real_read = Path.read_bytes
+    def crash_on_backup_read(path):
+        data = real_read(path)
+        if ".backup." in path.name:
+            os._exit(71)
+        return data
+    Path.read_bytes = crash_on_backup_read
+else:
+    os.replace = lambda _source, _destination: os._exit(72)
+validate._atomic_write(target, b"new manifest\n")
+'''
+        for mode, expected_exit in (("after_backup", 71), ("before_publish", 72)):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                target = Path(directory) / "manifest.json"
+                target.write_bytes(b"old manifest\n")
+                result = subprocess.run([sys.executable, "-c", script, str(target), mode], cwd=ROOT, check=False)
+                self.assertEqual(expected_exit, result.returncode)
+                self.assertEqual(b"old manifest\n", target.read_bytes())
+                backups = [path for path in target.parent.iterdir() if ".backup." in path.name]
+                self.assertEqual(1, len(backups))
+                self.assertEqual(b"old manifest\n", backups[0].read_bytes())
+
+    def test_concurrent_target_recreation_is_not_overwritten_or_misreported_as_rollback(self):
+        for initially_present in (True, False):
+            with self.subTest(initially_present=initially_present), tempfile.TemporaryDirectory() as directory:
+                target = Path(directory) / "manifest.json"
+                if initially_present:
+                    target.write_bytes(b"old manifest\n")
+                real_read = Path.read_bytes
+                target_reads = 0
+
+                def recreate_during_verification(path):
+                    nonlocal target_reads
+                    if path == target:
+                        target_reads += 1
+                        verification_read = target_reads == (2 if initially_present else 1)
+                        if verification_read:
+                            target.write_bytes(b"concurrent manifest\n")
+                            raise OSError("simulated verification race")
+                    return real_read(path)
+
+                with mock.patch.object(Path, "read_bytes", autospec=True, side_effect=recreate_during_verification):
+                    with self.assertRaisesRegex(validate.ValidationFailure, "concurrent target") as raised:
+                        validate._atomic_write(target, b"new manifest\n")
+                self.assertEqual(b"concurrent manifest\n", target.read_bytes())
+                self.assertNotIn("rollback completed", str(raised.exception))
+                backups = [path for path in target.parent.iterdir() if ".backup." in path.name]
+                if initially_present:
+                    self.assertEqual(1, len(backups))
+                    self.assertEqual(b"old manifest\n", backups[0].read_bytes())
+                else:
+                    self.assertEqual([], backups)
+
+    def test_backup_verification_read_lock_keeps_target_and_has_no_false_rollback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "manifest.json"
+            target.write_bytes(b"old manifest\n")
+            real_read = Path.read_bytes
+
+            def lock_backup(path):
+                if ".backup." in path.name:
+                    raise OSError("simulated backup read lock")
+                return real_read(path)
+
+            with mock.patch.object(Path, "read_bytes", autospec=True, side_effect=lock_backup), mock.patch("os.replace", wraps=os.replace) as replace:
+                with self.assertRaisesRegex(validate.ValidationFailure, "backup verification.*read lock") as raised:
+                    validate._atomic_write(target, b"new manifest\n")
+            replace.assert_not_called()
+            self.assertEqual(b"old manifest\n", target.read_bytes())
+            self.assertNotIn("rollback", str(raised.exception))
 
     def test_manifest_success_removes_closed_backup_and_temp(self):
         with tempfile.TemporaryDirectory() as directory:
