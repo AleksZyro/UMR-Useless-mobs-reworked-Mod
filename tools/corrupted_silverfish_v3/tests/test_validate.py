@@ -46,6 +46,33 @@ class ValidatorContract(unittest.TestCase):
             check=False,
         )
 
+    def assert_bbmodel_mutation_fails(self, mutator, expected: str) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.copy_candidate(directory)
+            manifest = root / validate.MANIFEST_RELATIVE
+            manifest.parent.mkdir(parents=True)
+            manifest.write_bytes(b"sentinel manifest\n")
+            path = root / RELATIVE_PATHS[0]
+            document = json.loads(path.read_text(encoding="utf-8"))
+            mutator(document)
+            path.write_text(json.dumps(document), encoding="utf-8")
+            result = self.run_validator(root)
+            self.assertEqual(1, result.returncode, result.stderr)
+            self.assertEqual("", result.stdout)
+            self.assertIn("ASSET_CHECK_FAILED:", result.stderr)
+            self.assertIn(expected, result.stderr)
+            self.assertEqual(b"sentinel manifest\n", manifest.read_bytes())
+
+    @staticmethod
+    def outliner_element_slots(items):
+        slots = []
+        for index, item in enumerate(items):
+            if isinstance(item, str):
+                slots.append((items, index))
+            else:
+                slots.extend(ValidatorContract.outliner_element_slots(item["children"]))
+        return slots
+
     def test_valid_candidate_passes_and_writes_exact_manifest(self):
         with tempfile.TemporaryDirectory() as directory:
             root = self.copy_candidate(directory)
@@ -161,6 +188,57 @@ class ValidatorContract(unittest.TestCase):
                     validate.validate(paths, manifest)
             self.assertEqual(b"old manifest\n", manifest.read_bytes())
             self.assertEqual([manifest], list(manifest.parent.iterdir()))
+
+    def test_bbmodel_group_rotation_mismatch_fails_without_manifest_write(self):
+        def mutate(document):
+            document["groups"][0]["rotation"][1] = 7
+
+        self.assert_bbmodel_mutation_fails(mutate, "group root rotation mismatches geometry")
+
+    def test_swapped_outliner_element_owners_fail_without_manifest_write(self):
+        def mutate(document):
+            bone_by_uuid = {element["uuid"]: element["bone"] for element in document["elements"]}
+            slots = self.outliner_element_slots(document["outliner"])
+            first = slots[0]
+            second = next(slot for slot in slots[1:] if bone_by_uuid[slot[0][slot[1]]] != bone_by_uuid[first[0][first[1]]])
+            first[0][first[1]], second[0][second[1]] = second[0][second[1]], first[0][first[1]]
+
+        self.assert_bbmodel_mutation_fails(mutate, "outliner element")
+
+    def test_bbmodel_mesh_element_fails_without_manifest_write(self):
+        def mutate(document):
+            document["elements"][0]["type"] = "mesh"
+
+        self.assert_bbmodel_mutation_fails(mutate, "element head_core type must be cube")
+
+    def test_bbmodel_face_texture_index_fails_without_manifest_write(self):
+        def mutate(document):
+            document["elements"][0]["faces"]["north"]["texture"] = 7
+
+        self.assert_bbmodel_mutation_fails(mutate, "cube head_core face north texture must be 0")
+
+    def test_duplicate_and_orphan_outliner_elements_fail_without_manifest_write(self):
+        def duplicate(document):
+            slots = self.outliner_element_slots(document["outliner"])
+            slots[1][0][slots[1][1]] = slots[0][0][slots[0][1]]
+
+        self.assert_bbmodel_mutation_fails(duplicate, "duplicate element UUID")
+
+        def orphan(document):
+            slots = self.outliner_element_slots(document["outliner"])
+            del slots[0][0][slots[0][1]]
+
+        self.assert_bbmodel_mutation_fails(orphan, "outliner hierarchy mismatches geometry")
+
+    def test_geometry_normalizes_default_and_explicit_bone_rotations(self):
+        path = ROOT / RELATIVE_PATHS[1]
+        document = json.loads(path.read_text(encoding="utf-8"))
+        bones = document["minecraft:geometry"][0]["bones"]
+        bones[0].pop("rotation", None)
+        bones[1]["rotation"] = [1, 2.5, -3]
+        geometry = validate.validate_geometry(document)
+        self.assertEqual([0.0, 0.0, 0.0], geometry["bone_rotations"][bones[0]["name"]])
+        self.assertEqual([1.0, 2.5, -3.0], geometry["bone_rotations"][bones[1]["name"]])
 
     def test_cli_usage_is_exit_two_without_traceback(self):
         result = subprocess.run(

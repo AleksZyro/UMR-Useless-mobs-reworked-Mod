@@ -144,6 +144,7 @@ def validate_geometry(document: Mapping[str, Any]) -> Dict[str, Any]:
     names: List[str] = []
     parents: Dict[str, Optional[str]] = {}
     pivots: Dict[str, List[float]] = {}
+    bone_rotations: Dict[str, List[float]] = {}
     cubes: Dict[str, Dict[str, Any]] = {}
     rectangles: List[Tuple[str, str, float, float, float, float]] = []
     cube_bones: Dict[str, str] = {}
@@ -159,8 +160,8 @@ def validate_geometry(document: Mapping[str, Any]) -> Dict[str, Any]:
             fail(f"bone {name} parent must be a string")
         parents[name] = parent
         pivots[name] = _vec(bone.get("pivot"), 3, f"bone {name} pivot")
-        rotation = bone.get("rotation", [0, 0, 0])
-        _vec(rotation, 3, f"bone {name} rotation")
+        rotation = _vec(bone.get("rotation", [0, 0, 0]), 3, f"bone {name} rotation")
+        bone_rotations[name] = rotation
         bone_cubes = bone.get("cubes", [])
         if not isinstance(bone_cubes, list):
             fail(f"bone {name} cubes must be an array")
@@ -218,7 +219,7 @@ def validate_geometry(document: Mapping[str, Any]) -> Dict[str, Any]:
                 gap = max(left[3], right[3]) - min(left[5], right[5])
                 if 0 <= gap < 2:
                     fail(f"UV gutter below 2px between {left[0]}/{left[1]} and {right[0]}/{right[1]}")
-    return {"bones": names, "parents": parents, "pivots": pivots, "cubes": cubes, "cube_bones": cube_bones}
+    return {"bones": names, "parents": parents, "pivots": pivots, "bone_rotations": bone_rotations, "cubes": cubes, "cube_bones": cube_bones}
 
 
 def _load_rgba(path: Path, label: str) -> Tuple[Image.Image, bytes]:
@@ -313,21 +314,31 @@ def validate_animations(document: Mapping[str, Any], bone_names: set) -> Dict[st
     return normalized
 
 
-def _flatten_outliner(items: Any, parent: Optional[str], groups_by_uuid: Mapping[str, str], element_uuids: set, found_parents: Dict[str, Optional[str]], found_elements: set) -> None:
+def _flatten_outliner(
+    items: Any,
+    parent: Optional[str],
+    groups_by_uuid: Mapping[str, str],
+    elements_by_uuid: Mapping[str, Tuple[str, str]],
+    found_parents: Dict[str, Optional[str]],
+    found_element_owners: Dict[str, Optional[str]],
+) -> None:
     if not isinstance(items, list):
         fail("bbmodel outliner children must be arrays")
     for item in items:
         if isinstance(item, str):
-            if item not in element_uuids or item in found_elements:
+            if item not in elements_by_uuid or item in found_element_owners:
                 fail(f"bbmodel outliner has invalid or duplicate element UUID {item}")
-            found_elements.add(item)
+            element_name, expected_owner = elements_by_uuid[item]
+            found_element_owners[item] = parent
+            if parent != expected_owner:
+                fail(f"bbmodel outliner element {element_name} belongs under {parent!r}, expected group {expected_owner}")
         elif isinstance(item, dict):
             uuid = item.get("uuid")
             if uuid not in groups_by_uuid or uuid in found_parents:
                 fail(f"bbmodel outliner has invalid or duplicate group UUID {uuid}")
             name = groups_by_uuid[uuid]
             found_parents[name] = parent
-            _flatten_outliner(item.get("children"), name, groups_by_uuid, element_uuids, found_parents, found_elements)
+            _flatten_outliner(item.get("children"), name, groups_by_uuid, elements_by_uuid, found_parents, found_element_owners)
         else:
             fail("bbmodel outliner contains an invalid child")
 
@@ -356,12 +367,15 @@ def validate_bbmodel(document: Mapping[str, Any], geometry: Mapping[str, Any], a
         uuid = _validate_uuid(group.get("uuid"), f"bbmodel group {name}", seen_uuids)
         if name not in geometry["pivots"] or _vec(group.get("origin"), 3, f"bbmodel group {name} origin") != geometry["pivots"][name]:
             fail(f"bbmodel group {name} origin mismatches geometry")
+        if _vec(group.get("rotation"), 3, f"bbmodel group {name} rotation") != geometry["bone_rotations"][name]:
+            fail(f"bbmodel group {name} rotation mismatches geometry")
         group_by_name[name] = group
         groups_by_uuid[uuid] = name
     if set(group_by_name) != set(geometry["bones"]):
         fail("bbmodel group names mismatch geometry bones")
     elements_by_name: Dict[str, Mapping[str, Any]] = {}
     element_uuids: set = set()
+    elements_by_uuid: Dict[str, Tuple[str, str]] = {}
     for element in elements:
         if not isinstance(element, dict) or not isinstance(element.get("name"), str):
             fail("bbmodel element has invalid name")
@@ -370,6 +384,10 @@ def validate_bbmodel(document: Mapping[str, Any], geometry: Mapping[str, Any], a
             fail(f"bbmodel duplicate element name {name}")
         uuid = _validate_uuid(element.get("uuid"), f"bbmodel element {name}", seen_uuids)
         element_uuids.add(uuid)
+        if element.get("type") != "cube":
+            fail(f"bbmodel element {name} type must be cube")
+        if element.get("box_uv") is not False:
+            fail(f"bbmodel element {name} box_uv must be false")
         expected = geometry["cubes"].get(name)
         if expected is None:
             fail(f"bbmodel cube {name} is absent from geometry")
@@ -379,19 +397,24 @@ def validate_bbmodel(document: Mapping[str, Any], geometry: Mapping[str, Any], a
                 fail(f"bbmodel cube {name} {key} mismatches geometry")
         if element.get("bone") != geometry["cube_bones"][name]:
             fail(f"bbmodel cube {name} bone mismatches geometry")
+        elements_by_uuid[uuid] = (name, element["bone"])
         faces = element.get("faces")
         if not isinstance(faces, dict) or set(faces) != set(FACE_NAMES):
             fail(f"bbmodel cube {name} faces mismatch geometry")
         for face in FACE_NAMES:
-            if not isinstance(faces[face], dict) or _vec(faces[face].get("uv"), 4, f"bbmodel cube {name} face {face} UV") != expected["faces"][face]:
+            if not isinstance(faces[face], dict):
+                fail(f"bbmodel cube {name} face {face} must be an object")
+            if faces[face].get("texture") != 0 or isinstance(faces[face].get("texture"), bool):
+                fail(f"bbmodel cube {name} face {face} texture must be 0")
+            if _vec(faces[face].get("uv"), 4, f"bbmodel cube {name} face {face} UV") != expected["faces"][face]:
                 fail(f"bbmodel cube {name} face {face} UV mismatches geometry")
         elements_by_name[name] = element
     if set(elements_by_name) != set(geometry["cubes"]):
         fail("bbmodel element names mismatch geometry cubes")
     found_parents: Dict[str, Optional[str]] = {}
-    found_elements: set = set()
-    _flatten_outliner(document.get("outliner"), None, groups_by_uuid, element_uuids, found_parents, found_elements)
-    if found_parents != geometry["parents"] or found_elements != element_uuids:
+    found_element_owners: Dict[str, Optional[str]] = {}
+    _flatten_outliner(document.get("outliner"), None, groups_by_uuid, elements_by_uuid, found_parents, found_element_owners)
+    if found_parents != geometry["parents"] or set(found_element_owners) != element_uuids:
         fail("bbmodel outliner hierarchy mismatches geometry")
     textures = document.get("textures")
     if not isinstance(textures, list) or len(textures) != 1 or not isinstance(textures[0], dict):
