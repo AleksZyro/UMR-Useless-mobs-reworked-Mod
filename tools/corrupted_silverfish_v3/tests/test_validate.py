@@ -814,6 +814,41 @@ with validate._manifest_lock(target):
             self.assertIn("lock path collides with candidate input", result.stderr)
             self.assertEqual(original, main.read_bytes())
 
+    def test_missing_candidate_after_sidecar_reaches_contextual_snapshot_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.copy_candidate(directory)
+            first = self.run_validator(root)
+            self.assertEqual(0, first.returncode, first.stderr)
+            manifest = root / validate.MANIFEST_RELATIVE
+            before = manifest.read_bytes()
+            lock_path = manifest.parent / LOCK_NAME
+            self.assertTrue(lock_path.exists())
+            missing = root / RELATIVE_PATHS[1]
+            missing.unlink()
+
+            result = self.run_validator(root)
+
+            self.assertEqual(1, result.returncode)
+            self.assertEqual("", result.stdout)
+            self.assertIn("ASSET_CHECK_FAILED: geometry missing/not found", result.stderr)
+            self.assertIn(str(missing), result.stderr)
+            self.assertNotIn("unexpected validator error", result.stderr)
+            self.assertNotIn("Traceback", result.stderr)
+            self.assertEqual(before, manifest.read_bytes())
+
+    def test_lock_samefile_oserror_is_contextualized(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.copy_candidate(directory)
+            first = self.run_validator(root)
+            self.assertEqual(0, first.returncode, first.stderr)
+            paths = tuple(root / relative for relative in RELATIVE_PATHS)
+            manifest = root / validate.MANIFEST_RELATIVE
+            before = manifest.read_bytes()
+            with mock.patch("os.path.samefile", side_effect=OSError("injected samefile failure")):
+                with self.assertRaisesRegex(validate.ValidationFailure, "lock identity check failed.*injected samefile failure"):
+                    validate.validate(paths, manifest, root=root)
+            self.assertEqual(before, manifest.read_bytes())
+
     def test_deeply_nested_json_is_contextualized_without_unexpected_error(self):
         with tempfile.TemporaryDirectory() as directory:
             root = self.copy_candidate(directory)

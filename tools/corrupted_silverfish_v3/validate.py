@@ -189,12 +189,16 @@ def _exact_keys(value: Mapping[str, Any], required: set, optional: set, context:
 def _read_snapshot(path: Path, limit: int, label: str) -> bytes:
     try:
         size = path.stat().st_size
+    except FileNotFoundError:
+        fail(f"{label} missing/not found ({path})")
     except OSError as exc:
         fail(f"{label} stat failed ({path}): {exc}")
     if size > limit:
         fail(f"{label} exceeds size limit {limit} bytes: {size}")
     try:
         raw = path.read_bytes()
+    except FileNotFoundError:
+        fail(f"{label} missing/not found ({path})")
     except OSError as exc:
         fail(f"{label} read failed ({path}): {exc}")
     if len(raw) > limit:
@@ -804,11 +808,14 @@ def _secure_candidate_paths(root: Path, paths: Sequence[Path], manifest: Path) -
         resolved_lock = lock_path.resolve()
         if not _inside(root_resolved, resolved_lock):
             fail(f"manifest writer lock path is outside root: {resolved_lock}")
-        for candidate in secured:
-            if os.path.samefile(lock_path, candidate):
-                fail(f"manifest writer lock path collides with candidate input: {candidate}")
-        if resolved_manifest.exists() and os.path.samefile(lock_path, resolved_manifest):
-            fail(f"manifest writer lock path collides with manifest: {resolved_manifest}")
+        try:
+            for candidate in secured:
+                if candidate.exists() and os.path.samefile(lock_path, candidate):
+                    fail(f"manifest writer lock path collides with candidate input: {candidate}")
+            if resolved_manifest.exists() and os.path.samefile(lock_path, resolved_manifest):
+                fail(f"manifest writer lock path collides with manifest: {resolved_manifest}")
+        except OSError as exc:
+            fail(f"manifest writer lock identity check failed for {lock_path}: {exc}")
     return tuple(secured), resolved_manifest
 
 
