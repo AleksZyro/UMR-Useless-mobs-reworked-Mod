@@ -9,6 +9,7 @@ public class CorruptedSilverfishRenderer extends GeoEntityRenderer<CorruptedSilv
     public CorruptedSilverfishRenderer(EntityRendererProvider.Context context) {
         super(context, new CorruptedSilverfishModel());
         this.shadowRadius = 0.3F;
+        addRenderLayer(new CorruptedSilverfishGlowLayer(this));
     }
 
     public static EntityRenderer<CorruptedSilverfishEntity> createRenderer(EntityRendererProvider.Context context) {
