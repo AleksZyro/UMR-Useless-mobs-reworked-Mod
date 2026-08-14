@@ -13,6 +13,7 @@ class GeneratedOutputContract(unittest.TestCase):
             EXPORT / "animations" / "corrupted_silverfish.animation.json",
             ROOT / "Modelle" / "Editierbar" / "Corrupted Silverfish v3.bbmodel",
         )
+        self.maxDiff = None
         self.assertEqual([], [str(path) for path in required if not path.is_file()])
 
 if __name__ == "__main__":
