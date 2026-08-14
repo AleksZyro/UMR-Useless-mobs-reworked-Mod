@@ -1,0 +1,28 @@
+{
+  "parent": "usless_mobs:slime_hunter",
+  "display": {
+    "icon": {
+      "item": "usless_mobs:king_slime_spawner"
+    },
+    "title": {
+      "translate": "advancements.usless_mobs.summon_king_slime.title"
+    },
+    "description": {
+      "translate": "advancements.usless_mobs.summon_king_slime.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "trigger": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "trigger"
+    ]
+  ]
+}

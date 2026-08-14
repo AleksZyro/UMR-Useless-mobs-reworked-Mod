@@ -1,0 +1,29 @@
+{
+    "parent": "usless_mobs:fragment",
+    "display": {
+        "icon": {
+            "item": "usless_mobs:soul_crystal"
+        },
+        "title": {
+            "translate": "advancement.usless_mobs.crystal.title"
+        },
+        "description": {
+            "translate": "advancement.usless_mobs.crystal.desc"
+        },
+        "frame": "task",
+        "show_toast": true,
+        "announce_to_chat": true
+    },
+    "criteria": {
+        "has_crystal": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": ["usless_mobs:soul_crystal"]
+                    }
+                ]
+            }
+        }
+    }
+}

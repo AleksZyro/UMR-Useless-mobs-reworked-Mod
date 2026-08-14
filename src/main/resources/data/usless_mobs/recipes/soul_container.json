@@ -1,0 +1,23 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "GOG",
+        "OCO",
+        "GOG"
+    ],
+    "key": {
+        "G": {
+            "item": "minecraft:glass"
+        },
+        "O": {
+            "item": "minecraft:obsidian"
+        },
+        "C": {
+            "item": "usless_mobs:soul_crystal"
+        }
+    },
+    "result": {
+        "item": "usless_mobs:soul_container",
+        "count": 1
+    }
+}

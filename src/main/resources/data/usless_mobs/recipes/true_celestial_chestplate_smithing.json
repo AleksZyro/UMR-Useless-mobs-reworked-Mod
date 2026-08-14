@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": {
+    "item": "usless_mobs:true_celestial_template"
+  },
+  "base": {
+    "item": "usless_mobs:armor_of_balance_chestplate"
+  },
+  "addition": {
+    "item": "usless_mobs:awakened_celestial_crystal"
+  },
+  "result": {
+    "item": "usless_mobs:true_celestial_chestplate"
+  }
+}

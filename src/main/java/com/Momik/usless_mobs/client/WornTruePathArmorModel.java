@@ -1,0 +1,300 @@
+package com.Momik.usless_mobs.client;
+
+import com.Momik.usless_mobs.item.TruePathArmorItem;
+import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.model.geom.builders.CubeDeformation;
+import net.minecraft.client.model.geom.builders.CubeListBuilder;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.minecraft.client.model.geom.builders.MeshDefinition;
+import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ArmorItem;
+
+public class WornTruePathArmorModel extends HumanoidModel<LivingEntity> {
+    private WornTruePathArmorModel(ModelPart root) {
+        super(root);
+    }
+
+    public static WornTruePathArmorModel create(TruePathArmorItem.Path path, ArmorItem.Type type) {
+        MeshDefinition mesh = HumanoidModel.createMesh(new CubeDeformation(0.45F), 0.0F);
+        PartDefinition root = mesh.getRoot();
+
+        addBaseVolume(root, type);
+        if (type == ArmorItem.Type.HELMET) {
+            addPathCrown(root, path);
+        }
+        if (type == ArmorItem.Type.CHESTPLATE) {
+            addChestDetails(root, path);
+        }
+        if (type == ArmorItem.Type.LEGGINGS) {
+            addLegDetails(root, path);
+        }
+        if (type == ArmorItem.Type.BOOTS) {
+            addBootDetails(root, path);
+        }
+
+        return new WornTruePathArmorModel(LayerDefinition.create(mesh, 128, 64).bakeRoot());
+    }
+
+    public static WornTruePathArmorModel createBalancedCrown() {
+        MeshDefinition mesh = HumanoidModel.createMesh(new CubeDeformation(0.42F), 0.0F);
+        PartDefinition root = mesh.getRoot();
+        addBalancedCrown(root);
+        return new WornTruePathArmorModel(LayerDefinition.create(mesh, 128, 64).bakeRoot());
+    }
+
+    public static WornTruePathArmorModel createBalanced(ArmorItem.Type type) {
+        MeshDefinition mesh = HumanoidModel.createMesh(new CubeDeformation(0.45F), 0.0F);
+        PartDefinition root = mesh.getRoot();
+
+        addBaseVolume(root, type);
+        if (type == ArmorItem.Type.HELMET) {
+            addBalancedCrown(root);
+        }
+        if (type == ArmorItem.Type.CHESTPLATE) {
+            addChestDetails(root, TruePathArmorItem.Path.VOID);
+            addChestDetails(root, TruePathArmorItem.Path.LIVING);
+            root.getChild("body").addOrReplaceChild("balance_celestial_core",
+                    CubeListBuilder.create().texOffs(94, 48)
+                            .addBox(-1.2F, 1.0F, -3.45F, 2.4F, 2.4F, 1.1F, new CubeDeformation(0.08F)),
+                    PartPose.rotation(0.0F, 0.0F, 0.78F));
+        }
+        if (type == ArmorItem.Type.LEGGINGS) {
+            addLegDetails(root, TruePathArmorItem.Path.CELESTIAL);
+            root.getChild("right_leg").addOrReplaceChild("balance_right_void_band",
+                    CubeListBuilder.create().texOffs(106, 30)
+                            .addBox(-2.6F, 7.0F, -3.15F, 5.2F, 1.0F, 1.0F, new CubeDeformation(0.06F)),
+                    PartPose.rotation(0.0F, 0.0F, -0.16F));
+            root.getChild("left_leg").addOrReplaceChild("balance_left_living_band",
+                    CubeListBuilder.create().texOffs(106, 34)
+                            .addBox(-2.6F, 7.0F, -3.15F, 5.2F, 1.0F, 1.0F, new CubeDeformation(0.06F)),
+                    PartPose.rotation(0.0F, 0.0F, 0.16F));
+        }
+        if (type == ArmorItem.Type.BOOTS) {
+            addBootDetails(root, TruePathArmorItem.Path.LIVING);
+            root.getChild("right_leg").addOrReplaceChild("balance_right_toe_gem",
+                    CubeListBuilder.create().texOffs(104, 44)
+                            .addBox(-0.8F, 10.0F, -4.55F, 1.6F, 1.2F, 1.0F, new CubeDeformation(0.04F)),
+                    PartPose.ZERO);
+            root.getChild("left_leg").addOrReplaceChild("balance_left_toe_gem",
+                    CubeListBuilder.create().texOffs(112, 44)
+                            .addBox(-0.8F, 10.0F, -4.55F, 1.6F, 1.2F, 1.0F, new CubeDeformation(0.04F)),
+                    PartPose.ZERO);
+        }
+
+        return new WornTruePathArmorModel(LayerDefinition.create(mesh, 128, 64).bakeRoot());
+    }
+
+    private static void addBalancedCrown(PartDefinition root) {
+        addPathCrown(root, TruePathArmorItem.Path.CELESTIAL);
+        root.getChild("head").addOrReplaceChild("balance_front_gem",
+                CubeListBuilder.create().texOffs(88, 0)
+                        .addBox(-1.0F, -10.7F, -4.95F, 2.0F, 2.0F, 1.0F, new CubeDeformation(0.12F)),
+                PartPose.ZERO);
+        root.getChild("head").addOrReplaceChild("balance_void_side_horn",
+                CubeListBuilder.create().texOffs(104, 0)
+                        .addBox(-6.4F, -10.6F, -1.0F, 2.8F, 1.4F, 2.0F, new CubeDeformation(0.06F)),
+                PartPose.rotation(0.0F, 0.0F, -0.48F));
+        root.getChild("head").addOrReplaceChild("balance_living_vine",
+                CubeListBuilder.create().texOffs(114, 0)
+                        .addBox(3.4F, -10.8F, -4.95F, 2.8F, 1.0F, 1.0F, new CubeDeformation(0.05F)),
+                PartPose.rotation(0.0F, 0.0F, 0.36F));
+    }
+
+    public static void showForType(HumanoidModel<?> model, ArmorItem.Type type) {
+        model.setAllVisible(false);
+        switch (type) {
+            case HELMET -> {
+                model.head.visible = true;
+                model.hat.visible = true;
+            }
+            case CHESTPLATE -> {
+                model.body.visible = true;
+                model.rightArm.visible = true;
+                model.leftArm.visible = true;
+            }
+            case LEGGINGS -> {
+                model.body.visible = true;
+                model.rightLeg.visible = true;
+                model.leftLeg.visible = true;
+            }
+            case BOOTS -> {
+                model.rightLeg.visible = true;
+                model.leftLeg.visible = true;
+            }
+        }
+    }
+
+    public static void showCrown(HumanoidModel<?> model) {
+        model.setAllVisible(false);
+        model.head.visible = true;
+        model.hat.visible = true;
+    }
+
+    private static void addBaseVolume(PartDefinition root, ArmorItem.Type type) {
+        if (type == ArmorItem.Type.HELMET) {
+            root.getChild("head").addOrReplaceChild("true_outer_helm",
+                    CubeListBuilder.create().texOffs(0, 0)
+                            .addBox(-4.5F, -8.5F, -4.5F, 9.0F, 8.5F, 9.0F, new CubeDeformation(0.28F)),
+                    PartPose.ZERO);
+        }
+        if (type == ArmorItem.Type.CHESTPLATE) {
+            root.getChild("body").addOrReplaceChild("true_breastplate",
+                    CubeListBuilder.create().texOffs(0, 18)
+                            .addBox(-4.7F, -0.2F, -2.8F, 9.4F, 12.4F, 5.6F, new CubeDeformation(0.24F)),
+                    PartPose.ZERO);
+            root.getChild("right_arm").addOrReplaceChild("true_right_arm_plate",
+                    CubeListBuilder.create().texOffs(34, 18)
+                            .addBox(-3.6F, -2.2F, -2.7F, 4.2F, 6.0F, 5.4F, new CubeDeformation(0.18F)),
+                    PartPose.ZERO);
+            root.getChild("left_arm").addOrReplaceChild("true_left_arm_plate",
+                    CubeListBuilder.create().texOffs(52, 18)
+                            .addBox(-0.6F, -2.2F, -2.7F, 4.2F, 6.0F, 5.4F, new CubeDeformation(0.18F)),
+                    PartPose.ZERO);
+        }
+        if (type == ArmorItem.Type.LEGGINGS) {
+            root.getChild("body").addOrReplaceChild("true_belt",
+                    CubeListBuilder.create().texOffs(0, 38)
+                            .addBox(-4.6F, 9.0F, -2.7F, 9.2F, 3.2F, 5.4F, new CubeDeformation(0.22F)),
+                    PartPose.ZERO);
+            root.getChild("right_leg").addOrReplaceChild("true_right_thigh",
+                    CubeListBuilder.create().texOffs(30, 38)
+                            .addBox(-2.5F, -0.1F, -2.5F, 5.0F, 7.0F, 5.0F, new CubeDeformation(0.18F)),
+                    PartPose.ZERO);
+            root.getChild("left_leg").addOrReplaceChild("true_left_thigh",
+                    CubeListBuilder.create().texOffs(50, 38)
+                            .addBox(-2.5F, -0.1F, -2.5F, 5.0F, 7.0F, 5.0F, new CubeDeformation(0.18F)),
+                    PartPose.ZERO);
+        }
+        if (type == ArmorItem.Type.BOOTS) {
+            root.getChild("right_leg").addOrReplaceChild("true_right_boot",
+                    CubeListBuilder.create().texOffs(70, 36)
+                            .addBox(-2.6F, 6.1F, -2.9F, 5.2F, 6.2F, 5.8F, new CubeDeformation(0.22F)),
+                    PartPose.ZERO);
+            root.getChild("left_leg").addOrReplaceChild("true_left_boot",
+                    CubeListBuilder.create().texOffs(92, 36)
+                            .addBox(-2.6F, 6.1F, -2.9F, 5.2F, 6.2F, 5.8F, new CubeDeformation(0.22F)),
+                    PartPose.ZERO);
+        }
+    }
+
+    private static void addPathCrown(PartDefinition root, TruePathArmorItem.Path path) {
+        PartDefinition head = root.getChild("head");
+        head.addOrReplaceChild("true_crown_band",
+                CubeListBuilder.create().texOffs(72, 0)
+                        .addBox(-5.0F, -9.0F, -5.0F, 10.0F, 2.0F, 10.0F, new CubeDeformation(0.18F)),
+                PartPose.ZERO);
+        head.addOrReplaceChild("true_crown_center_spike",
+                CubeListBuilder.create().texOffs(0, 52)
+                        .addBox(-1.0F, -12.2F, -5.15F, 2.0F, 4.0F, 2.0F, new CubeDeformation(0.10F)),
+                PartPose.ZERO);
+        head.addOrReplaceChild("true_crown_left_spike",
+                CubeListBuilder.create().texOffs(8, 52)
+                        .addBox(-4.2F, -11.0F, -5.0F, 1.8F, 3.2F, 1.8F, new CubeDeformation(0.08F)),
+                PartPose.ZERO);
+        head.addOrReplaceChild("true_crown_right_spike",
+                CubeListBuilder.create().texOffs(16, 52)
+                        .addBox(2.4F, -11.0F, -5.0F, 1.8F, 3.2F, 1.8F, new CubeDeformation(0.08F)),
+                PartPose.ZERO);
+
+        if (path == TruePathArmorItem.Path.VOID) {
+            head.addOrReplaceChild("true_void_left_horn",
+                    CubeListBuilder.create().texOffs(24, 52)
+                            .addBox(-6.2F, -10.4F, -1.2F, 2.5F, 1.5F, 2.4F, new CubeDeformation(0.06F)),
+                    PartPose.rotation(0.0F, 0.0F, -0.42F));
+            head.addOrReplaceChild("true_void_right_horn",
+                    CubeListBuilder.create().texOffs(34, 52)
+                            .addBox(3.7F, -10.4F, -1.2F, 2.5F, 1.5F, 2.4F, new CubeDeformation(0.06F)),
+                    PartPose.rotation(0.0F, 0.0F, 0.42F));
+        } else if (path == TruePathArmorItem.Path.CELESTIAL) {
+            head.addOrReplaceChild("true_celestial_left_wing",
+                    CubeListBuilder.create().texOffs(44, 52)
+                            .addBox(-6.4F, -8.6F, -1.0F, 2.6F, 3.2F, 1.8F, new CubeDeformation(0.05F)),
+                    PartPose.rotation(0.0F, 0.0F, -0.28F));
+            head.addOrReplaceChild("true_celestial_right_wing",
+                    CubeListBuilder.create().texOffs(54, 52)
+                            .addBox(3.8F, -8.6F, -1.0F, 2.6F, 3.2F, 1.8F, new CubeDeformation(0.05F)),
+                    PartPose.rotation(0.0F, 0.0F, 0.28F));
+        } else {
+            head.addOrReplaceChild("true_living_vine",
+                    CubeListBuilder.create().texOffs(64, 52)
+                            .addBox(-4.7F, -9.8F, -5.35F, 9.4F, 1.0F, 1.0F, new CubeDeformation(0.08F)),
+                    PartPose.rotation(0.0F, 0.0F, 0.12F));
+            head.addOrReplaceChild("true_living_leaf",
+                    CubeListBuilder.create().texOffs(86, 52)
+                            .addBox(1.0F, -11.2F, -5.3F, 2.0F, 1.2F, 1.2F, new CubeDeformation(0.05F)),
+                    PartPose.rotation(0.0F, 0.0F, 0.42F));
+        }
+    }
+
+    private static void addChestDetails(PartDefinition root, TruePathArmorItem.Path path) {
+        root.getChild("body").addOrReplaceChild("true_chest_gem",
+                CubeListBuilder.create().texOffs(94, 52)
+                        .addBox(-1.5F, 2.0F, -3.25F, 3.0F, 3.4F, 1.0F, new CubeDeformation(0.10F)),
+                PartPose.ZERO);
+        root.getChild("right_arm").addOrReplaceChild("true_right_shoulder",
+                CubeListBuilder.create().texOffs(76, 16)
+                        .addBox(-4.2F, -3.3F, -3.1F, 4.3F, 2.8F, 6.2F, new CubeDeformation(0.12F)),
+                PartPose.rotation(0.0F, 0.0F, -0.08F));
+        root.getChild("left_arm").addOrReplaceChild("true_left_shoulder",
+                CubeListBuilder.create().texOffs(98, 16)
+                        .addBox(-0.1F, -3.3F, -3.1F, 4.3F, 2.8F, 6.2F, new CubeDeformation(0.12F)),
+                PartPose.rotation(0.0F, 0.0F, 0.08F));
+        if (path == TruePathArmorItem.Path.VOID) {
+            root.getChild("body").addOrReplaceChild("true_void_rib",
+                    CubeListBuilder.create().texOffs(108, 52)
+                            .addBox(-4.0F, 5.6F, -3.12F, 8.0F, 1.0F, 0.8F, new CubeDeformation(0.06F)),
+                    PartPose.rotation(0.0F, 0.0F, -0.20F));
+        }
+        if (path == TruePathArmorItem.Path.LIVING) {
+            root.getChild("body").addOrReplaceChild("true_living_root_wrap",
+                    CubeListBuilder.create().texOffs(108, 56)
+                            .addBox(-4.2F, 7.8F, -3.2F, 8.4F, 1.1F, 0.9F, new CubeDeformation(0.06F)),
+                    PartPose.rotation(0.0F, 0.0F, 0.18F));
+        }
+    }
+
+    private static void addLegDetails(PartDefinition root, TruePathArmorItem.Path path) {
+        root.getChild("right_leg").addOrReplaceChild("true_right_knee",
+                CubeListBuilder.create().texOffs(72, 26)
+                        .addBox(-2.3F, 4.7F, -3.1F, 4.6F, 2.3F, 1.2F, new CubeDeformation(0.08F)),
+                PartPose.ZERO);
+        root.getChild("left_leg").addOrReplaceChild("true_left_knee",
+                CubeListBuilder.create().texOffs(90, 26)
+                        .addBox(-2.3F, 4.7F, -3.1F, 4.6F, 2.3F, 1.2F, new CubeDeformation(0.08F)),
+                PartPose.ZERO);
+        if (path == TruePathArmorItem.Path.CELESTIAL) {
+            root.getChild("right_leg").addOrReplaceChild("true_right_shin_star",
+                    CubeListBuilder.create().texOffs(110, 26)
+                            .addBox(-0.8F, 1.6F, -3.05F, 1.6F, 1.6F, 0.9F, new CubeDeformation(0.06F)),
+                    PartPose.ZERO);
+            root.getChild("left_leg").addOrReplaceChild("true_left_shin_star",
+                    CubeListBuilder.create().texOffs(118, 26)
+                            .addBox(-0.8F, 1.6F, -3.05F, 1.6F, 1.6F, 0.9F, new CubeDeformation(0.06F)),
+                    PartPose.ZERO);
+        }
+    }
+
+    private static void addBootDetails(PartDefinition root, TruePathArmorItem.Path path) {
+        root.getChild("right_leg").addOrReplaceChild("true_right_toe",
+                CubeListBuilder.create().texOffs(72, 48)
+                        .addBox(-2.7F, 10.6F, -4.3F, 5.4F, 1.8F, 2.0F, new CubeDeformation(0.08F)),
+                PartPose.ZERO);
+        root.getChild("left_leg").addOrReplaceChild("true_left_toe",
+                CubeListBuilder.create().texOffs(94, 48)
+                        .addBox(-2.7F, 10.6F, -4.3F, 5.4F, 1.8F, 2.0F, new CubeDeformation(0.08F)),
+                PartPose.ZERO);
+        if (path == TruePathArmorItem.Path.LIVING) {
+            root.getChild("right_leg").addOrReplaceChild("true_right_boot_leaf",
+                    CubeListBuilder.create().texOffs(116, 48)
+                            .addBox(0.6F, 7.2F, -3.25F, 1.6F, 1.1F, 1.0F, new CubeDeformation(0.05F)),
+                    PartPose.rotation(0.0F, 0.0F, 0.34F));
+            root.getChild("left_leg").addOrReplaceChild("true_left_boot_leaf",
+                    CubeListBuilder.create().texOffs(116, 52)
+                            .addBox(-2.2F, 7.2F, -3.25F, 1.6F, 1.1F, 1.0F, new CubeDeformation(0.05F)),
+                    PartPose.rotation(0.0F, 0.0F, -0.34F));
+        }
+    }
+}

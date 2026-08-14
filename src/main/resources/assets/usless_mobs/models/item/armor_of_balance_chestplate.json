@@ -1,0 +1,7 @@
+{
+  "parent": "usless_mobs:item/true_celestial_chestplate",
+  "textures": {
+    "main": "usless_mobs:item/armor_of_balance_chestplate",
+    "particle": "usless_mobs:item/armor_of_balance_chestplate"
+  }
+}

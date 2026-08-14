@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": {
+    "item": "usless_mobs:true_void_template"
+  },
+  "base": {
+    "item": "usless_mobs:armor_of_balance_boots"
+  },
+  "addition": {
+    "item": "usless_mobs:awakened_void_crystal"
+  },
+  "result": {
+    "item": "usless_mobs:true_void_boots"
+  }
+}

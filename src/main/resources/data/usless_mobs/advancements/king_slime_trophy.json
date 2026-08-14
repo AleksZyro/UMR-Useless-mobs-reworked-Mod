@@ -1,0 +1,40 @@
+{
+  "parent": "usless_mobs:hard_king_slime",
+  "display": {
+    "icon": {
+      "item": "usless_mobs:king_slime_trophy"
+    },
+    "title": {
+      "translate": "advancements.usless_mobs.king_slime_trophy.title"
+    },
+    "description": {
+      "translate": "advancements.usless_mobs.king_slime_trophy.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_trophy": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "usless_mobs:king_slime_trophy"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_trophy"
+    ]
+  ],
+  "rewards": {
+    "experience": 750
+  }
+}

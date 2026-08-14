@@ -1,0 +1,29 @@
+{
+    "parent": "usless_mobs:root",
+    "display": {
+        "icon": {
+            "item": "usless_mobs:soul_fragment"
+        },
+        "title": {
+            "translate": "advancement.usless_mobs.fragment.title"
+        },
+        "description": {
+            "translate": "advancement.usless_mobs.fragment.desc"
+        },
+        "frame": "task",
+        "show_toast": true,
+        "announce_to_chat": true
+    },
+    "criteria": {
+        "has_fragment": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": ["usless_mobs:soul_fragment"]
+                    }
+                ]
+            }
+        }
+    }
+}

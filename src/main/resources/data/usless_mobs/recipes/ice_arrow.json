@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "S",
+    "A",
+    "I"
+  ],
+  "key": {
+    "S": {
+      "item": "minecraft:snowball"
+    },
+    "A": {
+      "item": "minecraft:arrow"
+    },
+    "I": {
+      "item": "minecraft:packed_ice"
+    }
+  },
+  "result": {
+    "item": "usless_mobs:ice_arrow",
+    "count": 4
+  }
+}

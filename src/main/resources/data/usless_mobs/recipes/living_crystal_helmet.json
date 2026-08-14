@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "CLC",
+    "NHN",
+    " T "
+  ],
+  "key": {
+    "C": { "item": "usless_mobs:living_crystal" },
+    "L": { "item": "usless_mobs:living_core" },
+    "N": { "item": "usless_mobs:nature_crystal" },
+    "H": { "item": "minecraft:netherite_helmet" },
+    "T": { "item": "usless_mobs:living_tissue" }
+  },
+  "result": {
+    "item": "usless_mobs:living_crystal_helmet",
+    "count": 1
+  }
+}

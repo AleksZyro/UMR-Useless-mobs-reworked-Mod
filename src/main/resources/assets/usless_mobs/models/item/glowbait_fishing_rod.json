@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/handheld_rod",
+  "textures": {
+    "layer0": "usless_mobs:item/living/glowbait_fishing_rod"
+  }
+}

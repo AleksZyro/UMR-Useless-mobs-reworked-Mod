@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": { "item": "usless_mobs:true_celestial_template" },
+  "base": { "item": "usless_mobs:celestial_slime_core_sword" },
+  "addition": { "item": "usless_mobs:living_core" },
+  "result": { "item": "usless_mobs:true_celestial_sword" }
+}

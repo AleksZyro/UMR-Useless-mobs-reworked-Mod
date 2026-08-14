@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "rolls": { "min": 2, "max": 5 },
+      "entries": [
+        { "type": "minecraft:item", "name": "usless_mobs:celestial_aether_block", "weight": 20 },
+        { "type": "minecraft:item", "name": "usless_mobs:schleimkern",            "weight": 12 },
+        { "type": "minecraft:item", "name": "minecraft:packed_ice",               "weight": 25 },
+        { "type": "minecraft:item", "name": "minecraft:calcite",                  "weight": 20 },
+        { "type": "minecraft:item", "name": "minecraft:diamond",                  "weight": 6  },
+        { "type": "minecraft:item", "name": "minecraft:amethyst_shard",           "weight": 18 },
+        { "type": "minecraft:item", "name": "minecraft:end_rod",                  "weight": 8  }
+      ]
+    },
+    {
+      "rolls": 1,
+      "entries": [
+        { "type": "minecraft:item", "name": "usless_mobs:celestial_talisman",     "weight": 2  },
+        { "type": "minecraft:item", "name": "usless_mobs:true_celestial_template","weight": 3  },
+        { "type": "minecraft:empty",                                               "weight": 10 }
+      ]
+    }
+  ]
+}

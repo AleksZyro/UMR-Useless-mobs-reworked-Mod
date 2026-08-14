@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "usless_mobs:bearclaw_necklace" },
+    { "item": "usless_mobs:living_core" },
+    { "item": "usless_mobs:bear_claw" },
+    { "item": "minecraft:netherite_ingot" }
+  ],
+  "result": {
+    "item": "usless_mobs:awakened_bearclaw_necklace",
+    "count": 1
+  }
+}

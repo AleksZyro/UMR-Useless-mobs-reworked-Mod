@@ -1,0 +1,535 @@
+{
+  "format_version": "1.12.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.corrupted_silverfish",
+        "texture_width": 128,
+        "texture_height": 64,
+        "visible_bounds_width": 2.2,
+        "visible_bounds_height": 1.4,
+        "visible_bounds_offset": [
+          0,
+          0.5,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "root",
+          "pivot": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "name": "head",
+          "parent": "root",
+          "pivot": [
+            0.0,
+            3.0,
+            -8.0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -3.0,
+                1.0,
+                -11.0
+              ],
+              "size": [
+                6.0,
+                4.0,
+                6.0
+              ],
+              "uv": [
+                0.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "front_shell",
+          "parent": "root",
+          "pivot": [
+            0.0,
+            3.0,
+            -3.0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -4.0,
+                1.0,
+                -6.0
+              ],
+              "size": [
+                8.0,
+                5.0,
+                6.0
+              ],
+              "uv": [
+                24.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "middle_shell",
+          "parent": "root",
+          "pivot": [
+            0.0,
+            3.0,
+            2.0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -3.5,
+                1.0,
+                -1.0
+              ],
+              "size": [
+                7.0,
+                4.0,
+                6.0
+              ],
+              "uv": [
+                56.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "tail_shell",
+          "parent": "root",
+          "pivot": [
+            0.0,
+            3.0,
+            7.0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -2.5,
+                1.0,
+                4.0
+              ],
+              "size": [
+                5.0,
+                4.0,
+                6.0
+              ],
+              "uv": [
+                84.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "left_front_leg",
+          "parent": "front_shell",
+          "pivot": [
+            3.0,
+            1.0,
+            -4.0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                3.0,
+                0.0,
+                -6.0
+              ],
+              "size": [
+                2.0,
+                1.0,
+                4.0
+              ],
+              "uv": [
+                0.0,
+                32.0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "right_front_leg",
+          "parent": "front_shell",
+          "pivot": [
+            -3.0,
+            1.0,
+            -4.0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -5.0,
+                0.0,
+                -6.0
+              ],
+              "size": [
+                2.0,
+                1.0,
+                4.0
+              ],
+              "uv": [
+                0.0,
+                32.0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "left_middle_leg",
+          "parent": "middle_shell",
+          "pivot": [
+            3.0,
+            1.0,
+            2.0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                3.0,
+                0.0,
+                0.0
+              ],
+              "size": [
+                2.0,
+                1.0,
+                4.0
+              ],
+              "uv": [
+                16.0,
+                32.0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "right_middle_leg",
+          "parent": "middle_shell",
+          "pivot": [
+            -3.0,
+            1.0,
+            2.0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -5.0,
+                0.0,
+                0.0
+              ],
+              "size": [
+                2.0,
+                1.0,
+                4.0
+              ],
+              "uv": [
+                16.0,
+                32.0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "left_back_leg",
+          "parent": "tail_shell",
+          "pivot": [
+            2.5,
+            1.0,
+            6.0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                2.5,
+                0.0,
+                4.0
+              ],
+              "size": [
+                2.0,
+                1.0,
+                5.0
+              ],
+              "uv": [
+                32.0,
+                32.0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "right_back_leg",
+          "parent": "tail_shell",
+          "pivot": [
+            -2.5,
+            1.0,
+            6.0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -4.5,
+                0.0,
+                4.0
+              ],
+              "size": [
+                2.0,
+                1.0,
+                5.0
+              ],
+              "uv": [
+                32.0,
+                32.0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "left_mandible",
+          "parent": "head",
+          "pivot": [
+            1.5,
+            1.5,
+            -10.0
+          ],
+          "rotation": [
+            0.0,
+            -10.0,
+            0.0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                0.5,
+                1.0,
+                -13.0
+              ],
+              "size": [
+                2.0,
+                1.0,
+                3.0
+              ],
+              "uv": [
+                48.0,
+                32.0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "right_mandible",
+          "parent": "head",
+          "pivot": [
+            -1.5,
+            1.5,
+            -10.0
+          ],
+          "rotation": [
+            0.0,
+            10.0,
+            0.0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -2.5,
+                1.0,
+                -13.0
+              ],
+              "size": [
+                2.0,
+                1.0,
+                3.0
+              ],
+              "uv": [
+                48.0,
+                32.0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "tail_tip",
+          "parent": "tail_shell",
+          "pivot": [
+            0.0,
+            2.5,
+            9.0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -1.5,
+                1.5,
+                9.0
+              ],
+              "size": [
+                3.0,
+                2.5,
+                3.0
+              ],
+              "uv": [
+                108.0,
+                0.0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "corruption_spine_1",
+          "parent": "front_shell",
+          "pivot": [
+            0.0,
+            6.0,
+            -4.0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -0.5,
+                6.0,
+                -5.0
+              ],
+              "size": [
+                1.0,
+                3.0,
+                2.0
+              ],
+              "uv": [
+                64.0,
+                32.0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "corruption_spine_2",
+          "parent": "middle_shell",
+          "pivot": [
+            0.0,
+            5.0,
+            0.0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -0.5,
+                5.0,
+                -1.0
+              ],
+              "size": [
+                1.0,
+                3.5,
+                2.0
+              ],
+              "uv": [
+                75.0,
+                32.0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "corruption_spine_3",
+          "parent": "tail_shell",
+          "pivot": [
+            0.0,
+            5.0,
+            6.0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -0.5,
+                5.0,
+                5.0
+              ],
+              "size": [
+                1.0,
+                3.0,
+                2.0
+              ],
+              "uv": [
+                86.0,
+                32.0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "corruption_crystal_left",
+          "parent": "middle_shell",
+          "pivot": [
+            2.0,
+            4.5,
+            1.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            -20.0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                1.5,
+                4.5,
+                0.0
+              ],
+              "size": [
+                1.5,
+                2.5,
+                2.0
+              ],
+              "uv": [
+                96.0,
+                32.0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "corruption_crystal_right",
+          "parent": "tail_shell",
+          "pivot": [
+            -1.75,
+            4.0,
+            6.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            20.0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -2.5,
+                4.0,
+                5.0
+              ],
+              "size": [
+                1.5,
+                2.5,
+                2.0
+              ],
+              "uv": [
+                112.0,
+                32.0
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

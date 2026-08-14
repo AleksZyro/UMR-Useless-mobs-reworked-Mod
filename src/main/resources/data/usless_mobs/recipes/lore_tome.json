@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    { "item": "minecraft:book" },
+    { "item": "usless_mobs:blauer_schleimball" },
+    { "item": "usless_mobs:goldener_schleimball" },
+    { "item": "usless_mobs:void_schleimball" }
+  ],
+  "result": {
+    "item": "usless_mobs:lore_tome"
+  }
+}

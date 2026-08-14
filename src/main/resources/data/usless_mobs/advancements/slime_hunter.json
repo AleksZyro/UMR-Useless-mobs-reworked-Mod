@@ -1,0 +1,28 @@
+{
+  "parent": "minecraft:story/enter_the_nether",
+  "display": {
+    "icon": {
+      "item": "usless_mobs:blauer_schleimball"
+    },
+    "title": {
+      "translate": "advancements.usless_mobs.slime_hunter.title"
+    },
+    "description": {
+      "translate": "advancements.usless_mobs.slime_hunter.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "trigger": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "trigger"
+    ]
+  ]
+}

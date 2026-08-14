@@ -1,0 +1,11 @@
+{
+    "required": true,
+    "minVersion": "0.8",
+    "package": "net.mysith.mixin",
+    "compatibilityLevel": "JAVA_17",
+    "mixins": ["EndGatewayBlockEntityMixin"],
+    "client": ["EndermiteMixin"],
+    "injectors": {
+        "defaultRequire": 1
+    }
+}

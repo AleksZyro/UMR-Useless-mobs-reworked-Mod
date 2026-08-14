@@ -1,0 +1,13 @@
+{
+  "parent": "usless_mobs:allegiance/path_chosen",
+  "display": {
+    "icon": { "item": "usless_mobs:celestial_aether_block" },
+    "title": { "translate": "advancement.usless_mobs.allegiance.celestial_trial.title" },
+    "description": { "translate": "advancement.usless_mobs.allegiance.celestial_trial.desc" },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "criteria": { "impossible": { "trigger": "minecraft:impossible" } }
+}

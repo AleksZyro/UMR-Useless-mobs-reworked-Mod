@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": {
+    "item": "usless_mobs:schleimreaktor_schmiedevorlage"
+  },
+  "base": {
+    "item": "usless_mobs:king_slime_krone"
+  },
+  "addition": {
+    "item": "usless_mobs:netherite_schleimkern"
+  },
+  "result": {
+    "item": "usless_mobs:netherite_kings_krone"
+  }
+}

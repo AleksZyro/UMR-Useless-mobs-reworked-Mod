@@ -1,0 +1,7 @@
+{
+  "parent": "usless_mobs:item/true_living_helmet",
+  "textures": {
+    "main": "usless_mobs:item/living/living_crystal_helmet",
+    "particle": "usless_mobs:item/living/living_crystal_helmet"
+  }
+}

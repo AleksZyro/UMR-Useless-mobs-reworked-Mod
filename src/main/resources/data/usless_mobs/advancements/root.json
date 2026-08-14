@@ -1,0 +1,23 @@
+{
+    "display": {
+        "icon": {
+            "item": "usless_mobs:soul_fragment"
+        },
+        "title": {
+            "translate": "advancement.usless_mobs.root.title"
+        },
+        "description": {
+            "translate": "advancement.usless_mobs.root.desc"
+        },
+        "background": "minecraft:textures/block/end_stone.png",
+        "frame": "task",
+        "show_toast": true,
+        "announce_to_chat": true,
+        "hidden": false
+    },
+    "criteria": {
+        "tick": {
+            "trigger": "minecraft:tick"
+        }
+    }
+}

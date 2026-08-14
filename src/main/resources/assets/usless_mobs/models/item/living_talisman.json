@@ -1,0 +1,36 @@
+{
+  "parent": "builtin/entity",
+  "gui_light": "front",
+  "textures": {
+    "particle": "usless_mobs:item/living_talisman"
+  },
+  "display": {
+    "thirdperson_righthand": {
+      "translation": [0, 2, 0],
+      "scale": [0.45, 0.45, 0.45]
+    },
+    "thirdperson_lefthand": {
+      "translation": [0, 2, 0],
+      "scale": [0.45, 0.45, 0.45]
+    },
+    "firstperson_righthand": {
+      "translation": [0, 1, 0],
+      "scale": [0.35, 0.35, 0.35]
+    },
+    "firstperson_lefthand": {
+      "translation": [0, 1, 0],
+      "scale": [0.35, 0.35, 0.35]
+    },
+    "ground": {
+      "scale": [0.3, 0.3, 0.3]
+    },
+    "gui": {
+      "rotation": [0, 0, 0],
+      "translation": [0, -1, 0],
+      "scale": [0.55, 0.55, 0.55]
+    },
+    "fixed": {
+      "scale": [0.4, 0.4, 0.4]
+    }
+  }
+}

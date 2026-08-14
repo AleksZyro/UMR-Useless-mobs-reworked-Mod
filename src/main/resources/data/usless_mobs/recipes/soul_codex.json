@@ -1,0 +1,18 @@
+{
+    "type": "minecraft:crafting_shapeless",
+    "ingredients": [
+        {
+            "item": "minecraft:book"
+        },
+        {
+            "item": "minecraft:ink_sac"
+        },
+        {
+            "item": "usless_mobs:soul_fragment"
+        }
+    ],
+    "result": {
+        "item": "usless_mobs:soul_codex",
+        "count": 1
+    }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "SSS",
+    "SSS",
+    "SSS"
+  ],
+  "key": {
+    "S": {
+      "item": "usless_mobs:corrupted_shard"
+    }
+  },
+  "result": {
+    "item": "usless_mobs:corrupted_crystal",
+    "count": 1
+  }
+}

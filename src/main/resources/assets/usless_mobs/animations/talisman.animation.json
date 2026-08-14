@@ -1,0 +1,17 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.talisman.spin": {
+      "loop": true,
+      "animation_length": 3.0,
+      "bones": {
+        "talisman": {
+          "rotation": {
+            "0.0": [0.0, 0.0, 0.0],
+            "3.0": [0.0, 360.0, 0.0]
+          }
+        }
+      }
+    }
+  }
+}

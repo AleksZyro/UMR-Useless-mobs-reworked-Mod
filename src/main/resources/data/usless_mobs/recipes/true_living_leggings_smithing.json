@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": {
+    "item": "usless_mobs:true_living_template"
+  },
+  "base": {
+    "item": "usless_mobs:armor_of_balance_leggings"
+  },
+  "addition": {
+    "item": "usless_mobs:awakened_living_crystal"
+  },
+  "result": {
+    "item": "usless_mobs:true_living_leggings"
+  }
+}

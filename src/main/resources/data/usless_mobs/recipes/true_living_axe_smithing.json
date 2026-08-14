@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": { "item": "usless_mobs:true_living_template" },
+  "base": { "item": "usless_mobs:living_axe" },
+  "addition": { "item": "usless_mobs:living_core" },
+  "result": { "item": "usless_mobs:true_living_axe" }
+}

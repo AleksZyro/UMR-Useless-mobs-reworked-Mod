@@ -1,0 +1,7 @@
+{
+  "parent": "usless_mobs:item/true_celestial_boots",
+  "textures": {
+    "main": "usless_mobs:item/armor_of_balance_boots",
+    "particle": "usless_mobs:item/armor_of_balance_boots"
+  }
+}

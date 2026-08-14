@@ -1,0 +1,7 @@
+{
+  "parent": "usless_mobs:item/true_celestial_leggings",
+  "textures": {
+    "main": "usless_mobs:item/armor_of_balance_leggings",
+    "particle": "usless_mobs:item/armor_of_balance_leggings"
+  }
+}

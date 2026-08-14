@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": { "item": "usless_mobs:void_vitality_template" },
+  "base": { "item": "minecraft:shield" },
+  "addition": { "item": "usless_mobs:awakened_void_crystal" },
+  "result": { "item": "usless_mobs:voidbound_shield" }
+}

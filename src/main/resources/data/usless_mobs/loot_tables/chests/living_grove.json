@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "rolls": { "min": 2, "max": 5 },
+      "entries": [
+        { "type": "minecraft:item", "name": "usless_mobs:living_crystal_block",  "weight": 20 },
+        { "type": "minecraft:item", "name": "usless_mobs:living_crystal",        "weight": 15 },
+        { "type": "minecraft:item", "name": "usless_mobs:schleimkern",           "weight": 12 },
+        { "type": "minecraft:item", "name": "minecraft:moss_block",              "weight": 25 },
+        { "type": "minecraft:item", "name": "minecraft:emerald",                 "weight": 10 },
+        { "type": "minecraft:item", "name": "minecraft:oak_sapling",             "weight": 20 },
+        { "type": "minecraft:item", "name": "minecraft:bone_meal",               "weight": 18 }
+      ]
+    },
+    {
+      "rolls": 1,
+      "entries": [
+        { "type": "minecraft:item", "name": "usless_mobs:living_talisman",       "weight": 2  },
+        { "type": "minecraft:item", "name": "usless_mobs:true_living_template",  "weight": 3  },
+        { "type": "minecraft:empty",                                              "weight": 10 }
+      ]
+    }
+  ]
+}

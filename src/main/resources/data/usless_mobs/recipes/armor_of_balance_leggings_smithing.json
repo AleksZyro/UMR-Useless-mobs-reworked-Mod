@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": { "item": "usless_mobs:balance_upgrade_template" },
+  "base": { "item": "usless_mobs:corrupted_crystal_leggings" },
+  "addition": { "item": "usless_mobs:balance_catalyst" },
+  "result": { "item": "usless_mobs:armor_of_balance_leggings" }
+}

@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " L ",
+    "LAL",
+    " L "
+  ],
+  "key": {
+    "L": { "item": "usless_mobs:living_crystal_block" },
+    "A": { "item": "minecraft:amethyst_shard" }
+  },
+  "result": { "item": "usless_mobs:living_talisman", "count": 1 }
+}
