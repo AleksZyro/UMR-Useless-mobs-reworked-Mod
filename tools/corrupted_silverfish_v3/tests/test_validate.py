@@ -65,6 +65,22 @@ class ValidatorContract(unittest.TestCase):
             self.assertIn(expected, result.stderr)
             self.assertEqual(b"sentinel manifest\n", manifest.read_bytes())
 
+    def assert_json_mutation_fails(self, relative: Path, mutator, expected: str) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.copy_candidate(directory)
+            manifest = root / validate.MANIFEST_RELATIVE
+            manifest.parent.mkdir(parents=True)
+            manifest.write_bytes(b"sentinel manifest\n")
+            path = root / relative
+            document = json.loads(path.read_text(encoding="utf-8"))
+            mutator(document)
+            path.write_text(json.dumps(document), encoding="utf-8")
+            result = self.run_validator(root)
+            self.assertEqual(1, result.returncode, result.stderr)
+            self.assertEqual("", result.stdout)
+            self.assertIn(expected, result.stderr)
+            self.assertEqual(b"sentinel manifest\n", manifest.read_bytes())
+
     @staticmethod
     def update_embedded_main(root: Path) -> None:
         model_path = root / RELATIVE_PATHS[0]
@@ -470,6 +486,146 @@ class ValidatorContract(unittest.TestCase):
                     validate._atomic_write(target, b"new\n")
             self.assertEqual(b"old\n", target.read_bytes())
             self.assertEqual([target], list(target.parent.iterdir()))
+
+    def test_strict_runtime_schemas_reject_unknown_or_wrong_fields(self):
+        def bad_identifier(document):
+            document["minecraft:geometry"][0]["description"]["identifier"] = "geometry.other"
+
+        self.assert_json_mutation_fails(RELATIVE_PATHS[1], bad_identifier, "identifier")
+
+        def geo_inflate(document):
+            cube = next(b["cubes"][0] for b in document["minecraft:geometry"][0]["bones"] if b.get("cubes"))
+            cube["inflate"] = 1
+
+        self.assert_json_mutation_fails(RELATIVE_PATHS[1], geo_inflate, "unexpected keys")
+
+        def element_visibility(document):
+            document["elements"][0]["visibility"] = False
+
+        self.assert_bbmodel_mutation_fails(element_visibility, "unexpected keys")
+
+        def keyframe_pre(document):
+            animation = document["animations"]["animation.corrupted_silverfish.idle"]
+            keyframe = animation["bones"]["body"]["position"]["0"]
+            keyframe["pre"] = [0, 0, 0]
+
+        self.assert_json_mutation_fails(RELATIVE_PATHS[4], keyframe_pre, "unexpected keys")
+
+    def test_exact_rgba_contract_rejects_uniform_seam_and_allowed_glow_move(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.copy_candidate(directory)
+            main_path = root / RELATIVE_PATHS[2]
+            main = Image.open(main_path).copy()
+            point = next((i % 256, i // 256) for i, pixel in enumerate(main.getdata()) if pixel == (76, 82, 92, 255))
+            main.putpixel(point, (126, 136, 147, 255))
+            main.save(main_path)
+            self.update_embedded_main(root)
+            result = self.run_validator(root)
+            self.assertEqual(1, result.returncode)
+            self.assertIn("RGBA pixel hash", result.stderr)
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.copy_candidate(directory)
+            main = Image.open(root / RELATIVE_PATHS[2]).copy()
+            glow_path = root / RELATIVE_PATHS[3]
+            glow = Image.open(glow_path).copy()
+            allowed = set()
+            for name, xs, ys in self.geometry_rectangles(root):
+                if name.startswith("eye_") or name.startswith("crystal_") or name == "mouth_sensor_cube":
+                    allowed.update((x, y) for x in xs for y in ys)
+            source = next((i % 256, i // 256) for i, pixel in enumerate(glow.getdata()) if pixel[3] == 255)
+            target = next(point for point in allowed if main.getpixel(point)[3] == 255 and glow.getpixel(point)[3] == 0)
+            glow.putpixel(target, glow.getpixel(source))
+            glow.putpixel(source, (0, 0, 0, 0))
+            glow.save(glow_path)
+            result = self.run_validator(root)
+            self.assertEqual(1, result.returncode)
+            self.assertIn("RGBA pixel hash", result.stderr)
+
+    def test_rgba_contract_allows_lossless_png_recompression(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.copy_candidate(directory)
+            main_path = root / RELATIVE_PATHS[2]
+            original_pixels = Image.open(main_path).convert("RGBA").tobytes()
+            image = Image.open(main_path).copy()
+            image.save(main_path, optimize=True, compress_level=9)
+            self.assertEqual(original_pixels, Image.open(main_path).convert("RGBA").tobytes())
+            self.update_embedded_main(root)
+            result = self.run_validator(root)
+            self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_manifest_verification_failure_restores_existing_or_removes_new_target(self):
+        for initially_present in (True, False):
+            with self.subTest(initially_present=initially_present), tempfile.TemporaryDirectory() as directory:
+                target = Path(directory) / "manifest.json"
+                if initially_present:
+                    target.write_bytes(b"old manifest\n")
+                real_read = Path.read_bytes
+                reads = 0
+
+                def fail_first_target_read(path):
+                    nonlocal reads
+                    if path == target:
+                        reads += 1
+                        if reads == 1:
+                            raise OSError("simulated post-publish verification failure")
+                    return real_read(path)
+
+                with mock.patch.object(Path, "read_bytes", autospec=True, side_effect=fail_first_target_read):
+                    with self.assertRaisesRegex(validate.ValidationFailure, "verification.*rollback"):
+                        validate._atomic_write(target, b"new manifest\n")
+                if initially_present:
+                    self.assertEqual(b"old manifest\n", target.read_bytes())
+                else:
+                    self.assertFalse(target.exists())
+                self.assertEqual(([target] if initially_present else []), list(target.parent.iterdir()))
+
+    def test_manifest_rollback_failure_retains_backup_with_chain(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "manifest.json"
+            target.write_bytes(b"old manifest\n")
+            real_replace = os.replace
+            replace_calls = 0
+
+            def fail_rollback(source, destination):
+                nonlocal replace_calls
+                replace_calls += 1
+                if replace_calls == 3:
+                    raise OSError("simulated rollback failure")
+                return real_replace(source, destination)
+
+            real_read = Path.read_bytes
+
+            def fail_target_verification(path):
+                if path == target:
+                    raise OSError("verification read failure")
+                return real_read(path)
+
+            with mock.patch("os.replace", side_effect=fail_rollback), mock.patch.object(Path, "read_bytes", autospec=True, side_effect=fail_target_verification):
+                with self.assertRaisesRegex(validate.ValidationFailure, "verification.*rollback failed") as raised:
+                    validate._atomic_write(target, b"new manifest\n")
+            backups = [path for path in target.parent.iterdir() if ".backup." in path.name]
+            self.assertEqual(1, len(backups))
+            self.assertEqual(b"old manifest\n", backups[0].read_bytes())
+            self.assertIn(str(backups[0]), str(raised.exception))
+
+    def test_manifest_success_removes_closed_backup_and_temp(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "manifest.json"
+            target.write_bytes(b"old manifest\n")
+            validate._atomic_write(target, b"new manifest\n")
+            self.assertEqual(b"new manifest\n", target.read_bytes())
+            self.assertEqual([target], list(target.parent.iterdir()))
+
+    def test_deeply_nested_json_is_contextualized_without_unexpected_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.copy_candidate(directory)
+            nested = b'{"format_version":"1.12.0","x":' + b"[" * 1500 + b"0" + b"]" * 1500 + b',"minecraft:geometry":[]}'
+            (root / RELATIVE_PATHS[1]).write_bytes(nested)
+            result = self.run_validator(root)
+            self.assertEqual(1, result.returncode)
+            self.assertEqual("", result.stdout)
+            self.assertIn("malformed or too deeply nested JSON", result.stderr)
+            self.assertNotIn("unexpected validator error", result.stderr)
 
     def test_cli_usage_is_exit_two_without_traceback(self):
         result = subprocess.run(

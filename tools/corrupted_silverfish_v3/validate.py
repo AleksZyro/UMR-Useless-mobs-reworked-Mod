@@ -93,6 +93,9 @@ EXPECTED_ANIMATION_CHANNELS = {
 FILE_LIMITS = (4 * 1024 * 1024, 2 * 1024 * 1024, 1024 * 1024, 1024 * 1024, 1024 * 1024)
 GEOMETRY_CONTRACT_SHA256 = "877ED79F9B260D2038F738E37565CA9F7DEA574AF2779E83B09840759F61D2BD"
 ANIMATION_CONTRACT_SHA256 = "B08162F066BC885A6E363201B7A4DBC03059D72E3C580CD880442F1A91629DA6"
+MAIN_RGBA_SHA256 = "2F60AC9D874A4350423EF681FD48CB22B082D48AC6AE0AED5D8D3BE1E51D9E5C"
+GLOW_RGBA_SHA256 = "A270884344131F272B02C9BF0E084C2F0BB2039BAFCD5454FBADCD274171F065"
+BBMODEL_CONTRACT_SHA256 = "4113ACC380B3470AFB12EA0DCB60EA42E4E08BEB7F680A75329AF9908C4C6AA3"
 RELATIVE_PATHS = (
     Path("Modelle/Editierbar/Corrupted Silverfish v3.bbmodel"),
     Path("Modelle/Exports/corrupted_silverfish_v3/geo/corrupted_silverfish.geo.json"),
@@ -158,11 +161,23 @@ def _reject_constant(value: str) -> None:
 def _load_json(raw: bytes, path: Path, label: str) -> Mapping[str, Any]:
     try:
         value = json.loads(raw.decode("utf-8"), object_pairs_hook=_reject_duplicate_pairs, parse_constant=_reject_constant)
+    except RecursionError as exc:
+        fail(f"{label} malformed or too deeply nested JSON ({path}): {exc}")
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         fail(f"{label} JSON is malformed ({path}): {exc}")
     if not isinstance(value, dict):
         fail(f"{label} JSON root must be an object")
     return value
+
+
+def _exact_keys(value: Mapping[str, Any], required: set, optional: set, context: str) -> None:
+    keys = set(value)
+    missing = required - keys
+    unexpected = keys - required - optional
+    if missing:
+        fail(f"{context} missing required keys {sorted(missing)}")
+    if unexpected:
+        fail(f"{context} has unexpected keys {sorted(unexpected)}")
 
 
 def _read_snapshot(path: Path, limit: int, label: str) -> bytes:
@@ -214,15 +229,26 @@ def _validate_hierarchy(parents: Mapping[str, Optional[str]]) -> str:
 
 
 def validate_geometry(document: Mapping[str, Any]) -> Dict[str, Any]:
+    _exact_keys(document, {"format_version", "minecraft:geometry"}, set(), "geometry root")
     if document.get("format_version") != "1.12.0":
         fail("geometry format_version must be 1.12.0")
     geometries = document.get("minecraft:geometry")
     if not isinstance(geometries, list) or len(geometries) != 1 or not isinstance(geometries[0], dict):
         fail("geometry must contain exactly one minecraft:geometry object")
     geometry = geometries[0]
+    _exact_keys(geometry, {"description", "bones"}, set(), "geometry object")
     description = geometry.get("description")
-    if not isinstance(description, dict) or description.get("texture_width") != 256 or description.get("texture_height") != 256:
+    if not isinstance(description, dict):
+        fail("geometry description must be an object")
+    _exact_keys(description, {"identifier", "texture_width", "texture_height", "visible_bounds_width", "visible_bounds_height", "visible_bounds_offset"}, set(), "geometry description")
+    if description.get("identifier") != "geometry.corrupted_silverfish":
+        fail("geometry description identifier must be geometry.corrupted_silverfish")
+    if description.get("texture_width") != 256 or description.get("texture_height") != 256:
         fail("geometry texture resolution must be 256x256")
+    if _number(description.get("visible_bounds_width"), "geometry visible_bounds_width") != 2.6 or _number(description.get("visible_bounds_height"), "geometry visible_bounds_height") != 1.7:
+        fail("geometry visible bounds dimensions mismatch fixed v3 contract")
+    if _vec(description.get("visible_bounds_offset"), 3, "geometry visible_bounds_offset") != [0.0, 0.55, 0.0]:
+        fail("geometry visible bounds offset mismatch fixed v3 contract")
     bones = geometry.get("bones")
     if not isinstance(bones, list) or len(bones) != 32:
         fail(f"geometry must contain exactly 32 bones, found {len(bones) if isinstance(bones, list) else 'invalid'}")
@@ -237,6 +263,7 @@ def validate_geometry(document: Mapping[str, Any]) -> Dict[str, Any]:
     for index, bone in enumerate(bones):
         if not isinstance(bone, dict) or not isinstance(bone.get("name"), str) or not bone["name"]:
             fail(f"geometry bone {index} has invalid name")
+        _exact_keys(bone, {"name", "pivot"}, {"parent", "rotation", "cubes"}, f"geometry bone {bone['name']}")
         name = bone["name"]
         if name in parents:
             fail(f"duplicate bone name {name}")
@@ -255,6 +282,7 @@ def validate_geometry(document: Mapping[str, Any]) -> Dict[str, Any]:
             if not isinstance(cube, dict) or not isinstance(cube.get("name"), str) or not cube["name"]:
                 fail(f"bone {name} cube {cube_index} has invalid name")
             cube_name = cube["name"]
+            _exact_keys(cube, {"name", "origin", "size", "uv"}, {"rotation", "pivot"}, f"geometry cube {cube_name}")
             if cube_name in cubes:
                 fail(f"duplicate cube name {cube_name}")
             origin = _vec(cube.get("origin"), 3, f"cube {cube_name} origin")
@@ -276,6 +304,7 @@ def validate_geometry(document: Mapping[str, Any]) -> Dict[str, Any]:
                 face_value = uv[face]
                 if not isinstance(face_value, dict):
                     fail(f"cube {cube_name} face {face} must be an object")
+                _exact_keys(face_value, {"uv", "uv_size"}, set(), f"geometry cube {cube_name} face {face}")
                 start = _vec(face_value.get("uv"), 2, f"cube {cube_name} face {face} UV")
                 extent = _vec(face_value.get("uv_size"), 2, f"cube {cube_name} face {face} UV extent", positive=True)
                 if not all(value.is_integer() for value in (*start, *extent)):
@@ -389,10 +418,15 @@ def validate_textures(main_bytes: bytes, glow_bytes: bytes, main_path: Path, glo
                 fail(f"glow pixel ({index % 256},{index // 256}) has disallowed color {pixel}")
             if index not in glow_allowed_pixels:
                 fail(f"glow pixel ({index % 256},{index // 256}) is outside allowed eye/crystal UV islands")
+    if hashlib.sha256(main.tobytes()).hexdigest().upper() != MAIN_RGBA_SHA256:
+        fail("main texture RGBA pixel hash mismatches approved Task4 visual contract")
+    if hashlib.sha256(glow.tobytes()).hexdigest().upper() != GLOW_RGBA_SHA256:
+        fail("glow texture RGBA pixel hash mismatches approved Task4 visual contract")
     return glow_count
 
 
 def validate_animations(document: Mapping[str, Any], bone_names: set) -> Dict[str, Any]:
+    _exact_keys(document, {"format_version", "animations"}, set(), "animation root")
     if document.get("format_version") != "1.8.0":
         fail("animation format_version must be 1.8.0")
     animations = document.get("animations")
@@ -403,6 +437,7 @@ def validate_animations(document: Mapping[str, Any], bone_names: set) -> Dict[st
         animation = animations[animation_name]
         if not isinstance(animation, dict):
             fail(f"animation {animation_name} must be an object")
+        _exact_keys(animation, {"loop", "animation_length", "bones"}, set(), f"animation {animation_name}")
         length = _number(animation.get("animation_length"), f"animation {animation_name} length", positive=True)
         if length != expected_length:
             fail(f"animation {animation_name} length must be {expected_length}")
@@ -442,6 +477,7 @@ def validate_animations(document: Mapping[str, Any], bone_names: set) -> Dict[st
                         fail(f"animation {animation_name} has duplicate numeric keyframe time {time_text!r}")
                     if not isinstance(keyframe, dict) or keyframe.get("lerp_mode") != "linear":
                         fail(f"animation {animation_name} {bone_name}/{channel_name} keyframe {time_text} must be linear")
+                    _exact_keys(keyframe, {"post", "lerp_mode"}, set(), f"animation {animation_name} {bone_name}/{channel_name} keyframe {time_text}")
                     normalized_keyframes[time] = _vec(keyframe.get("post"), 3, f"animation {animation_name} {bone_name}/{channel_name} keyframe {time_text} post")
                 ordered = sorted(normalized_keyframes.items())
                 if loop and (ordered[0][0] != 0 or ordered[-1][0] != length or ordered[0][1] != ordered[-1][1]):
@@ -532,6 +568,7 @@ def _flatten_outliner(
             if parent != expected_owner:
                 fail(f"bbmodel outliner element {element_name} belongs under {parent!r}, expected group {expected_owner}")
         elif isinstance(item, dict):
+            _exact_keys(item, {"uuid", "isOpen", "children"}, set(), "bbmodel outliner group")
             uuid = item.get("uuid")
             if uuid not in groups_by_uuid or uuid in found_parents:
                 fail(f"bbmodel outliner has invalid or duplicate group UUID {uuid}")
@@ -543,7 +580,10 @@ def _flatten_outliner(
 
 
 def validate_bbmodel(document: Mapping[str, Any], geometry: Mapping[str, Any], animations: Mapping[str, Any], main_bytes: bytes) -> None:
+    _exact_keys(document, {"meta", "name", "model_identifier", "visible_box", "variable_placeholders", "timeline_setups", "unhandled_root_fields", "geckolib_modid", "geckolib_filepath_cache", "resolution", "elements", "groups", "outliner", "textures", "animations", "geckolib_model_type"}, set(), "bbmodel root")
     meta = document.get("meta")
+    if isinstance(meta, dict):
+        _exact_keys(meta, {"format_version", "model_format", "box_uv"}, set(), "bbmodel meta")
     if not isinstance(meta, dict) or meta.get("format_version") != "5.0" or meta.get("model_format") != "geckolib_model" or meta.get("box_uv") is not False:
         fail("bbmodel meta format must be GeckoLib 5.0 with per-face UV")
     if document.get("resolution") != {"width": 256, "height": 256}:
@@ -561,6 +601,7 @@ def validate_bbmodel(document: Mapping[str, Any], geometry: Mapping[str, Any], a
         if not isinstance(group, dict) or not isinstance(group.get("name"), str):
             fail("bbmodel group has invalid name")
         name = group["name"]
+        _exact_keys(group, {"name", "uuid", "export", "locked", "origin", "rotation", "color", "children", "reset", "shade", "mirror_uv", "visibility", "autouv", "isOpen"}, set(), f"bbmodel group {name}")
         if name in group_by_name:
             fail(f"bbmodel duplicate group name {name}")
         uuid = _validate_uuid(group.get("uuid"), f"bbmodel group {name}", seen_uuids)
@@ -579,6 +620,7 @@ def validate_bbmodel(document: Mapping[str, Any], geometry: Mapping[str, Any], a
         if not isinstance(element, dict) or not isinstance(element.get("name"), str):
             fail("bbmodel element has invalid name")
         name = element["name"]
+        _exact_keys(element, {"name", "box_uv", "from", "to", "origin", "rotation", "faces", "type", "uuid", "bone"}, set(), f"bbmodel element {name}")
         if name in elements_by_name:
             fail(f"bbmodel duplicate element name {name}")
         uuid = _validate_uuid(element.get("uuid"), f"bbmodel element {name}", seen_uuids)
@@ -603,6 +645,7 @@ def validate_bbmodel(document: Mapping[str, Any], geometry: Mapping[str, Any], a
         for face in FACE_NAMES:
             if not isinstance(faces[face], dict):
                 fail(f"bbmodel cube {name} face {face} must be an object")
+            _exact_keys(faces[face], {"uv", "texture"}, set(), f"bbmodel cube {name} face {face}")
             if faces[face].get("texture") != 0 or isinstance(faces[face].get("texture"), bool):
                 fail(f"bbmodel cube {name} face {face} texture must be 0")
             if _vec(faces[face].get("uv"), 4, f"bbmodel cube {name} face {face} UV") != expected["faces"][face]:
@@ -619,6 +662,7 @@ def validate_bbmodel(document: Mapping[str, Any], geometry: Mapping[str, Any], a
     if not isinstance(textures, list) or len(textures) != 1 or not isinstance(textures[0], dict):
         fail("bbmodel must contain exactly one embedded texture")
     source = textures[0].get("source")
+    _exact_keys(textures[0], {"path", "name", "folder", "namespace", "id", "particle", "render_mode", "visible", "mode", "saved", "uuid", "source"}, set(), "bbmodel texture")
     _validate_uuid(textures[0].get("uuid"), "bbmodel texture", seen_uuids)
     prefix = "data:image/png;base64,"
     if not isinstance(source, str) or not source.startswith(prefix):
@@ -637,6 +681,7 @@ def validate_bbmodel(document: Mapping[str, Any], geometry: Mapping[str, Any], a
         if not isinstance(animation, dict) or not isinstance(animation.get("name"), str):
             fail("bbmodel animation has invalid name")
         name = animation["name"]
+        _exact_keys(animation, {"uuid", "name", "path", "loop", "override", "snapping", "length", "selected_item", "anim_time_update", "blend_weight", "start_delay", "loop_delay", "animators"}, set(), f"bbmodel animation {name}")
         if name in by_name:
             fail(f"bbmodel duplicate animation {name}")
         _validate_uuid(animation.get("uuid"), f"bbmodel animation {name}", seen_uuids)
@@ -657,6 +702,7 @@ def validate_bbmodel(document: Mapping[str, Any], geometry: Mapping[str, Any], a
             if group_uuid not in groups_by_uuid or not isinstance(animator, dict) or animator.get("name") != groups_by_uuid[group_uuid]:
                 fail(f"bbmodel animation {name} has invalid animator {group_uuid}")
             bone_name = groups_by_uuid[group_uuid]
+            _exact_keys(animator, {"name", "type", "rotation_global", "quaternion_interpolation", "keyframes"}, set(), f"bbmodel animation {name} animator {bone_name}")
             channels: Dict[str, Dict[float, List[float]]] = {}
             keyframes = animator.get("keyframes")
             if not isinstance(keyframes, list):
@@ -664,11 +710,13 @@ def validate_bbmodel(document: Mapping[str, Any], geometry: Mapping[str, Any], a
             for keyframe in keyframes:
                 if not isinstance(keyframe, dict) or keyframe.get("channel") not in CHANNEL_NAMES or keyframe.get("interpolation") != "linear":
                     fail(f"bbmodel animation {name} animator {bone_name} has invalid keyframe")
+                _exact_keys(keyframe, {"channel", "data_points", "uuid", "time", "color", "interpolation"}, set(), f"bbmodel animation {name} animator {bone_name} keyframe")
                 _validate_uuid(keyframe.get("uuid"), f"bbmodel animation {name} keyframe", seen_uuids)
                 time = _number(keyframe.get("time"), f"bbmodel animation {name} keyframe time")
                 points = keyframe.get("data_points")
                 if not isinstance(points, list) or len(points) != 1 or not isinstance(points[0], dict):
                     fail(f"bbmodel animation {name} keyframe must have one data point")
+                _exact_keys(points[0], {"x", "y", "z"}, set(), f"bbmodel animation {name} keyframe data point")
                 vector = [_numeric_string(points[0].get(axis), f"bbmodel animation {name} keyframe {axis}") for axis in "xyz"]
                 channel = channels.setdefault(keyframe["channel"], {})
                 if time in channel:
@@ -677,6 +725,11 @@ def validate_bbmodel(document: Mapping[str, Any], geometry: Mapping[str, Any], a
             projected[bone_name] = channels
         if projected != expected_animation["bones"]:
             fail(f"bbmodel animation {name} channels mismatch animations file")
+    contract_document = json.loads(json.dumps(document))
+    contract_document["textures"][0]["source"] = "<validated-main-texture>"
+    contract_digest = hashlib.sha256(json.dumps(contract_document, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest().upper()
+    if contract_digest != BBMODEL_CONTRACT_SHA256:
+        fail("bbmodel runtime/editor values mismatch immutable v3 contract")
 
 
 def _is_reparse(path: Path) -> bool:
@@ -751,8 +804,14 @@ def _manifest_bytes(snapshots: Sequence[bytes]) -> bytes:
 
 def _atomic_write(path: Path, contents: bytes) -> None:
     temp_path: Optional[Path] = None
-    primary: Optional[OSError] = None
+    backup_path: Optional[Path] = None
+    old_snapshot: Optional[bytes] = None
+    old_moved = False
+    target_existed = path.exists()
+    primary: Optional[BaseException] = None
+    rollback_errors: List[str] = []
     cleanup_errors: List[str] = []
+    retain_backup = False
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
@@ -768,26 +827,65 @@ def _atomic_write(path: Path, contents: bytes) -> None:
             except OSError:
                 pass
             raise
+        if target_existed:
+            backup_descriptor, backup_name = tempfile.mkstemp(prefix=f".{path.name}.backup.", suffix=".tmp", dir=str(path.parent))
+            os.close(backup_descriptor)
+            backup_path = Path(backup_name)
+            os.replace(path, backup_path)
+            if path.exists():
+                raise OSError("manifest backup verification failed: original target still exists")
+            old_moved = True
+            try:
+                old_snapshot = backup_path.read_bytes()
+            except OSError as exc:
+                raise OSError(f"manifest backup verification read failed: {exc}") from exc
         os.replace(temp_path, path)
+        if temp_path.exists():
+            raise OSError("manifest publish verification failed: temporary file still exists")
+        temp_path = None
         try:
             published = path.read_bytes()
         except OSError as exc:
             raise OSError(f"manifest verification read failed: {exc}") from exc
         if published != contents:
             raise OSError("manifest verification byte mismatch")
-        temp_path = None
-    except OSError as exc:
+        if hashlib.sha256(published).digest() != hashlib.sha256(contents).digest():
+            raise OSError("manifest verification hash mismatch")
+    except BaseException as exc:
         primary = exc
+        if old_moved and backup_path is not None:
+            try:
+                os.replace(backup_path, path)
+                restored = path.read_bytes()
+                if old_snapshot is None or restored != old_snapshot:
+                    raise OSError("restored manifest bytes mismatch backup")
+                backup_path = None
+            except OSError as rollback_exc:
+                retain_backup = True
+                rollback_errors.append(f"rollback failed from {backup_path} to {path}: {rollback_exc}")
+        elif not target_existed and path.exists():
+            try:
+                path.unlink()
+            except OSError as rollback_exc:
+                rollback_errors.append(f"rollback failed removing new target {path}: {rollback_exc}")
     finally:
         if temp_path is not None:
             try:
                 temp_path.unlink(missing_ok=True)
             except OSError as exc:
                 cleanup_errors.append(f"cleanup failed for {temp_path}: {exc}")
-    if primary is not None or cleanup_errors:
+        if backup_path is not None and not retain_backup:
+            try:
+                backup_path.unlink(missing_ok=True)
+            except OSError as exc:
+                cleanup_errors.append(f"cleanup failed for {backup_path}: {exc}")
+    if primary is not None or rollback_errors or cleanup_errors:
         details = []
         if primary is not None:
             details.append(f"manifest write failed ({path}): {primary}")
+        if primary is not None and not rollback_errors:
+            details.append(f"rollback completed for {path}")
+        details.extend(rollback_errors)
         details.extend(cleanup_errors)
         fail("; ".join(details))
 
