@@ -82,7 +82,7 @@ class ModelSpecContract(unittest.TestCase):
                 "walk": 0.8,
                 "attack": 0.45,
                 "hurt": 0.3,
-                "death": 1.1,
+                "death": 1.0,
             },
             ANIMATIONS,
         )

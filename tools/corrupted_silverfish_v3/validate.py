@@ -39,7 +39,7 @@ EXPECTED_ANIMATIONS = {
     "animation.corrupted_silverfish.walk": (0.8, True),
     "animation.corrupted_silverfish.attack": (0.45, False),
     "animation.corrupted_silverfish.hurt": (0.3, False),
-    "animation.corrupted_silverfish.death": (1.1, False),
+    "animation.corrupted_silverfish.death": (1.0, False),
 }
 GLOW_COLORS = {(86, 190, 255, 255), (234, 55, 112, 255)}
 MAIN_PALETTE = {
@@ -98,10 +98,10 @@ EXPECTED_ANIMATION_CHANNELS = {
 }
 FILE_LIMITS = (4 * 1024 * 1024, 2 * 1024 * 1024, 1024 * 1024, 1024 * 1024, 1024 * 1024)
 GEOMETRY_CONTRACT_SHA256 = "877ED79F9B260D2038F738E37565CA9F7DEA574AF2779E83B09840759F61D2BD"
-ANIMATION_CONTRACT_SHA256 = "B08162F066BC885A6E363201B7A4DBC03059D72E3C580CD880442F1A91629DA6"
+ANIMATION_CONTRACT_SHA256 = "55D3EEE6550878375E1A11C5F3B58906F87A5ABB0F1D140F889E176AB62A5A8C"
 MAIN_RGBA_SHA256 = "2F60AC9D874A4350423EF681FD48CB22B082D48AC6AE0AED5D8D3BE1E51D9E5C"
 GLOW_RGBA_SHA256 = "A270884344131F272B02C9BF0E084C2F0BB2039BAFCD5454FBADCD274171F065"
-BBMODEL_CONTRACT_SHA256 = "4113ACC380B3470AFB12EA0DCB60EA42E4E08BEB7F680A75329AF9908C4C6AA3"
+BBMODEL_CONTRACT_SHA256 = "9FF188CCDDF5DF9E3A5603518E9E2CCF13C5726E2880612B1117A1122AEBC07C"
 RELATIVE_PATHS = (
     Path("Modelle/Editierbar/Corrupted Silverfish v3.bbmodel"),
     Path("Modelle/Exports/corrupted_silverfish_v3/geo/corrupted_silverfish.geo.json"),
@@ -500,7 +500,7 @@ def validate_animations(document: Mapping[str, Any], bone_names: set) -> Dict[st
         "animation.corrupted_silverfish.walk": {0.0, 0.2, 0.4, 0.6, 0.8},
         "animation.corrupted_silverfish.attack": {0.0, 0.225, 0.45},
         "animation.corrupted_silverfish.hurt": {0.0, 0.1, 0.2, 0.3},
-        "animation.corrupted_silverfish.death": {0.0, 0.55, 1.1},
+        "animation.corrupted_silverfish.death": {0.0, 0.55, 1.0},
     }
     for animation_name, animation in normalized.items():
         for bone_name, channels in animation["bones"].items():

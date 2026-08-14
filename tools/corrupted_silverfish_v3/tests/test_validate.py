@@ -126,6 +126,22 @@ class ValidatorContract(unittest.TestCase):
             self.assertEqual(0, self.run_validator(root).returncode)
             self.assertEqual(first, manifest.read_bytes())
 
+    def test_death_timeline_cannot_outlive_vanilla_removal_window(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.copy_candidate(directory)
+            path = root / RELATIVE_PATHS[4]
+            document = json.loads(path.read_text(encoding="utf-8"))
+            death = document["animations"]["animation.corrupted_silverfish.death"]
+            death["animation_length"] = 1.1
+            for channels in death["bones"].values():
+                for keyframes in channels.values():
+                    final = max(keyframes, key=float)
+                    keyframes["1.1"] = keyframes.pop(final)
+            path.write_text(json.dumps(document), encoding="utf-8")
+            result = self.run_validator(root)
+            self.assertEqual(1, result.returncode)
+            self.assertIn("death", result.stderr)
+
     def test_zero_cube_dimension_fails_without_touching_manifest(self):
         with tempfile.TemporaryDirectory() as directory:
             root = self.copy_candidate(directory)

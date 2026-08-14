@@ -204,7 +204,7 @@ def _animation_specs() -> Dict[str, dict]:
             )
         }
 
-    death_times = (0, 0.55, 1.1)
+    death_times = (0, 0.55, 1.0)
     death_bones: Dict[str, dict] = {
         "body": {"position": channel(death_times, ((0, 0, 0), (0, -0.4, 0), (0, -1.4, 0)))},
         "tail_base": {"rotation": channel(death_times, ((0, 0, 0), (3, 0, 0), (6, 0, 0)))},
@@ -225,7 +225,7 @@ def _animation_specs() -> Dict[str, dict]:
         "animation.corrupted_silverfish.walk": {"loop": True, "animation_length": 0.8, "bones": walk_bones},
         "animation.corrupted_silverfish.attack": {"loop": False, "animation_length": 0.45, "bones": attack_bones},
         "animation.corrupted_silverfish.hurt": {"loop": False, "animation_length": 0.3, "bones": hurt_bones},
-        "animation.corrupted_silverfish.death": {"loop": False, "animation_length": 1.1, "bones": death_bones},
+        "animation.corrupted_silverfish.death": {"loop": False, "animation_length": 1.0, "bones": death_bones},
     }
 
 

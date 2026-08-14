@@ -16,7 +16,7 @@ EXPECTED = {
     "animation.corrupted_silverfish.walk": (0.8, True),
     "animation.corrupted_silverfish.attack": (0.45, False),
     "animation.corrupted_silverfish.hurt": (0.3, False),
-    "animation.corrupted_silverfish.death": (1.1, False),
+    "animation.corrupted_silverfish.death": (1.0, False),
 }
 
 
@@ -146,6 +146,14 @@ class AnimationContract(unittest.TestCase):
             self.assertEqual(0.96, min(v[0] for v in self.channel_values(hurt, bone, "scale")))
 
         death = self.animations["animation.corrupted_silverfish.death"]
+        final_times = []
+        for channels in death["bones"].values():
+            for keyframes in channels.values():
+                final_times.append(max(map(float, keyframes)))
+        self.assertTrue(final_times)
+        self.assertTrue(all(time <= 1.0 for time in final_times))
+        self.assertEqual({1.0}, set(final_times))
+        self.assertEqual([0, -1.4, 0], death["bones"]["body"]["position"]["1"]["post"])
         self.assertEqual(-1.4, self.channel_values(death, "body", "position")[-1][1])
         self.assertEqual(12, abs(self.channel_values(death, "tail_tip", "rotation")[-1][0]))
         for side in ("left", "right"):
