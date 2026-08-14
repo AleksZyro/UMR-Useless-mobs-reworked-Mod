@@ -220,7 +220,9 @@ public class CorruptedSilverfishEntity extends Silverfish implements GeoEntity {
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
         controllers.add(new AnimationController<>(this, "movement", 3,
                 state -> state.setAndContinue(state.isMoving() ? WALK_ANIM : IDLE_ANIM)));
-        controllers.add(new AnimationController<>(this, "action", 0, state -> PlayState.STOP)
+        controllers.add(new AnimationController<>(this, "action", 0, state -> this.isDeadOrDying()
+                ? state.setAndContinue(DEATH_ANIM)
+                : PlayState.STOP)
                 .triggerableAnim("attack", ATTACK_ANIM)
                 .triggerableAnim("hurt", HURT_ANIM)
                 .triggerableAnim("death", DEATH_ANIM));

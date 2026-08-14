@@ -180,7 +180,16 @@ class EntityAnimationIntegrationContract(unittest.TestCase):
                 )
             ),
         )
-        self.assertEqual(1, len(re.findall(r"state\s*->\s*PlayState\.STOP", body)))
+        self.assertEqual(
+            1,
+            len(
+                re.findall(
+                    r"state\s*->\s*this\.isDeadOrDying\s*\(\s*\)\s*\?\s*"
+                    r"state\.setAndContinue\s*\(\s*DEATH_ANIM\s*\)\s*:\s*PlayState\.STOP",
+                    body,
+                )
+            ),
+        )
         self.assertNotRegex(body, r"setAnimation\s*\(\s*IDLE_ANIM\s*\)")
 
     def test_attack_triggers_only_after_successful_server_hit_and_keeps_effects(self):
