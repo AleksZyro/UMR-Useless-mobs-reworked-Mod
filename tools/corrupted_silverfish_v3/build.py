@@ -289,12 +289,11 @@ def _atomic_json_write(path: Path, document: dict) -> None:
         temporary.unlink(missing_ok=True)
 
 
-def build_geometry() -> Tuple[Path, Path]:
-    """Write the geometry and structural Blockbench project atomically."""
+def build_geometry() -> Path:
+    """Write only the geometry artifact, leaving the editable project untouched."""
 
     _atomic_json_write(GEOMETRY_PATH, geometry_document())
-    _atomic_json_write(BBMODEL_PATH, bbmodel_document())
-    return GEOMETRY_PATH, BBMODEL_PATH
+    return GEOMETRY_PATH
 
 
 def write_textured_bbmodel(texture_source: str) -> Path:
@@ -309,14 +308,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--geometry-only",
         action="store_true",
-        help="write geometry JSON and the structural Blockbench project",
+        help="write only the geometry JSON",
     )
     arguments = parser.parse_args(argv)
     if not arguments.geometry_only:
         parser.error("this build stage requires --geometry-only")
-    geometry_path, bbmodel_path = build_geometry()
+    geometry_path = build_geometry()
     print(f"Geometry: {geometry_path} (32 bones, 112 cubes)")
-    print(f"Blockbench: {bbmodel_path} (32 groups, 112 elements)")
     return 0
 
 

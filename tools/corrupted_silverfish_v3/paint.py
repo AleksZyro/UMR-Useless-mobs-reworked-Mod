@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import argparse
 import base64
 import hashlib
+import io
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -181,21 +184,73 @@ def paint_images() -> tuple[Image.Image, Image.Image]:
     return main, glow
 
 
-def _atomic_png_write(path: Path, image: Image.Image) -> None:
+def _png_bytes(image: Image.Image) -> bytes:
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def _stage_bytes(path: Path, contents: bytes, role: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     file_descriptor, temporary_name = tempfile.mkstemp(
-        prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent)
+        prefix=f".{path.name}.{role}.", suffix=".tmp", dir=str(path.parent)
     )
     temporary = Path(temporary_name)
     try:
         with os.fdopen(file_descriptor, "wb") as handle:
             file_descriptor = -1
-            image.save(handle, format="PNG")
-        os.replace(temporary, path)
-    finally:
+            handle.write(contents)
+        return temporary
+    except BaseException:
         if file_descriptor != -1:
             os.close(file_descriptor)
         temporary.unlink(missing_ok=True)
+        raise
+
+
+def _publish_transaction(payloads: Sequence[tuple[Path, bytes]]) -> None:
+    targets = [path for path, _contents in payloads]
+    if len(targets) != len(set(targets)):
+        raise ValueError("transaction targets must be unique")
+
+    candidates: dict[Path, Path] = {}
+    backups: dict[Path, Path | None] = {}
+    published: list[Path] = []
+    try:
+        for target, contents in payloads:
+            candidates[target] = _stage_bytes(target, contents, "candidate")
+        for target in targets:
+            backups[target] = (
+                _stage_bytes(target, target.read_bytes(), "backup")
+                if target.is_file()
+                else None
+            )
+
+        for target in targets:
+            os.replace(candidates[target], target)
+            published.append(target)
+    except BaseException:
+        rollback_error = None
+        for target in reversed(published):
+            try:
+                backup = backups[target]
+                if backup is None:
+                    target.unlink(missing_ok=True)
+                else:
+                    os.replace(backup, target)
+            except BaseException as error:
+                rollback_error = rollback_error or error
+        if rollback_error is not None:
+            raise RuntimeError("texture transaction rollback failed") from rollback_error
+        raise
+    finally:
+        for temporary in (*candidates.values(), *backups.values()):
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+
+
+def _atomic_png_write(path: Path, image: Image.Image) -> None:
+    _publish_transaction(((path, _png_bytes(image)),))
 
 
 def _preview(main: Image.Image) -> Image.Image:
@@ -212,22 +267,30 @@ def _preview(main: Image.Image) -> Image.Image:
 
 
 def write_textures() -> tuple[Path, Path, Path, Path]:
-    """Atomically write both atlases, preview, and textured Blockbench project."""
+    """Publish both atlases, preview, and bbmodel as one transaction."""
 
     main, glow = paint_images()
-    _atomic_png_write(MAIN_TEXTURE_PATH, main)
-    _atomic_png_write(GLOWMASK_PATH, glow)
-    _atomic_png_write(PREVIEW_PATH, _preview(main))
-    source = "data:image/png;base64," + base64.b64encode(
-        MAIN_TEXTURE_PATH.read_bytes()
-    ).decode("ascii")
-    build.write_textured_bbmodel(source)
+    main_bytes = _png_bytes(main)
+    glow_bytes = _png_bytes(glow)
+    preview_bytes = _png_bytes(_preview(main))
+    source = "data:image/png;base64," + base64.b64encode(main_bytes).decode("ascii")
+    bbmodel_bytes = (
+        json.dumps(build.bbmodel_document(source), ensure_ascii=False, indent=2) + "\n"
+    ).encode("utf-8")
+    _publish_transaction(
+        (
+            (MAIN_TEXTURE_PATH, main_bytes),
+            (GLOWMASK_PATH, glow_bytes),
+            (PREVIEW_PATH, preview_bytes),
+            (build.BBMODEL_PATH, bbmodel_bytes),
+        )
+    )
     return MAIN_TEXTURE_PATH, GLOWMASK_PATH, PREVIEW_PATH, build.BBMODEL_PATH
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    if argv:
-        raise SystemExit("paint does not accept arguments")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.parse_args(argv)
     main_path, glow_path, preview_path, bbmodel_path = write_textures()
     print(f"Main texture: {main_path}")
     print(f"Glow mask: {glow_path}")

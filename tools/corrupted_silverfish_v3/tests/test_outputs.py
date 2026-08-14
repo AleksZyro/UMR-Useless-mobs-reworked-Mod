@@ -4,6 +4,7 @@ import json
 import math
 import os
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -36,6 +37,24 @@ class PaintedTextureContract(unittest.TestCase):
             for y in range(v, v + height)
             for x in range(u, u + width)
         ]
+
+    def transaction_targets(self, directory):
+        root = Path(directory)
+        targets = (
+            root / "main" / "corrupted_silverfish.png",
+            root / "glow" / "corrupted_silverfish_glowmask.png",
+            root / "review" / "texture_atlas_preview.png",
+            root / "model" / "Corrupted Silverfish v3.bbmodel",
+        )
+        for index, target in enumerate(targets):
+            target.parent.mkdir(parents=True)
+            target.write_bytes(f"original-{index}".encode("ascii"))
+        return targets
+
+    def assert_transaction_restored(self, targets):
+        for index, target in enumerate(targets):
+            self.assertEqual(f"original-{index}".encode("ascii"), target.read_bytes())
+            self.assertEqual([target], list(target.parent.iterdir()))
 
     def test_committed_pngs_are_rgba_atlas_images_without_pure_green(self):
         for path in (paint.MAIN_TEXTURE_PATH, paint.GLOWMASK_PATH):
@@ -205,7 +224,11 @@ class PaintedTextureContract(unittest.TestCase):
 
     def test_committed_outputs_match_fresh_paint_and_embedded_document(self):
         main, glow = paint.paint_images()
-        for image, path in ((main, paint.MAIN_TEXTURE_PATH), (glow, paint.GLOWMASK_PATH)):
+        for image, path in (
+            (main, paint.MAIN_TEXTURE_PATH),
+            (glow, paint.GLOWMASK_PATH),
+            (paint._preview(main), paint.PREVIEW_PATH),
+        ):
             buffer = io.BytesIO()
             image.save(buffer, format="PNG")
             self.assertEqual(buffer.getvalue(), path.read_bytes())
@@ -216,6 +239,142 @@ class PaintedTextureContract(unittest.TestCase):
             json.dumps(build.bbmodel_document(source), ensure_ascii=False, indent=2) + "\n"
         ).encode("utf-8")
         self.assertEqual(expected, build.BBMODEL_PATH.read_bytes())
+
+    def test_write_textures_rolls_back_all_targets_on_fourth_write_failure(self):
+        real_fdopen = os.fdopen
+        calls = 0
+
+        def fail_fourth_write(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 4:
+                raise OSError("simulated fourth write failure")
+            return real_fdopen(*args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as directory:
+            targets = self.transaction_targets(directory)
+            with mock.patch.multiple(
+                paint,
+                MAIN_TEXTURE_PATH=targets[0],
+                GLOWMASK_PATH=targets[1],
+                PREVIEW_PATH=targets[2],
+            ), mock.patch.object(
+                build, "BBMODEL_PATH", targets[3]
+            ), mock.patch(
+                "os.fdopen", side_effect=fail_fourth_write
+            ), self.assertRaisesRegex(
+                OSError, "simulated fourth write failure"
+            ):
+                paint.write_textures()
+
+            self.assertEqual(4, calls)
+            self.assert_transaction_restored(targets)
+
+    def test_write_textures_rolls_back_all_targets_on_fourth_replace_failure(self):
+        real_replace = os.replace
+        calls = 0
+
+        def fail_fourth_replace(source, target):
+            nonlocal calls
+            calls += 1
+            if calls == 4:
+                raise OSError("simulated fourth replace failure")
+            return real_replace(source, target)
+
+        with tempfile.TemporaryDirectory() as directory:
+            targets = self.transaction_targets(directory)
+            with mock.patch.multiple(
+                paint,
+                MAIN_TEXTURE_PATH=targets[0],
+                GLOWMASK_PATH=targets[1],
+                PREVIEW_PATH=targets[2],
+            ), mock.patch.object(
+                build, "BBMODEL_PATH", targets[3]
+            ), mock.patch(
+                "os.replace", side_effect=fail_fourth_replace
+            ), self.assertRaisesRegex(
+                OSError, "simulated fourth replace failure"
+            ):
+                paint.write_textures()
+
+            self.assertGreaterEqual(calls, 4)
+            self.assert_transaction_restored(targets)
+
+    def test_write_textures_uses_unique_temps_and_backups_in_target_directories(self):
+        created = []
+        real_mkstemp = tempfile.mkstemp
+
+        def tracked_mkstemp(*args, **kwargs):
+            file_descriptor, name = real_mkstemp(*args, **kwargs)
+            created.append(Path(name))
+            return file_descriptor, name
+
+        with tempfile.TemporaryDirectory() as directory:
+            targets = self.transaction_targets(directory)
+            with mock.patch.multiple(
+                paint,
+                MAIN_TEXTURE_PATH=targets[0],
+                GLOWMASK_PATH=targets[1],
+                PREVIEW_PATH=targets[2],
+            ), mock.patch.object(
+                build, "BBMODEL_PATH", targets[3]
+            ), mock.patch(
+                "tempfile.mkstemp", side_effect=tracked_mkstemp
+            ):
+                paint.write_textures()
+
+            self.assertEqual(8, len(created))
+            self.assertEqual(8, len(set(created)))
+            self.assertEqual(
+                sorted([target.parent for target in targets] * 2),
+                sorted(path.parent for path in created),
+            )
+            self.assertTrue(all(not path.exists() for path in created))
+            for target in targets:
+                self.assertEqual([target], list(target.parent.iterdir()))
+
+    def test_atomic_png_writer_cleans_temp_and_preserves_target_on_save_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "texture.png"
+            target.write_bytes(b"original")
+            with mock.patch.object(
+                Image.Image, "save", side_effect=OSError("simulated save failure")
+            ), self.assertRaisesRegex(OSError, "simulated save failure"):
+                paint._atomic_png_write(target, Image.new("RGBA", (1, 1)))
+
+            self.assertEqual(b"original", target.read_bytes())
+            self.assertEqual([target], list(target.parent.iterdir()))
+
+    def test_atomic_png_writer_cleans_temp_and_preserves_target_on_replace_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "texture.png"
+            target.write_bytes(b"original")
+            with mock.patch(
+                "os.replace", side_effect=OSError("simulated replace failure")
+            ), self.assertRaisesRegex(OSError, "simulated replace failure"):
+                paint._atomic_png_write(target, Image.new("RGBA", (1, 1)))
+
+            self.assertEqual(b"original", target.read_bytes())
+            self.assertEqual([target], list(target.parent.iterdir()))
+
+    def test_main_without_explicit_argv_parses_sys_argv_before_writing(self):
+        outputs = (
+            Path("main.png"),
+            Path("glow.png"),
+            Path("preview.png"),
+            Path("model.bbmodel"),
+        )
+        with mock.patch.object(
+            sys, "argv", ["paint", "--unexpected"]
+        ), mock.patch.object(
+            paint, "write_textures", return_value=outputs
+        ) as writer, mock.patch(
+            "sys.stderr", new_callable=io.StringIO
+        ), self.assertRaises(SystemExit) as raised:
+            paint.main()
+
+        self.assertEqual(2, raised.exception.code)
+        writer.assert_not_called()
 
 class GeneratedOutputContract(unittest.TestCase):
     def assert_finite_vec3(self, value):
@@ -477,6 +636,22 @@ class GeneratedOutputContract(unittest.TestCase):
     def test_documents_are_deterministic(self):
         self.assertEqual(build.geometry_document(), build.geometry_document())
         self.assertEqual(build.bbmodel_document(), build.bbmodel_document())
+
+    def test_geometry_only_build_preserves_existing_textured_bbmodel(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            geometry_path = root / "geo" / "model.geo.json"
+            bbmodel_path = root / "model" / "model.bbmodel"
+            bbmodel_path.parent.mkdir(parents=True)
+            original = b"textured bbmodel bytes\n"
+            bbmodel_path.write_bytes(original)
+            with mock.patch.object(
+                build, "GEOMETRY_PATH", geometry_path
+            ), mock.patch.object(build, "BBMODEL_PATH", bbmodel_path):
+                written = build.build_geometry()
+
+            self.assertEqual(geometry_path, written)
+            self.assertEqual(original, bbmodel_path.read_bytes())
 
     def test_atomic_writer_uses_unique_temporary_names(self):
         created = []
