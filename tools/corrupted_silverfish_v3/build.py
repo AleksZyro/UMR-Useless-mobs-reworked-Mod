@@ -29,7 +29,7 @@ UvRect = Tuple[int, int, int, int]
 def stable_uuid(kind: str, name: str) -> str:
     """Return a stable UUID for a named generated object."""
 
-    return str(uuid5(UUID_NAMESPACE, f"corrupted_silverfish_v3:{kind}:{name}"))
+    return str(uuid5(UUID_NAMESPACE, f"{kind}:{name}"))
 
 
 def _face_dimensions(cube: Cube, face: str) -> Tuple[int, int]:
@@ -52,16 +52,16 @@ def _pack_uvs(cubes: Iterable[Cube] = CUBES) -> Dict[FaceKey, UvRect]:
 
     faces = []
     for cube in cubes:
-        for face_index, face in enumerate(FACE_ORDER):
+        for face in FACE_ORDER:
             width, height = _face_dimensions(cube, face)
-            faces.append((cube.name, face, face_index, width, height))
-    faces.sort(key=lambda item: (-item[4], item[0], item[2]))
+            faces.append((cube.name, face, width, height))
+    faces.sort(key=lambda item: (-item[3], item[0], item[1]))
 
     packed: Dict[FaceKey, UvRect] = {}
     x = 0
     y = 0
     shelf_height = 0
-    for cube_name, face, _face_index, width, height in faces:
+    for cube_name, face, width, height in faces:
         if width > TEXTURE_SIZE or height > TEXTURE_SIZE:
             raise ValueError(f"Face {cube_name}/{face} is larger than {TEXTURE_SIZE}x{TEXTURE_SIZE}")
         if x and x + width > TEXTURE_SIZE:
@@ -145,7 +145,7 @@ def _bbmodel_element(cube: Cube, uvs: Mapping[FaceKey, UvRect]) -> dict:
         "rotation": list(cube.rotation),
         "faces": faces,
         "type": "cube",
-        "uuid": stable_uuid("cube", cube.name),
+        "uuid": stable_uuid("element", cube.name),
         "bone": cube.bone,
     }
 
@@ -153,7 +153,7 @@ def _bbmodel_element(cube: Cube, uvs: Mapping[FaceKey, UvRect]) -> dict:
 def _bbmodel_group(name: str, pivot: Sequence[float]) -> dict:
     return {
         "name": name,
-        "uuid": stable_uuid("bone", name),
+        "uuid": stable_uuid("group", name),
         "export": True,
         "locked": False,
         "origin": list(pivot),
@@ -176,13 +176,13 @@ def _outliner() -> list:
             child_bones[bone.parent].append(bone.name)
     element_ids = {bone.name: [] for bone in BONES}
     for cube in CUBES:
-        element_ids[cube.bone].append(stable_uuid("cube", cube.name))
+        element_ids[cube.bone].append(stable_uuid("element", cube.name))
 
     def node(name: str) -> dict:
         children = list(element_ids[name])
         children.extend(node(child_name) for child_name in child_bones[name])
         return {
-            "uuid": stable_uuid("bone", name),
+            "uuid": stable_uuid("group", name),
             "isOpen": True,
             "children": children,
         }

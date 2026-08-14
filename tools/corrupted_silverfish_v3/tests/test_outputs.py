@@ -1,13 +1,27 @@
+import math
 from pathlib import Path
 import unittest
+from uuid import UUID, uuid5
 
 from tools.corrupted_silverfish_v3 import build
+from tools.corrupted_silverfish_v3.spec import BONES, CUBES, Cube, cube_pivot
 
 ROOT = Path(__file__).resolve().parents[3]
 EXPORT = ROOT / "Modelle" / "Exports" / "corrupted_silverfish_v3"
 FACE_ORDER = ("north", "east", "south", "west", "up", "down")
 
 class GeneratedOutputContract(unittest.TestCase):
+    def assert_finite_vec3(self, value):
+        self.assertEqual(3, len(value))
+        self.assertTrue(
+            all(
+                isinstance(component, (int, float))
+                and not isinstance(component, bool)
+                and math.isfinite(component)
+                for component in value
+            )
+        )
+
     def test_required_candidate_files_exist(self):
         required = (
             EXPORT / "geo" / "corrupted_silverfish.geo.json",
@@ -46,16 +60,31 @@ class GeneratedOutputContract(unittest.TestCase):
 
     def test_geometry_cubes_have_valid_transform_and_explicit_faces(self):
         bones = build.geometry_document()["minecraft:geometry"][0]["bones"]
+        spec_cubes_by_bone = {
+            bone.name: [cube for cube in CUBES if cube.bone == bone.name]
+            for bone in BONES
+        }
         for bone in bones:
-            for cube in bone.get("cubes", []):
-                with self.subTest(cube=cube["name"]):
-                    self.assertEqual(3, len(cube["origin"]))
-                    self.assertEqual(3, len(cube["size"]))
+            generated_cubes = bone.get("cubes", [])
+            spec_cubes = spec_cubes_by_bone[bone["name"]]
+            self.assertEqual(len(spec_cubes), len(generated_cubes))
+            for cube, spec_cube in zip(generated_cubes, spec_cubes):
+                with self.subTest(cube=spec_cube.name):
+                    self.assertEqual(spec_cube.name, cube.get("name"))
+                    self.assert_finite_vec3(cube["origin"])
+                    self.assert_finite_vec3(cube["size"])
+                    self.assertEqual(list(spec_cube.origin), cube["origin"])
+                    self.assertEqual(list(spec_cube.size), cube["size"])
                     self.assertTrue(all(value > 0 for value in cube["size"]))
+                    if spec_cube.rotation != (0.0, 0.0, 0.0):
+                        self.assert_finite_vec3(cube["rotation"])
+                        self.assert_finite_vec3(cube["pivot"])
+                        self.assertEqual(list(spec_cube.rotation), cube["rotation"])
+                        self.assertEqual(list(cube_pivot(spec_cube)), cube["pivot"])
+                    else:
+                        self.assertNotIn("rotation", cube)
+                        self.assertNotIn("pivot", cube)
                     self.assertEqual(set(FACE_ORDER), set(cube["uv"]))
-                    if "rotation" in cube:
-                        self.assertEqual(3, len(cube["rotation"]))
-                        self.assertEqual(3, len(cube["pivot"]))
                     for face_name in FACE_ORDER:
                         face = cube["uv"][face_name]
                         self.assertEqual(2, len(face["uv"]))
@@ -67,6 +96,22 @@ class GeneratedOutputContract(unittest.TestCase):
                         self.assertGreaterEqual(v, 0)
                         self.assertLessEqual(u + width, 256)
                         self.assertLessEqual(v + height, 256)
+
+    def test_shelf_packer_breaks_equal_height_ties_by_lexical_face_name(self):
+        cube = Cube(
+            "tie_cube",
+            "root",
+            (0.0, 0.0, 0.0),
+            (1.0, 1.0, 1.0),
+            "test",
+            "test",
+        )
+        packed = build._pack_uvs((cube,))
+        packed_order = sorted(
+            FACE_ORDER,
+            key=lambda face: (packed[(cube.name, face)][1], packed[(cube.name, face)][0]),
+        )
+        self.assertEqual(sorted(FACE_ORDER), packed_order)
 
     def test_bbmodel_is_structural_geckolib_project(self):
         document = build.bbmodel_document()
@@ -87,10 +132,10 @@ class GeneratedOutputContract(unittest.TestCase):
         for element in document["elements"]:
             with self.subTest(element=element["name"]):
                 self.assertEqual("cube", element["type"])
-                self.assertEqual(3, len(element["from"]))
-                self.assertEqual(3, len(element["to"]))
-                self.assertEqual(3, len(element["origin"]))
-                self.assertEqual(3, len(element["rotation"]))
+                self.assert_finite_vec3(element["from"])
+                self.assert_finite_vec3(element["to"])
+                self.assert_finite_vec3(element["origin"])
+                self.assert_finite_vec3(element["rotation"])
                 self.assertEqual(set(FACE_ORDER), set(element["faces"]))
 
     def test_bbmodel_uuids_are_unique_stable_and_hierarchy_has_one_root(self):
@@ -99,9 +144,24 @@ class GeneratedOutputContract(unittest.TestCase):
         first_uuids = [item["uuid"] for item in first["groups"] + first["elements"]]
         second_uuids = [item["uuid"] for item in second["groups"] + second["elements"]]
         self.assertEqual(len(first_uuids), len(set(first_uuids)))
+        self.assertTrue(all(UUID(item_uuid).version == 5 for item_uuid in first_uuids))
         self.assertEqual(first_uuids, second_uuids)
         self.assertEqual(1, len(first["outliner"]))
-        self.assertEqual(build.stable_uuid("bone", "root"), first["outliner"][0]["uuid"])
+        expected_root_uuid = str(uuid5(build.UUID_NAMESPACE, "group:root"))
+        expected_element_uuid = str(uuid5(build.UUID_NAMESPACE, "element:head_core"))
+        self.assertEqual(expected_root_uuid, first["outliner"][0]["uuid"])
+        self.assertEqual(
+            expected_root_uuid,
+            next(group["uuid"] for group in first["groups"] if group["name"] == "root"),
+        )
+        self.assertEqual(
+            expected_element_uuid,
+            next(
+                element["uuid"]
+                for element in first["elements"]
+                if element["name"] == "head_core"
+            ),
+        )
 
         groups = {group["uuid"]: group for group in first["groups"]}
         elements = {element["uuid"]: element for element in first["elements"]}
@@ -140,8 +200,16 @@ class GeneratedOutputContract(unittest.TestCase):
         }
         self.assertEqual(list(geo_cubes), [element["name"] for element in bbmodel["elements"]])
         for element in bbmodel["elements"]:
-            bone_name, cube = geo_cubes[element["name"]]
+            spec_cube = next(cube for cube in CUBES if cube.name == element["name"])
+            bone_name, cube = geo_cubes[spec_cube.name]
             self.assertEqual(bone_name, element["bone"])
+            self.assertEqual(list(spec_cube.origin), element["from"])
+            self.assertEqual(
+                [spec_cube.origin[axis] + spec_cube.size[axis] for axis in range(3)],
+                element["to"],
+            )
+            self.assertEqual(list(cube_pivot(spec_cube)), element["origin"])
+            self.assertEqual(list(spec_cube.rotation), element["rotation"])
             for face_name in FACE_ORDER:
                 geo_face = cube["uv"][face_name]
                 u, v = geo_face["uv"]
