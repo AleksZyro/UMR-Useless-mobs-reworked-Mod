@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import base64
+import hashlib
 import os
 from pathlib import Path
 import shutil
@@ -62,6 +64,24 @@ class ValidatorContract(unittest.TestCase):
             self.assertIn("ASSET_CHECK_FAILED:", result.stderr)
             self.assertIn(expected, result.stderr)
             self.assertEqual(b"sentinel manifest\n", manifest.read_bytes())
+
+    @staticmethod
+    def update_embedded_main(root: Path) -> None:
+        model_path = root / RELATIVE_PATHS[0]
+        model = json.loads(model_path.read_text(encoding="utf-8"))
+        encoded = base64.b64encode((root / RELATIVE_PATHS[2]).read_bytes()).decode("ascii")
+        model["textures"][0]["source"] = "data:image/png;base64," + encoded
+        model_path.write_text(json.dumps(model), encoding="utf-8")
+
+    @staticmethod
+    def geometry_rectangles(root: Path):
+        geometry = json.loads((root / RELATIVE_PATHS[1]).read_text(encoding="utf-8"))
+        for bone in geometry["minecraft:geometry"][0]["bones"]:
+            for cube in bone.get("cubes", []):
+                for face in cube["uv"].values():
+                    x, y = face["uv"]
+                    width, height = face["uv_size"]
+                    yield cube["name"], range(x, x + width), range(y, y + height)
 
     @staticmethod
     def outliner_element_slots(items):
@@ -239,6 +259,217 @@ class ValidatorContract(unittest.TestCase):
         geometry = validate.validate_geometry(document)
         self.assertEqual([0.0, 0.0, 0.0], geometry["bone_rotations"][bones[0]["name"]])
         self.assertEqual([1.0, 2.5, -3.0], geometry["bone_rotations"][bones[1]["name"]])
+
+    def test_manifest_cannot_alias_an_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.copy_candidate(directory)
+            main = root / RELATIVE_PATHS[2]
+            before = main.read_bytes()
+            result = self.run_validator(root, "--manifest", str(main))
+            self.assertEqual(1, result.returncode)
+            self.assertEqual("", result.stdout)
+            self.assertIn("ASSET_CHECK_FAILED:", result.stderr)
+            self.assertIn("manifest", result.stderr.lower())
+            self.assertEqual(before, main.read_bytes())
+
+    def test_input_override_cannot_escape_root(self):
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside:
+            root = self.copy_candidate(directory)
+            external = Path(outside) / "geometry.json"
+            shutil.copy2(root / RELATIVE_PATHS[1], external)
+            result = self.run_validator(root, "--geometry", str(external))
+            self.assertEqual(1, result.returncode)
+            self.assertEqual("", result.stdout)
+            self.assertIn("outside root", result.stderr)
+
+    def test_symlink_input_is_rejected_when_supported(self):
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside:
+            root = self.copy_candidate(directory)
+            geometry = root / RELATIVE_PATHS[1]
+            external = Path(outside) / "geometry.json"
+            shutil.copy2(geometry, external)
+            geometry.unlink()
+            try:
+                geometry.symlink_to(external)
+            except OSError as exc:
+                self.skipTest(f"symlink creation unavailable: {exc}")
+            result = self.run_validator(root)
+            self.assertEqual(1, result.returncode)
+            self.assertIn("reparse", result.stderr.lower())
+
+    def test_coherent_huge_cube_shift_is_rejected_by_fixed_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.copy_candidate(directory)
+            geo_path = root / RELATIVE_PATHS[1]
+            geo = json.loads(geo_path.read_text(encoding="utf-8"))
+            cube = next(b["cubes"][0] for b in geo["minecraft:geometry"][0]["bones"] if b.get("cubes"))
+            cube["origin"][0] += 10000
+            if "pivot" in cube:
+                cube["pivot"][0] += 10000
+            geo_path.write_text(json.dumps(geo), encoding="utf-8")
+            bb_path = root / RELATIVE_PATHS[0]
+            bb = json.loads(bb_path.read_text(encoding="utf-8"))
+            element = next(item for item in bb["elements"] if item["name"] == cube["name"])
+            for key in ("from", "to", "origin"):
+                element[key][0] += 10000
+            bb_path.write_text(json.dumps(bb), encoding="utf-8")
+            result = self.run_validator(root)
+            self.assertEqual(1, result.returncode)
+            self.assertIn("bounds", result.stderr.lower())
+
+    def test_fractional_coherent_uv_extent_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.copy_candidate(directory)
+            geo_path = root / RELATIVE_PATHS[1]
+            geo = json.loads(geo_path.read_text(encoding="utf-8"))
+            cube = next(b["cubes"][0] for b in geo["minecraft:geometry"][0]["bones"] if b.get("cubes"))
+            face = cube["uv"]["north"]
+            face["uv_size"][0] -= 0.5
+            geo_path.write_text(json.dumps(geo), encoding="utf-8")
+            bb_path = root / RELATIVE_PATHS[0]
+            bb = json.loads(bb_path.read_text(encoding="utf-8"))
+            element = next(item for item in bb["elements"] if item["name"] == cube["name"])
+            element["faces"]["north"]["uv"][2] -= 0.5
+            bb_path.write_text(json.dumps(bb), encoding="utf-8")
+            result = self.run_validator(root)
+            self.assertEqual(1, result.returncode)
+            self.assertIn("UV dimensions", result.stderr)
+
+    def test_empty_attack_is_rejected_even_when_bbmodel_matches(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.copy_candidate(directory)
+            animation_path = root / RELATIVE_PATHS[4]
+            animations = json.loads(animation_path.read_text(encoding="utf-8"))
+            animations["animations"]["animation.corrupted_silverfish.attack"]["bones"] = {}
+            animation_path.write_text(json.dumps(animations), encoding="utf-8")
+            bb_path = root / RELATIVE_PATHS[0]
+            bb = json.loads(bb_path.read_text(encoding="utf-8"))
+            next(a for a in bb["animations"] if a["name"].endswith(".attack"))["animators"] = {}
+            bb_path.write_text(json.dumps(bb), encoding="utf-8")
+            result = self.run_validator(root)
+            self.assertEqual(1, result.returncode)
+            self.assertIn("attack", result.stderr)
+            self.assertIn("required", result.stderr)
+
+    def test_foreign_main_palette_color_is_rejected_with_matching_embed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.copy_candidate(directory)
+            path = root / RELATIVE_PATHS[2]
+            with Image.open(path) as opened:
+                image = opened.copy()
+            point = next((index % 256, index // 256) for index, pixel in enumerate(image.getdata()) if pixel[3] == 255)
+            image.putpixel(point, (1, 2, 3, 255))
+            image.save(path)
+            self.update_embedded_main(root)
+            result = self.run_validator(root)
+            self.assertEqual(1, result.returncode)
+            self.assertIn("palette", result.stderr.lower())
+
+    def test_moved_glow_and_painted_gutter_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.copy_candidate(directory)
+            main = Image.open(root / RELATIVE_PATHS[2]).copy()
+            glow_path = root / RELATIVE_PATHS[3]
+            glow = Image.open(glow_path).copy()
+            allowed = set()
+            all_islands = set()
+            for name, xs, ys in self.geometry_rectangles(root):
+                points = {(x, y) for x in xs for y in ys}
+                all_islands.update(points)
+                if name.startswith("eye_") or name.startswith("crystal_"):
+                    allowed.update(points)
+            source = next((index % 256, index // 256) for index, pixel in enumerate(glow.getdata()) if pixel[3] == 255)
+            target = next(point for point in all_islands - allowed if main.getpixel(point)[3] == 255 and glow.getpixel(point)[3] == 0)
+            color = glow.getpixel(source)
+            glow.putpixel(source, (0, 0, 0, 0))
+            glow.putpixel(target, color)
+            glow.save(glow_path)
+            result = self.run_validator(root)
+            self.assertEqual(1, result.returncode)
+            self.assertIn("allowed", result.stderr.lower())
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.copy_candidate(directory)
+            main_path = root / RELATIVE_PATHS[2]
+            main = Image.open(main_path).copy()
+            all_islands = set()
+            for _name, xs, ys in self.geometry_rectangles(root):
+                all_islands.update((x, y) for x in xs for y in ys)
+            gutter = next((x, y) for y in range(256) for x in range(256) if (x, y) not in all_islands)
+            main.putpixel(gutter, (22, 18, 28, 255))
+            main.save(main_path)
+            self.update_embedded_main(root)
+            result = self.run_validator(root)
+            self.assertEqual(1, result.returncode)
+            self.assertIn("outside UV islands", result.stderr)
+
+    def test_snapshot_bytes_are_hashed_without_rereading_changed_disk(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.copy_candidate(directory)
+            paths = tuple(root / relative for relative in RELATIVE_PATHS)
+            manifest = root / validate.MANIFEST_RELATIVE
+            geometry_path = paths[1]
+            original = geometry_path.read_bytes()
+            real_read = Path.read_bytes
+            counts = {path: 0 for path in paths}
+
+            def mutate_after_snapshot(path):
+                if path in counts:
+                    counts[path] += 1
+                    data = real_read(path)
+                    if path == geometry_path and counts[path] == 1:
+                        path.write_bytes(b"corrupt after snapshot")
+                    return data
+                return real_read(path)
+
+            with mock.patch.object(Path, "read_bytes", autospec=True, side_effect=mutate_after_snapshot):
+                validate.validate(paths, manifest, root=root)
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            self.assertEqual(hashlib.sha256(original).hexdigest().upper(), payload[RELATIVE_PATHS[1].as_posix()])
+            self.assertEqual({path: 1 for path in paths}, counts)
+
+    def test_duplicate_keys_nonfinite_and_oversized_inputs_are_rejected(self):
+        mutations = (
+            (RELATIVE_PATHS[1], b'{"format_version":"1.12.0","format_version":"1.12.0","minecraft:geometry":[]} ', "duplicate key"),
+            (RELATIVE_PATHS[1], b'{"format_version":"1.12.0","unused":NaN,"minecraft:geometry":[]} ', "non-finite"),
+            (RELATIVE_PATHS[1], b'{"format_version":"1.12.0","unused":Infinity,"minecraft:geometry":[]} ', "non-finite"),
+            (RELATIVE_PATHS[1], b'{}' + b' ' * (3 * 1024 * 1024), "size limit"),
+            (RELATIVE_PATHS[2], (ROOT / RELATIVE_PATHS[2]).read_bytes() + b'x' * (2 * 1024 * 1024), "size limit"),
+        )
+        for relative, contents, expected in mutations:
+            with self.subTest(relative=relative, expected=expected), tempfile.TemporaryDirectory() as directory:
+                root = self.copy_candidate(directory)
+                (root / relative).write_bytes(contents)
+                result = self.run_validator(root)
+                self.assertEqual(1, result.returncode)
+                self.assertEqual("", result.stdout)
+                self.assertIn(expected, result.stderr.lower())
+
+    def test_manifest_cleanup_failure_reports_temp_and_preserves_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "manifest.json"
+            target.write_bytes(b"old\n")
+            real_unlink = Path.unlink
+
+            def locked_temp(path, *args, **kwargs):
+                if path != target:
+                    raise OSError("simulated cleanup lock")
+                return real_unlink(path, *args, **kwargs)
+
+            with mock.patch("os.replace", side_effect=OSError("publish failed")), mock.patch.object(Path, "unlink", autospec=True, side_effect=locked_temp):
+                with self.assertRaisesRegex(validate.ValidationFailure, "cleanup.*simulated cleanup lock") as raised:
+                    validate._atomic_write(target, b"new\n")
+            self.assertIn(str(target.parent), str(raised.exception))
+            self.assertEqual(b"old\n", target.read_bytes())
+
+    def test_manifest_publish_is_verified_before_success(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "manifest.json"
+            target.write_bytes(b"old\n")
+            with mock.patch("os.replace", return_value=None):
+                with self.assertRaisesRegex(validate.ValidationFailure, "verification"):
+                    validate._atomic_write(target, b"new\n")
+            self.assertEqual(b"old\n", target.read_bytes())
+            self.assertEqual([target], list(target.parent.iterdir()))
 
     def test_cli_usage_is_exit_two_without_traceback(self):
         result = subprocess.run(

@@ -10,12 +10,15 @@ import argparse
 import base64
 import binascii
 import hashlib
+from io import BytesIO
 import json
 import math
 import os
 from pathlib import Path
+import struct
 import sys
 import tempfile
+import warnings
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 from uuid import UUID
 
@@ -33,6 +36,63 @@ EXPECTED_ANIMATIONS = {
     "animation.corrupted_silverfish.death": (1.1, False),
 }
 GLOW_COLORS = {(86, 190, 255, 255), (234, 55, 112, 255)}
+MAIN_PALETTE = {
+    (22, 18, 28, 255), (38, 34, 46, 255), (45, 10, 43, 255),
+    (76, 82, 92, 255), (82, 37, 104, 255), (86, 190, 255, 255),
+    (91, 15, 58, 255), (126, 136, 147, 255), (181, 31, 82, 255),
+    (188, 198, 207, 255), (224, 230, 235, 255), (234, 55, 112, 255),
+}
+MODEL_BOUNDS = ((-7.0, 6.7), (0.0, 11.9), (-15.4, 21.0))
+EXPECTED_PARENTS = dict((line.split(":", 1)[0], line.split(":", 1)[1] or None) for line in """root:
+body:root
+head:body
+thorax:body
+shell_front:thorax
+shell_mid:shell_front
+shell_rear:shell_mid
+abdomen:shell_rear
+tail_base:abdomen
+tail_tip:tail_base
+leg_left_front_upper:body
+leg_left_front_lower:leg_left_front_upper
+leg_left_mid_upper:body
+leg_left_mid_lower:leg_left_mid_upper
+leg_left_rear_upper:body
+leg_left_rear_lower:leg_left_rear_upper
+leg_right_front_upper:body
+leg_right_front_lower:leg_right_front_upper
+leg_right_mid_upper:body
+leg_right_mid_lower:leg_right_mid_upper
+leg_right_rear_upper:body
+leg_right_rear_lower:leg_right_rear_upper
+mandible_left:head
+mandible_right:head
+mouth_core:head
+crystal_cluster_1:thorax
+crystal_cluster_2:shell_front
+crystal_cluster_3:shell_mid
+crystal_cluster_4:shell_rear
+crystal_cluster_5:shell_mid
+crystal_cluster_6:abdomen
+crystal_cluster_7:head""".splitlines())
+EXPECTED_CUBE_NAMES = frozenset("""head_core head_brow head_cheek_core_left head_cheek_core_right eye_left eye_right forehead_left forehead_right forehead_crown forehead_nose cheek_plate_1_left cheek_plate_1_right cheek_plate_2_left cheek_plate_2_right cheek_plate_3_left cheek_plate_3_right thorax_core underside_segment_1 side_plate_1_left side_plate_1_right dorsal_thorax_1 dorsal_thorax_2 dorsal_thorax_3 front_core underside_segment_2 side_plate_2_left side_plate_2_right side_plate_3_left side_plate_3_right dorsal_front_1 dorsal_front_2 dorsal_front_3 middle_core underside_segment_3 side_plate_4_left side_plate_4_right dorsal_mid_1 dorsal_mid_2 dorsal_mid_3 rear_core underside_segment_4 side_plate_5_left side_plate_5_right dorsal_rear_1 dorsal_rear_2 dorsal_rear_3 abdomen_core underside_segment_5 dorsal_abdomen_1 dorsal_abdomen_2 dorsal_abdomen_3 tail_root_core underside_segment_6 tail_taper_1 tail_taper_2 tail_taper_6 dorsal_tail_1 dorsal_tail_2 dorsal_tail_3 tail_taper_3 tail_taper_4 tail_taper_5 tail_taper_7 tail_taper_8 tail_taper_9 leg_left_front_upper leg_left_front_lower foot_left_front toe_left_front leg_left_mid_upper leg_left_mid_lower foot_left_mid toe_left_mid leg_left_rear_upper leg_left_rear_lower foot_left_rear toe_left_rear leg_right_front_upper leg_right_front_lower foot_right_front toe_right_front leg_right_mid_upper leg_right_mid_lower foot_right_mid toe_right_mid leg_right_rear_upper leg_right_rear_lower foot_right_rear toe_right_rear mandible_left_cube mandible_right_cube mouth_core_cube mouth_sensor_cube crystal_1_1 crystal_1_2 crystal_1_3 crystal_2_1 crystal_2_2 crystal_2_3 crystal_3_1 crystal_3_2 crystal_3_3 crystal_3_4 crystal_4_1 crystal_4_2 crystal_4_3 crystal_5_1 crystal_5_2 crystal_6_1 crystal_6_2 crystal_7_1 crystal_7_2""".split())
+EXPECTED_ANIMATION_CHANNELS = {
+    "animation.corrupted_silverfish.idle": {
+        **{"body": {"position"}},
+        **{name: {"rotation"} for name in ("head", "thorax", "shell_front", "shell_mid", "shell_rear", "abdomen", "tail_base", "tail_tip")},
+        **{f"crystal_cluster_{number}": {"scale"} for number in range(1, 8)},
+    },
+    "animation.corrupted_silverfish.walk": {
+        **{name: {"rotation"} for name in ("head", "thorax", "shell_front", "shell_mid", "shell_rear", "abdomen", "tail_base", "tail_tip")},
+        **{f"leg_{side}_{position}_{part}": {"rotation"} for side in ("left", "right") for position in ("front", "mid", "rear") for part in ("upper", "lower")},
+    },
+    "animation.corrupted_silverfish.attack": {"head": {"position"}, "mandible_left": {"rotation"}, "mandible_right": {"rotation"}, "leg_left_front_upper": {"rotation"}, "leg_right_front_upper": {"rotation"}},
+    "animation.corrupted_silverfish.hurt": {"body": {"rotation"}, **{name: {"scale"} for name in ("shell_front", "shell_mid", "shell_rear")}, **{f"crystal_cluster_{number}": {"scale"} for number in range(1, 8)}},
+    "animation.corrupted_silverfish.death": {"body": {"position"}, "tail_base": {"rotation"}, "tail_tip": {"rotation"}, **{f"leg_{side}_{position}_upper": {"rotation"} for side in ("left", "right") for position in ("front", "mid", "rear")}, **{f"crystal_cluster_{number}": {"scale"} for number in range(1, 8)}},
+}
+FILE_LIMITS = (4 * 1024 * 1024, 2 * 1024 * 1024, 1024 * 1024, 1024 * 1024, 1024 * 1024)
+GEOMETRY_CONTRACT_SHA256 = "877ED79F9B260D2038F738E37565CA9F7DEA574AF2779E83B09840759F61D2BD"
+ANIMATION_CONTRACT_SHA256 = "B08162F066BC885A6E363201B7A4DBC03059D72E3C580CD880442F1A91629DA6"
 RELATIVE_PATHS = (
     Path("Modelle/Editierbar/Corrupted Silverfish v3.bbmodel"),
     Path("Modelle/Exports/corrupted_silverfish_v3/geo/corrupted_silverfish.geo.json"),
@@ -82,18 +142,43 @@ def _vec(value: Any, length: int, context: str, positive: bool = False) -> List[
     return [_number(item, f"{context}[{index}]", positive) for index, item in enumerate(value)]
 
 
-def _load_json(path: Path, label: str) -> Mapping[str, Any]:
+def _reject_duplicate_pairs(pairs: List[Tuple[str, Any]]) -> Dict[str, Any]:
+    result: Dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            fail(f"duplicate key {key!r}")
+        result[key] = value
+    return result
+
+
+def _reject_constant(value: str) -> None:
+    fail(f"non-finite JSON constant {value}")
+
+
+def _load_json(raw: bytes, path: Path, label: str) -> Mapping[str, Any]:
     try:
-        raw = path.read_bytes()
-    except OSError as exc:
-        fail(f"{label} read failed ({path}): {exc}")
-    try:
-        value = json.loads(raw.decode("utf-8"))
+        value = json.loads(raw.decode("utf-8"), object_pairs_hook=_reject_duplicate_pairs, parse_constant=_reject_constant)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         fail(f"{label} JSON is malformed ({path}): {exc}")
     if not isinstance(value, dict):
         fail(f"{label} JSON root must be an object")
     return value
+
+
+def _read_snapshot(path: Path, limit: int, label: str) -> bytes:
+    try:
+        size = path.stat().st_size
+    except OSError as exc:
+        fail(f"{label} stat failed ({path}): {exc}")
+    if size > limit:
+        fail(f"{label} exceeds size limit {limit} bytes: {size}")
+    try:
+        raw = path.read_bytes()
+    except OSError as exc:
+        fail(f"{label} read failed ({path}): {exc}")
+    if len(raw) > limit:
+        fail(f"{label} exceeds size limit {limit} bytes after read: {len(raw)}")
+    return raw
 
 
 def _validate_uuid(value: Any, context: str, seen: set) -> str:
@@ -147,6 +232,7 @@ def validate_geometry(document: Mapping[str, Any]) -> Dict[str, Any]:
     bone_rotations: Dict[str, List[float]] = {}
     cubes: Dict[str, Dict[str, Any]] = {}
     rectangles: List[Tuple[str, str, float, float, float, float]] = []
+    uv_dimension_errors: List[str] = []
     cube_bones: Dict[str, str] = {}
     for index, bone in enumerate(bones):
         if not isinstance(bone, dict) or not isinstance(bone.get("name"), str) or not bone["name"]:
@@ -192,6 +278,16 @@ def validate_geometry(document: Mapping[str, Any]) -> Dict[str, Any]:
                     fail(f"cube {cube_name} face {face} must be an object")
                 start = _vec(face_value.get("uv"), 2, f"cube {cube_name} face {face} UV")
                 extent = _vec(face_value.get("uv_size"), 2, f"cube {cube_name} face {face} UV extent", positive=True)
+                if not all(value.is_integer() for value in (*start, *extent)):
+                    uv_dimension_errors.append(f"cube {cube_name} face {face} UV dimensions must be integers")
+                face_units = {
+                    "north": (size[0], size[1]), "south": (size[0], size[1]),
+                    "east": (size[2], size[1]), "west": (size[2], size[1]),
+                    "up": (size[0], size[2]), "down": (size[0], size[2]),
+                }[face]
+                expected_extent = [float(math.ceil(value * 2)) for value in face_units]
+                if extent != expected_extent:
+                    uv_dimension_errors.append(f"cube {cube_name} face {face} UV dimensions {extent} do not match 2px/unit {expected_extent}")
                 x1, y1 = start
                 x2, y2 = x1 + extent[0], y1 + extent[1]
                 if x1 < 0 or y1 < 0 or x2 > TEXTURE_SIZE or y2 > TEXTURE_SIZE:
@@ -201,6 +297,8 @@ def validate_geometry(document: Mapping[str, Any]) -> Dict[str, Any]:
             cubes[cube_name] = {"from": origin, "to": [origin[i] + size[i] for i in range(3)], "origin": pivot, "rotation": rotation, "faces": normalized_faces}
             cube_bones[cube_name] = name
     _validate_hierarchy(parents)
+    if parents != EXPECTED_PARENTS:
+        fail("geometry bone names or parent map mismatch fixed v3 contract")
     if len(cubes) != 112:
         fail(f"geometry must contain exactly 112 cubes, found {len(cubes)}")
     if len(rectangles) != 672:
@@ -219,26 +317,42 @@ def validate_geometry(document: Mapping[str, Any]) -> Dict[str, Any]:
                 gap = max(left[3], right[3]) - min(left[5], right[5])
                 if 0 <= gap < 2:
                     fail(f"UV gutter below 2px between {left[0]}/{left[1]} and {right[0]}/{right[1]}")
-    return {"bones": names, "parents": parents, "pivots": pivots, "bone_rotations": bone_rotations, "cubes": cubes, "cube_bones": cube_bones}
+    if uv_dimension_errors:
+        fail(uv_dimension_errors[0])
+    if set(cubes) != EXPECTED_CUBE_NAMES:
+        fail("geometry cube names mismatch fixed v3 contract")
+    actual_bounds = tuple(
+        (min(cube["from"][axis] for cube in cubes.values()), max(cube["to"][axis] for cube in cubes.values()))
+        for axis in range(3)
+    )
+    if actual_bounds != MODEL_BOUNDS:
+        fail(f"geometry bounds {actual_bounds} mismatch fixed v3 bounds {MODEL_BOUNDS}")
+    return {"bones": names, "parents": parents, "pivots": pivots, "bone_rotations": bone_rotations, "cubes": cubes, "cube_bones": cube_bones, "uv_rectangles": rectangles}
 
 
-def _load_rgba(path: Path, label: str) -> Tuple[Image.Image, bytes]:
+def _load_rgba(raw: bytes, path: Path, label: str) -> Image.Image:
+    if len(raw) < 24 or raw[:8] != b"\x89PNG\r\n\x1a\n" or raw[12:16] != b"IHDR":
+        fail(f"{label} PNG is malformed ({path}): invalid PNG signature/IHDR")
+    width, height = struct.unpack(">II", raw[16:24])
+    if (width, height) != (256, 256):
+        fail(f"{label} must declare 256x256 dimensions before decode")
     try:
-        raw = path.read_bytes()
-        with Image.open(path) as opened:
-            opened.verify()
-        image = Image.open(path)
-        image.load()
-    except (OSError, UnidentifiedImageError) as exc:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(BytesIO(raw)) as opened:
+                opened.verify()
+            image = Image.open(BytesIO(raw))
+            image.load()
+    except (OSError, ValueError, Image.DecompressionBombError, Image.DecompressionBombWarning, UnidentifiedImageError) as exc:
         fail(f"{label} PNG is malformed ({path}): {exc}")
     if image.format != "PNG" or image.mode != "RGBA" or image.size != (256, 256):
         fail(f"{label} must be a 256x256 RGBA PNG")
-    return image, raw
+    return image
 
 
-def validate_textures(main_path: Path, glow_path: Path) -> Tuple[int, bytes]:
-    main, main_bytes = _load_rgba(main_path, "main texture")
-    glow, _ = _load_rgba(glow_path, "glow texture")
+def validate_textures(main_bytes: bytes, glow_bytes: bytes, main_path: Path, glow_path: Path, geometry: Mapping[str, Any]) -> int:
+    main = _load_rgba(main_bytes, main_path, "main texture")
+    glow = _load_rgba(glow_bytes, glow_path, "glow texture")
     main_pixels = list(main.getdata())
     glow_pixels = list(glow.getdata())
     if any(pixel[3] not in (0, 255) for pixel in main_pixels):
@@ -248,18 +362,34 @@ def validate_textures(main_path: Path, glow_path: Path) -> Tuple[int, bytes]:
         fail("main texture is empty")
     if any(pixel[:3] == (0, 255, 0) for pixel in opaque_main):
         fail("main texture contains forbidden pure green")
+    if any(pixel not in MAIN_PALETTE for pixel in opaque_main):
+        fail("main texture contains a color outside the fixed 12-color palette")
     if any(pixel[3] not in (0, 255) for pixel in glow_pixels):
         fail("glow texture alpha must contain only 0 or 255")
     glow_count = sum(pixel[3] == 255 for pixel in glow_pixels)
     if not 20 <= glow_count <= 800:
         fail(f"glow texture must contain 20..800 opaque pixels, found {glow_count}")
+    island_pixels: set = set()
+    glow_allowed_pixels: set = set()
+    for cube_name, _face, x1, y1, x2, y2 in geometry["uv_rectangles"]:
+        points = {y * 256 + x for y in range(int(y1), int(y2)) for x in range(int(x1), int(x2))}
+        island_pixels.update(points)
+        if cube_name.startswith("eye_") or cube_name.startswith("crystal_") or cube_name == "mouth_sensor_cube":
+            glow_allowed_pixels.update(points)
+    for index, pixel in enumerate(main_pixels):
+        if index in island_pixels and pixel[3] != 255:
+            fail(f"main texture UV island is not fully opaque at ({index % 256},{index // 256})")
+        if index not in island_pixels and pixel[3] != 0:
+            fail(f"main texture has opaque pixel outside UV islands at ({index % 256},{index // 256})")
     for index, pixel in enumerate(glow_pixels):
         if pixel[3] == 255:
             if main_pixels[index][3] != 255:
                 fail(f"glow leak at pixel ({index % 256},{index // 256}): main texture is transparent")
             if pixel not in GLOW_COLORS:
                 fail(f"glow pixel ({index % 256},{index // 256}) has disallowed color {pixel}")
-    return glow_count, main_bytes
+            if index not in glow_allowed_pixels:
+                fail(f"glow pixel ({index % 256},{index // 256}) is outside allowed eye/crystal UV islands")
+    return glow_count
 
 
 def validate_animations(document: Mapping[str, Any], bone_names: set) -> Dict[str, Any]:
@@ -282,12 +412,20 @@ def validate_animations(document: Mapping[str, Any], bone_names: set) -> Dict[st
         bones = animation.get("bones")
         if not isinstance(bones, dict):
             fail(f"animation {animation_name} bones must be an object")
+        expected_channels = EXPECTED_ANIMATION_CHANNELS[animation_name]
+        for bone_name in bones:
+            if bone_name not in bone_names:
+                fail(f"animation {animation_name} references unknown bone {bone_name}")
+        if set(bones) != set(expected_channels):
+            fail(f"animation {animation_name} required bone set mismatches fixed v3 motion contract")
         normalized_bones: Dict[str, Any] = {}
         for bone_name, channels in bones.items():
             if bone_name not in bone_names:
                 fail(f"animation {animation_name} references unknown bone {bone_name}")
             if not isinstance(channels, dict) or not channels or not set(channels).issubset(CHANNEL_NAMES):
                 fail(f"animation {animation_name} bone {bone_name} has invalid channels")
+            if set(channels) != expected_channels[bone_name]:
+                fail(f"animation {animation_name} bone {bone_name} required channels mismatch fixed v3 motion contract")
             normalized_channels: Dict[str, Any] = {}
             for channel_name, keyframes in channels.items():
                 if not isinstance(keyframes, dict) or not keyframes:
@@ -311,6 +449,67 @@ def validate_animations(document: Mapping[str, Any], bone_names: set) -> Dict[st
                 normalized_channels[channel_name] = normalized_keyframes
             normalized_bones[bone_name] = normalized_channels
         normalized[animation_name] = {"length": length, "loop": loop, "bones": normalized_bones}
+    expected_times = {
+        "animation.corrupted_silverfish.idle": {0.0, 0.8, 1.6},
+        "animation.corrupted_silverfish.walk": {0.0, 0.2, 0.4, 0.6, 0.8},
+        "animation.corrupted_silverfish.attack": {0.0, 0.225, 0.45},
+        "animation.corrupted_silverfish.hurt": {0.0, 0.1, 0.2, 0.3},
+        "animation.corrupted_silverfish.death": {0.0, 0.55, 1.1},
+    }
+    for animation_name, animation in normalized.items():
+        for bone_name, channels in animation["bones"].items():
+            for channel_name, frames in channels.items():
+                if set(frames) != expected_times[animation_name]:
+                    fail(f"animation {animation_name} {bone_name}/{channel_name} times mismatch fixed v3 motion contract")
+
+    def vectors(animation_name: str, bone: str, channel: str) -> List[List[float]]:
+        frames = normalized[animation_name]["bones"][bone][channel]
+        return [frames[time] for time in sorted(frames)]
+
+    idle = "animation.corrupted_silverfish.idle"
+    if [value[1] for value in vectors(idle, "body", "position")] != [0.0, 0.12, 0.0]:
+        fail("animation idle body position amplitude mismatches fixed v3 motion contract")
+    for bone in ("head", "thorax", "shell_front", "shell_mid", "shell_rear", "abdomen", "tail_base", "tail_tip"):
+        if max(abs(value[1]) for value in vectors(idle, bone, "rotation")) != 1.5:
+            fail(f"animation idle {bone} rotation amplitude mismatches fixed v3 motion contract")
+    for number in range(1, 8):
+        if max(value[0] for value in vectors(idle, f"crystal_cluster_{number}", "scale")) != 1.025:
+            fail(f"animation idle crystal_cluster_{number} scale amplitude mismatches fixed v3 motion contract")
+    walk = "animation.corrupted_silverfish.walk"
+    for bone in ("head", "thorax", "shell_front", "shell_mid", "shell_rear", "abdomen", "tail_base", "tail_tip"):
+        if max(abs(value[1]) for value in vectors(walk, bone, "rotation")) != 3.0:
+            fail(f"animation walk {bone} amplitude mismatches fixed v3 motion contract")
+    for side in ("left", "right"):
+        for position in ("front", "mid", "rear"):
+            for part, amplitude in (("upper", 16.0), ("lower", 10.0)):
+                bone = f"leg_{side}_{position}_{part}"
+                if max(abs(value[0]) for value in vectors(walk, bone, "rotation")) != amplitude:
+                    fail(f"animation walk {bone} amplitude mismatches fixed v3 motion contract")
+    attack = "animation.corrupted_silverfish.attack"
+    if min(value[2] for value in vectors(attack, "head", "position")) != -1.2:
+        fail("animation attack head amplitude mismatches fixed v3 motion contract")
+    if max(value[1] for value in vectors(attack, "mandible_left", "rotation")) != 24.0 or min(value[1] for value in vectors(attack, "mandible_right", "rotation")) != -24.0:
+        fail("animation attack mandible amplitudes mismatch fixed v3 motion contract")
+    for bone in ("leg_left_front_upper", "leg_right_front_upper"):
+        if max(abs(value[0]) for value in vectors(attack, bone, "rotation")) != 8.0:
+            fail(f"animation attack {bone} amplitude mismatches fixed v3 motion contract")
+    hurt = "animation.corrupted_silverfish.hurt"
+    if [value[2] for value in vectors(hurt, "body", "rotation")] != [0.0, 6.0, -2.0, 0.0]:
+        fail("animation hurt body amplitude mismatches fixed v3 motion contract")
+    for bone in ("shell_front", "shell_mid", "shell_rear"):
+        if min(value[0] for value in vectors(hurt, bone, "scale")) != 0.96:
+            fail(f"animation hurt {bone} amplitude mismatches fixed v3 motion contract")
+    death = "animation.corrupted_silverfish.death"
+    if vectors(death, "body", "position")[-1][1] != -1.4 or abs(vectors(death, "tail_tip", "rotation")[-1][0]) != 12.0:
+        fail("animation death body/tail amplitudes mismatch fixed v3 motion contract")
+    for side in ("left", "right"):
+        for position in ("front", "mid", "rear"):
+            bone = f"leg_{side}_{position}_upper"
+            if abs(vectors(death, bone, "rotation")[-1][2]) != 48.0:
+                fail(f"animation death {bone} amplitude mismatches fixed v3 motion contract")
+    for number in range(1, 8):
+        if vectors(death, f"crystal_cluster_{number}", "scale")[-1] != [0.82, 0.82, 0.82]:
+            fail(f"animation death crystal_cluster_{number} amplitude mismatches fixed v3 motion contract")
     return normalized
 
 
@@ -480,19 +679,80 @@ def validate_bbmodel(document: Mapping[str, Any], geometry: Mapping[str, Any], a
             fail(f"bbmodel animation {name} channels mismatch animations file")
 
 
-def _manifest_bytes(paths: Sequence[Path]) -> bytes:
-    payload: Dict[str, str] = {}
-    for relative, path in zip(RELATIVE_PATHS, paths):
+def _is_reparse(path: Path) -> bool:
+    try:
+        stat_result = path.lstat()
+    except OSError:
+        return False
+    if path.is_symlink():
+        return True
+    attributes = getattr(stat_result, "st_file_attributes", 0)
+    return bool(attributes & getattr(stat_result, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400))
+
+
+def _inside(root: Path, path: Path) -> bool:
+    try:
+        return os.path.normcase(os.path.commonpath((str(root), str(path)))) == os.path.normcase(str(root))
+    except ValueError:
+        return False
+
+
+def _secure_candidate_paths(root: Path, paths: Sequence[Path], manifest: Path) -> Tuple[Tuple[Path, ...], Path]:
+    root_lexical = Path(os.path.abspath(str(root)))
+    if _is_reparse(root_lexical):
+        fail(f"root path is a symlink/reparse point: {root_lexical}")
+    root_resolved = root_lexical.resolve()
+    canonical_manifest = root_resolved / MANIFEST_RELATIVE
+    secured: List[Path] = []
+    for label, supplied in zip(("bbmodel", "geometry", "main texture", "glow texture", "animation"), paths):
+        lexical = Path(os.path.abspath(str(supplied)))
+        if not _inside(root_lexical, lexical):
+            fail(f"{label} path is lexically outside root: {lexical}")
         try:
-            digest = hashlib.sha256(path.read_bytes()).hexdigest().upper()
-        except OSError as exc:
-            fail(f"manifest hashing failed for {path}: {exc}")
+            relative = lexical.relative_to(root_lexical)
+        except ValueError:
+            fail(f"{label} path is lexically outside root: {lexical}")
+        current = root_lexical
+        for component in relative.parts:
+            current = current / component
+            if current.exists() or current.is_symlink():
+                if _is_reparse(current):
+                    fail(f"{label} path contains symlink/reparse component: {current}")
+        resolved = lexical.resolve()
+        if not _inside(root_resolved, resolved):
+            fail(f"{label} resolved path is outside root: {resolved}")
+        secured.append(resolved)
+    manifest_lexical = Path(os.path.abspath(str(manifest)))
+    if manifest_lexical != canonical_manifest or manifest_lexical.resolve() != canonical_manifest:
+        fail(f"manifest path must be exactly {canonical_manifest}")
+    if not _inside(root_resolved, manifest_lexical):
+        fail(f"manifest path is outside root: {manifest_lexical}")
+    current = root_lexical
+    for component in manifest_lexical.relative_to(root_lexical).parts:
+        current = current / component
+        if current.exists() or current.is_symlink():
+            if _is_reparse(current):
+                fail(f"manifest path contains symlink/reparse component: {current}")
+    resolved_manifest = manifest_lexical.resolve()
+    if resolved_manifest in secured:
+        fail(f"manifest path collides with candidate input: {resolved_manifest}")
+    if len(set(secured)) != len(secured):
+        fail("candidate input paths collide after resolution")
+    return tuple(secured), resolved_manifest
+
+
+def _manifest_bytes(snapshots: Sequence[bytes]) -> bytes:
+    payload: Dict[str, str] = {}
+    for relative, snapshot in zip(RELATIVE_PATHS, snapshots):
+        digest = hashlib.sha256(snapshot).hexdigest().upper()
         payload[relative.as_posix()] = digest
     return (json.dumps(payload, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
 
 
 def _atomic_write(path: Path, contents: bytes) -> None:
     temp_path: Optional[Path] = None
+    primary: Optional[OSError] = None
+    cleanup_errors: List[str] = []
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
@@ -509,24 +769,49 @@ def _atomic_write(path: Path, contents: bytes) -> None:
                 pass
             raise
         os.replace(temp_path, path)
+        try:
+            published = path.read_bytes()
+        except OSError as exc:
+            raise OSError(f"manifest verification read failed: {exc}") from exc
+        if published != contents:
+            raise OSError("manifest verification byte mismatch")
         temp_path = None
     except OSError as exc:
-        fail(f"manifest write failed ({path}): {exc}")
+        primary = exc
     finally:
         if temp_path is not None:
             try:
                 temp_path.unlink(missing_ok=True)
-            except OSError:
-                pass
+            except OSError as exc:
+                cleanup_errors.append(f"cleanup failed for {temp_path}: {exc}")
+    if primary is not None or cleanup_errors:
+        details = []
+        if primary is not None:
+            details.append(f"manifest write failed ({path}): {primary}")
+        details.extend(cleanup_errors)
+        fail("; ".join(details))
 
 
-def validate(paths: Sequence[Path], manifest: Path) -> int:
+def validate(paths: Sequence[Path], manifest: Path, root: Optional[Path] = None) -> int:
+    if root is None:
+        root = Path(os.path.abspath(str(paths[0]))).parents[2]
+    paths, manifest = _secure_candidate_paths(root, paths, manifest)
+    labels = ("bbmodel", "geometry", "main texture", "glow texture", "animation")
+    snapshots = tuple(_read_snapshot(path, limit, label) for path, limit, label in zip(paths, FILE_LIMITS, labels))
     bbmodel_path, geometry_path, main_path, glow_path, animation_path = paths
-    geometry = validate_geometry(_load_json(geometry_path, "geometry"))
-    glow_count, main_bytes = validate_textures(main_path, glow_path)
-    animations = validate_animations(_load_json(animation_path, "animation"), set(geometry["bones"]))
-    validate_bbmodel(_load_json(bbmodel_path, "bbmodel"), geometry, animations, main_bytes)
-    _atomic_write(manifest, _manifest_bytes(paths))
+    bbmodel_bytes, geometry_bytes, main_bytes, glow_bytes, animation_bytes = snapshots
+    geometry = validate_geometry(_load_json(geometry_bytes, geometry_path, "geometry"))
+    geometry_projection = {key: geometry[key] for key in ("parents", "pivots", "bone_rotations", "cubes", "cube_bones")}
+    geometry_digest = hashlib.sha256(json.dumps(geometry_projection, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest().upper()
+    if geometry_digest != GEOMETRY_CONTRACT_SHA256:
+        fail("geometry transforms/UVs mismatch immutable v3 contract")
+    glow_count = validate_textures(main_bytes, glow_bytes, main_path, glow_path, geometry)
+    animations = validate_animations(_load_json(animation_bytes, animation_path, "animation"), set(geometry["bones"]))
+    animation_digest = hashlib.sha256(json.dumps(animations, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest().upper()
+    if animation_digest != ANIMATION_CONTRACT_SHA256:
+        fail("animation times/vectors mismatch immutable v3 motion contract")
+    validate_bbmodel(_load_json(bbmodel_bytes, bbmodel_path, "bbmodel"), geometry, animations, main_bytes)
+    _atomic_write(manifest, _manifest_bytes(snapshots))
     return glow_count
 
 
@@ -544,12 +829,12 @@ def _parser() -> argparse.ArgumentParser:
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = _parser().parse_args(argv)
-    root = args.root.resolve()
+    root = Path(os.path.abspath(str(args.root)))
     overrides = (args.bbmodel, args.geometry, args.main, args.glow, args.animation)
-    paths = tuple((override.resolve() if override is not None else root / relative) for override, relative in zip(overrides, RELATIVE_PATHS))
-    manifest = args.manifest.resolve() if args.manifest is not None else root / MANIFEST_RELATIVE
+    paths = tuple((Path(os.path.abspath(str(override))) if override is not None else root / relative) for override, relative in zip(overrides, RELATIVE_PATHS))
+    manifest = Path(os.path.abspath(str(args.manifest))) if args.manifest is not None else root / MANIFEST_RELATIVE
     try:
-        glow_count = validate(paths, manifest)
+        glow_count = validate(paths, manifest, root=root)
     except ValidationFailure as exc:
         print(f"ASSET_CHECK_FAILED: {exc}", file=sys.stderr)
         return 1
