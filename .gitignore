@@ -124,6 +124,9 @@ run/
 runs/
 /run-data/
 
+# Persistent cooperative lock for the v3 candidate manifest writer
+/Modelle/Exports/corrupted_silverfish_v3/review/.candidate-sha256.lock
+
 # Python bytecode caches
 __pycache__/
 *.py[cod]

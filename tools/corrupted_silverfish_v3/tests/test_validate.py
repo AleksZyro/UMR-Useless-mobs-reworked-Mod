@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest import mock
 
@@ -28,6 +29,7 @@ RELATIVE_PATHS = (
     Path("Modelle/Exports/corrupted_silverfish_v3/textures/entity/corrupted_silverfish_glowmask.png"),
     Path("Modelle/Exports/corrupted_silverfish_v3/animations/corrupted_silverfish.animation.json"),
 )
+LOCK_NAME = ".candidate-sha256.lock"
 
 
 class ValidatorContract(unittest.TestCase):
@@ -223,7 +225,7 @@ class ValidatorContract(unittest.TestCase):
                 with self.assertRaisesRegex(validate.ValidationFailure, "manifest write failed"):
                     validate.validate(paths, manifest)
             self.assertEqual(b"old manifest\n", manifest.read_bytes())
-            self.assertEqual([manifest], list(manifest.parent.iterdir()))
+            self.assertEqual({manifest, manifest.parent / LOCK_NAME}, set(manifest.parent.iterdir()))
 
     def test_bbmodel_group_rotation_mismatch_fails_without_manifest_write(self):
         def mutate(document):
@@ -485,7 +487,7 @@ class ValidatorContract(unittest.TestCase):
                 with self.assertRaisesRegex(validate.ValidationFailure, "verification"):
                     validate._atomic_write(target, b"new\n")
             self.assertEqual(b"old\n", target.read_bytes())
-            self.assertEqual([target], list(target.parent.iterdir()))
+            self.assertEqual({target, target.parent / LOCK_NAME}, set(target.parent.iterdir()))
 
     def test_strict_runtime_schemas_reject_unknown_or_wrong_fields(self):
         def bad_identifier(document):
@@ -578,7 +580,10 @@ class ValidatorContract(unittest.TestCase):
                     self.assertEqual(b"old manifest\n", target.read_bytes())
                 else:
                     self.assertFalse(target.exists())
-                self.assertEqual(([target] if initially_present else []), list(target.parent.iterdir()))
+                expected = {target.parent / LOCK_NAME}
+                if initially_present:
+                    expected.add(target)
+                self.assertEqual(expected, set(target.parent.iterdir()))
 
     def test_manifest_rollback_failure_retains_backup_with_chain(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -699,7 +704,115 @@ validate._atomic_write(target, b"new manifest\n")
             target.write_bytes(b"old manifest\n")
             validate._atomic_write(target, b"new manifest\n")
             self.assertEqual(b"new manifest\n", target.read_bytes())
-            self.assertEqual([target], list(target.parent.iterdir()))
+            self.assertEqual({target, target.parent / LOCK_NAME}, set(target.parent.iterdir()))
+
+    def test_manifest_writer_lock_serializes_existing_and_missing_targets(self):
+        worker = r'''
+import os
+from pathlib import Path
+import sys
+import time
+from tools.corrupted_silverfish_v3 import validate
+target, ready, release = map(Path, sys.argv[1:4])
+real_replace = os.replace
+def pause_before_publish(source, destination):
+    source = Path(source)
+    if Path(destination) == target and ".backup." not in source.name:
+        ready.write_text("ready", encoding="ascii")
+        deadline = time.monotonic() + 15
+        while not release.exists():
+            if time.monotonic() >= deadline:
+                os._exit(74)
+            time.sleep(0.01)
+    return real_replace(source, destination)
+os.replace = pause_before_publish
+validate._atomic_write(target, b"first writer\n")
+'''
+        for initially_present in (True, False):
+            with self.subTest(initially_present=initially_present), tempfile.TemporaryDirectory() as directory:
+                parent = Path(directory)
+                target = parent / "manifest.json"
+                ready = parent / "ready"
+                release = parent / "release"
+                if initially_present:
+                    target.write_bytes(b"old manifest\n")
+                process = subprocess.Popen([sys.executable, "-c", worker, str(target), str(ready), str(release)], cwd=ROOT)
+                try:
+                    deadline = time.monotonic() + 10
+                    marker = ""
+                    while marker != "ready" and process.poll() is None and time.monotonic() < deadline:
+                        if ready.exists():
+                            marker = ready.read_text(encoding="ascii")
+                        time.sleep(0.01)
+                    self.assertEqual("ready", marker, f"writer exited early with {process.poll()}")
+                    if initially_present:
+                        self.assertEqual(b"old manifest\n", target.read_bytes())
+                    else:
+                        self.assertFalse(target.exists())
+                    before_contention = {
+                        path.name: (path.stat().st_size, None if path.name == LOCK_NAME else path.read_bytes())
+                        for path in parent.iterdir() if path.is_file()
+                    }
+                    with self.assertRaisesRegex(validate.ValidationFailure, "writer lock contention"):
+                        validate._atomic_write(target, b"second writer\n")
+                    after_contention = {
+                        path.name: (path.stat().st_size, None if path.name == LOCK_NAME else path.read_bytes())
+                        for path in parent.iterdir() if path.is_file()
+                    }
+                    self.assertEqual(before_contention, after_contention)
+                    if initially_present:
+                        self.assertEqual(b"old manifest\n", target.read_bytes())
+                    else:
+                        self.assertFalse(target.exists())
+                finally:
+                    release.touch()
+                    process.wait(timeout=10)
+                self.assertEqual(0, process.returncode)
+                self.assertEqual(b"first writer\n", target.read_bytes())
+                validate._atomic_write(target, b"third writer\n")
+                self.assertEqual(b"third writer\n", target.read_bytes())
+
+    def test_writer_crash_releases_os_lock_for_next_writer(self):
+        worker = r'''
+import os
+from pathlib import Path
+import sys
+from tools.corrupted_silverfish_v3 import validate
+target, ready = map(Path, sys.argv[1:3])
+with validate._manifest_lock(target):
+    ready.write_text("ready", encoding="ascii")
+    os._exit(73)
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            parent = Path(directory)
+            target = parent / "manifest.json"
+            ready = parent / "ready"
+            target.write_bytes(b"old manifest\n")
+            process = subprocess.run([sys.executable, "-c", worker, str(target), str(ready)], cwd=ROOT, check=False)
+            self.assertEqual(73, process.returncode)
+            self.assertTrue(ready.exists())
+            validate._atomic_write(target, b"after crash\n")
+            self.assertEqual(b"after crash\n", target.read_bytes())
+
+    def test_manifest_lockfile_is_exactly_scoped_in_gitignore(self):
+        lines = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+        expected = "/Modelle/Exports/corrupted_silverfish_v3/review/.candidate-sha256.lock"
+        self.assertIn(expected, lines)
+
+    def test_manifest_lockfile_cannot_hardlink_an_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.copy_candidate(directory)
+            main = root / RELATIVE_PATHS[2]
+            original = main.read_bytes()
+            lock_path = root / validate.MANIFEST_RELATIVE.parent / LOCK_NAME
+            lock_path.parent.mkdir(parents=True, exist_ok=True)
+            os.link(main, lock_path)
+            result = self.run_validator(root)
+            self.assertEqual(1, result.returncode)
+            self.assertEqual("", result.stdout)
+            self.assertIn("ASSET_CHECK_FAILED:", result.stderr)
+            self.assertIn("lock path collides with candidate input", result.stderr)
+            self.assertEqual(original, main.read_bytes())
 
     def test_deeply_nested_json_is_contextualized_without_unexpected_error(self):
         with tempfile.TemporaryDirectory() as directory:

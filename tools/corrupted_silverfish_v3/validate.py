@@ -2,6 +2,10 @@
 
 This module deliberately treats the generated artifacts as untrusted input.  It
 does not use any model generator or in-memory specification as an oracle.
+
+Manifest writes are serialized by a cooperative, process-level sidecar lock.
+That lock protects validator instances using this module; unrelated processes
+that write the manifest without taking the lock remain outside its guarantees.
 """
 
 from __future__ import annotations
@@ -9,6 +13,7 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
+from contextlib import contextmanager
 import hashlib
 from io import BytesIO
 import json
@@ -26,6 +31,7 @@ from PIL import Image, UnidentifiedImageError
 
 
 TEXTURE_SIZE = 256
+MANIFEST_LOCK_NAME = ".candidate-sha256.lock"
 FACE_NAMES = ("north", "east", "south", "west", "up", "down")
 CHANNEL_NAMES = {"rotation", "position", "scale"}
 EXPECTED_ANIMATIONS = {
@@ -791,6 +797,18 @@ def _secure_candidate_paths(root: Path, paths: Sequence[Path], manifest: Path) -
         fail(f"manifest path collides with candidate input: {resolved_manifest}")
     if len(set(secured)) != len(secured):
         fail("candidate input paths collide after resolution")
+    lock_path = canonical_manifest.parent / MANIFEST_LOCK_NAME
+    if lock_path.exists() or lock_path.is_symlink():
+        if _is_reparse(lock_path):
+            fail(f"manifest writer lock path is a symlink/reparse point: {lock_path}")
+        resolved_lock = lock_path.resolve()
+        if not _inside(root_resolved, resolved_lock):
+            fail(f"manifest writer lock path is outside root: {resolved_lock}")
+        for candidate in secured:
+            if os.path.samefile(lock_path, candidate):
+                fail(f"manifest writer lock path collides with candidate input: {candidate}")
+        if resolved_manifest.exists() and os.path.samefile(lock_path, resolved_manifest):
+            fail(f"manifest writer lock path collides with manifest: {resolved_manifest}")
     return tuple(secured), resolved_manifest
 
 
@@ -828,7 +846,75 @@ def _file_identity(path: Path) -> Tuple[int, int, int, int]:
     return (stat_result.st_dev, stat_result.st_ino, stat_result.st_size, stat_result.st_mtime_ns)
 
 
-def _atomic_write(path: Path, contents: bytes) -> None:
+@contextmanager
+def _manifest_lock(path: Path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.parent / MANIFEST_LOCK_NAME
+    if lock_path.exists() or lock_path.is_symlink():
+        if _is_reparse(lock_path):
+            fail(f"manifest writer lock path is a symlink/reparse point: {lock_path}")
+    handle = None
+    locked = False
+    body_error: Optional[BaseException] = None
+    release_errors: List[str] = []
+    try:
+        try:
+            handle = lock_path.open("a+b", buffering=0)
+            handle.seek(0, os.SEEK_END)
+            if handle.tell() == 0:
+                handle.write(b"\0")
+                os.fsync(handle.fileno())
+            handle.seek(0)
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            locked = True
+        except OSError as exc:
+            close_detail = ""
+            if handle is not None:
+                try:
+                    handle.close()
+                except OSError as close_exc:
+                    close_detail = f"; lock handle close failed: {close_exc}"
+                handle = None
+            fail(f"manifest writer lock contention at {lock_path}: {exc}{close_detail}")
+        try:
+            yield
+        except BaseException as exc:
+            body_error = exc
+    finally:
+        if locked and handle is not None:
+            try:
+                handle.seek(0)
+                if os.name == "nt":
+                    import msvcrt
+
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    import fcntl
+
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            except OSError as exc:
+                release_errors.append(f"manifest writer unlock failed for {lock_path}: {exc}")
+        if handle is not None:
+            try:
+                handle.close()
+            except OSError as exc:
+                release_errors.append(f"manifest writer lock handle close failed for {lock_path}: {exc}")
+    if body_error is not None:
+        if release_errors:
+            fail(f"{body_error}; {'; '.join(release_errors)}")
+        raise body_error.with_traceback(body_error.__traceback__)
+    if release_errors:
+        fail("; ".join(release_errors))
+
+
+def _atomic_write_locked(path: Path, contents: bytes) -> None:
     temp_path: Optional[Path] = None
     backup_path: Optional[Path] = None
     old_snapshot: Optional[bytes] = None
@@ -932,6 +1018,11 @@ def _atomic_write(path: Path, contents: bytes) -> None:
         details.extend(rollback_messages)
         details.extend(cleanup_errors)
         fail("; ".join(details))
+
+
+def _atomic_write(path: Path, contents: bytes) -> None:
+    with _manifest_lock(path):
+        _atomic_write_locked(path, contents)
 
 
 def validate(paths: Sequence[Path], manifest: Path, root: Optional[Path] = None) -> int:
