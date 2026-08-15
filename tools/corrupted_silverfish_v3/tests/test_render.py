@@ -5,7 +5,9 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from contextlib import redirect_stderr
 from io import BytesIO
+from io import StringIO
 
 from PIL import Image
 
@@ -87,11 +89,18 @@ class RasterContract(unittest.TestCase):
 class CommittedRenderContract(unittest.TestCase):
     ROOT = Path(__file__).resolve().parents[3]
 
+    def test_default_concept_is_a_portable_repo_relative_asset(self):
+        self.assertEqual(
+            render.DEFAULT_CONCEPT,
+            Path("Modelle/Exports/corrupted_silverfish_v2/concept/concept_sheet_raw.png"),
+        )
+        self.assertFalse(render.DEFAULT_CONCEPT.is_absolute())
+        self.assertTrue((self.ROOT / render.DEFAULT_CONCEPT).is_file())
+
     def test_renderer_reads_disk_assets_and_produces_deterministic_review_set(self):
         with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
-            concept = render.DEFAULT_CONCEPT if render.DEFAULT_CONCEPT.is_file() else None
-            first_paths = render.render_review_set(self.ROOT, Path(first), concept_path=concept)
-            second_paths = render.render_review_set(self.ROOT, Path(second), concept_path=concept)
+            first_paths = render.render_review_set(self.ROOT, Path(first))
+            second_paths = render.render_review_set(self.ROOT, Path(second))
             self.assertEqual(set(first_paths), set(render.OUTPUT_NAMES))
             digests = {}
             for name in render.OUTPUT_NAMES:
@@ -115,6 +124,33 @@ class CommittedRenderContract(unittest.TestCase):
                         self.assertLessEqual(bounds[2], 720)
                         self.assertLessEqual(bounds[3], 720)
             self.assertEqual(len(set(digests[name] for name in render.OUTPUT_NAMES[:7])), 7)
+
+    def test_missing_and_invalid_concept_fail_instead_of_rendering_placeholder(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "review"
+            stderr = StringIO()
+            with redirect_stderr(stderr):
+                result = render.main([
+                    "--root", str(self.ROOT),
+                    "--output", str(output),
+                    "--concept", "missing-concept.png",
+                ])
+            self.assertEqual(result, 1)
+            self.assertIn("concept image is missing", stderr.getvalue())
+            self.assertFalse(output.exists())
+
+            invalid = Path(directory) / "invalid.png"
+            invalid.write_bytes(b"not a png")
+            stderr = StringIO()
+            with redirect_stderr(stderr):
+                result = render.main([
+                    "--root", str(self.ROOT),
+                    "--output", str(output),
+                    "--concept", str(invalid),
+                ])
+            self.assertEqual(result, 1)
+            self.assertIn("concept image is not a valid image", stderr.getvalue())
+            self.assertFalse(output.exists())
 
     def test_requested_key_poses_project_to_distinct_frames(self):
         assets = render.load_assets(self.ROOT)

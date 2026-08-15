@@ -21,7 +21,7 @@ GEOMETRY_RELATIVE = Path("Modelle/Exports/corrupted_silverfish_v3/geo/corrupted_
 ANIMATION_RELATIVE = Path("Modelle/Exports/corrupted_silverfish_v3/animations/corrupted_silverfish.animation.json")
 TEXTURE_RELATIVE = Path("Modelle/Exports/corrupted_silverfish_v3/textures/entity/corrupted_silverfish.png")
 REVIEW_RELATIVE = Path("Modelle/Exports/corrupted_silverfish_v3/review")
-DEFAULT_CONCEPT = Path(r"C:\Users\Andrin\AppData\Local\Temp\codex-clipboard-b1259095-daca-4528-aa04-545b50d93ded.png")
+DEFAULT_CONCEPT = Path("Modelle/Exports/corrupted_silverfish_v2/concept/concept_sheet_raw.png")
 FACE_NAMES = ("north", "east", "south", "west", "up", "down")
 OUTPUT_NAMES = (
     "candidate_front.png", "candidate_right.png", "candidate_back.png", "candidate_top.png",
@@ -429,7 +429,26 @@ def _contact_sheet(images: Mapping[str, Image.Image], concept_path: Optional[Pat
     return sheet
 
 
+def _resolve_concept_path(root: Path, concept_path: Optional[Path]) -> Optional[Path]:
+    if concept_path is None:
+        return None
+    path = Path(concept_path)
+    if not path.is_absolute():
+        path = root / path
+    path = path.resolve()
+    if not path.is_file():
+        _fail(f"concept image is missing: {path}")
+    try:
+        with Image.open(path) as concept:
+            concept.load()
+    except (OSError, UnidentifiedImageError) as exc:
+        _fail(f"concept image is not a valid image ({path}): {exc}")
+    return path
+
+
 def render_review_set(root: Path, output_root: Optional[Path] = None, concept_path: Optional[Path] = DEFAULT_CONCEPT) -> Dict[str, Path]:
+    root = Path(root).resolve()
+    concept_path = _resolve_concept_path(root, concept_path)
     assets = load_assets(root)
     output_root = Path(output_root) if output_root is not None else Path(root) / REVIEW_RELATIVE
     images = {
