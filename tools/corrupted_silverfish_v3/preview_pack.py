@@ -34,6 +34,14 @@ PACK_META = (
     )
     + "\n"
 ).encode("utf-8")
+EXPECTED_PACK_DIRECTORIES = {
+    Path("assets"),
+    Path("assets/usless_mobs"),
+    Path("assets/usless_mobs/geo"),
+    Path("assets/usless_mobs/textures"),
+    Path("assets/usless_mobs/textures/entity"),
+    Path("assets/usless_mobs/animations"),
+}
 
 
 class PreviewPackFailure(Exception):
@@ -154,16 +162,19 @@ def _expected_pack_files() -> set[Path]:
     return {Path("pack.mcmeta"), *PACK_ASSETS.values()}
 
 
-def _pack_files(directory: Path) -> set[Path]:
+def _pack_entries(directory: Path) -> tuple[set[Path], set[Path]]:
     files: set[Path] = set()
+    directories: set[Path] = set()
     for path in directory.rglob("*"):
         if _is_reparse_or_link(path):
             raise PreviewPackFailure(f"preview pack contains a symlink/reparse point: {path}")
         if path.is_file():
             files.add(path.relative_to(directory))
-        elif not path.is_dir():
+        elif path.is_dir():
+            directories.add(path.relative_to(directory))
+        else:
             raise PreviewPackFailure(f"preview pack contains an unsupported entry: {path}")
-    return files
+    return files, directories
 
 
 def _reject_stale_destination(root: Path, destination: Path) -> None:
@@ -172,38 +183,86 @@ def _reject_stale_destination(root: Path, destination: Path) -> None:
     _secure_existing(root, destination, "preview destination")
     if not destination.is_dir():
         raise PreviewPackFailure(f"preview destination is not a directory: {destination}")
-    extras = _pack_files(destination) - _expected_pack_files()
-    if extras:
-        names = ", ".join(sorted(path.as_posix() for path in extras))
-        raise PreviewPackFailure(f"preview destination has unexpected files; remove them manually: {names}")
+    files, directories = _pack_entries(destination)
+    extra_files = files - _expected_pack_files()
+    extra_directories = directories - EXPECTED_PACK_DIRECTORIES
+    if extra_files or extra_directories:
+        details = []
+        if extra_files:
+            details.append("files: " + ", ".join(sorted(path.as_posix() for path in extra_files)))
+        if extra_directories:
+            details.append("directories: " + ", ".join(sorted(path.as_posix() for path in extra_directories)))
+        raise PreviewPackFailure(
+            "preview destination has unexpected entries; remove them manually: " + "; ".join(details)
+        )
 
 
 def _write_stage_file(path: Path, contents: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
     temporary = Path(temporary_name)
+    primary: Optional[BaseException] = None
+    cleanup: list[str] = []
+    descriptor_open = True
     try:
-        with os.fdopen(descriptor, "wb") as handle:
+        handle = os.fdopen(descriptor, "wb")
+        descriptor_open = False  # ownership transferred to the context manager
+        with handle:
             handle.write(contents)
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temporary, path)
+    except BaseException as exc:
+        primary = exc
     finally:
+        if descriptor_open:
+            try:
+                os.close(descriptor)
+            except BaseException as exc:
+                cleanup.append(f"descriptor cleanup failed for {temporary}: {exc}")
         try:
             temporary.unlink(missing_ok=True)
-        except OSError:
-            pass
+        except BaseException as exc:
+            cleanup.append(f"temporary cleanup failed for {temporary}: {exc}")
+    if primary is not None or cleanup:
+        details = []
+        if primary is not None:
+            details.append(str(primary))
+        details.extend(cleanup)
+        raise OSError("; ".join(details)) from primary
 
 
 def _verify_pack(destination: Path, snapshots: Mapping[Path, bytes]) -> None:
-    actual = _pack_files(destination)
-    if actual != _expected_pack_files():
-        raise PreviewPackFailure("published preview pack file listing is not exact")
+    actual_files, actual_directories = _pack_entries(destination)
+    if actual_files != _expected_pack_files() or actual_directories != EXPECTED_PACK_DIRECTORIES:
+        raise PreviewPackFailure("published preview pack file/directory listing is not exact")
     if (destination / "pack.mcmeta").read_bytes() != PACK_META:
         raise PreviewPackFailure("published pack.mcmeta byte verification failed")
     for source, packed in PACK_ASSETS.items():
         if (destination / packed).read_bytes() != snapshots[source]:
             raise PreviewPackFailure(f"published asset byte verification failed: {packed.as_posix()}")
+
+
+def _remove_tree(path: Path) -> None:
+    shutil.rmtree(path)
+
+
+def _cleanup_tree(path: Path, purpose: str, errors: list[str]) -> bool:
+    if not _lexists(path):
+        return True
+    try:
+        _remove_tree(path)
+        return True
+    except BaseException as exc:
+        errors.append(f"{purpose} cleanup failed for {path}: {exc}")
+        return False
+
+
+def _failure_message(primary: BaseException, rollback: list[str], cleanup: list[str]) -> str:
+    details = [f"preview pack transaction failed: {primary}"]
+    details.extend(rollback)
+    details.extend(cleanup)
+    return "; ".join(details)
 
 
 def _publish(stage: Path, destination: Path, snapshots: Mapping[Path, bytes]) -> None:
@@ -219,33 +278,44 @@ def _publish(stage: Path, destination: Path, snapshots: Mapping[Path, bytes]) ->
         published = True
         _verify_pack(destination, snapshots)
     except BaseException as exc:
-        rollback_error: Optional[BaseException] = None
-        try:
-            if published and _lexists(destination):
-                failed = destination.parent / f".{destination.name}.failed.{uuid4().hex}"
+        rollback_errors: list[str] = []
+        cleanup_errors: list[str] = []
+        failed: Optional[Path] = None
+        new_pack_isolated = False
+        if published and _lexists(destination):
+            failed = destination.parent / f".{destination.name}.failed.{uuid4().hex}"
+            try:
                 os.replace(destination, failed)
-                try:
-                    if moved_old:
-                        os.replace(backup, destination)
-                        moved_old = False
-                finally:
-                    shutil.rmtree(failed, ignore_errors=True)
-            elif moved_old and _lexists(backup):
+                new_pack_isolated = True
+            except BaseException as rollback_exc:
+                rollback_errors.append(
+                    f"rollback failed moving published pack from {destination} to {failed}: {rollback_exc}; "
+                    f"preserved backup={backup if moved_old else 'none'}"
+                )
+        if moved_old and (not published or new_pack_isolated) and _lexists(backup):
+            try:
                 os.replace(backup, destination)
                 moved_old = False
-        except BaseException as rollback_exc:
-            rollback_error = rollback_exc
-        detail = f"preview pack transaction failed: {exc}"
-        if rollback_error is not None:
-            detail += f"; rollback failed: {rollback_error}"
-        raise PreviewPackFailure(detail) from exc
-    finally:
+            except BaseException as rollback_exc:
+                rollback_errors.append(
+                    f"rollback failed restoring backup {backup} to {destination}: {rollback_exc}; "
+                    f"preserved backup={backup}, failed={failed if failed is not None else 'none'}"
+                )
         if _lexists(stage):
-            shutil.rmtree(stage, ignore_errors=True)
-        if _lexists(backup) and not moved_old:
-            shutil.rmtree(backup, ignore_errors=True)
+            _cleanup_tree(stage, "stage", cleanup_errors)
+        rollback_complete = not rollback_errors and not moved_old
+        if failed is not None and _lexists(failed) and rollback_complete:
+            _cleanup_tree(failed, "failed publication", cleanup_errors)
+        raise PreviewPackFailure(_failure_message(exc, rollback_errors, cleanup_errors)) from exc
+
+    cleanup_errors: list[str] = []
     if _lexists(backup):
-        shutil.rmtree(backup)
+        _cleanup_tree(backup, "published backup", cleanup_errors)
+    if cleanup_errors:
+        raise PreviewPackFailure(
+            "pack published, cleanup incomplete; new pack retained at "
+            f"{destination}; " + "; ".join(cleanup_errors)
+        )
 
 
 def build_preview_pack(root: Path) -> Path:
@@ -263,19 +333,17 @@ def build_preview_pack(root: Path) -> Path:
     destination = root / PREVIEW_RELATIVE
     _reject_stale_destination(root, destination)
     _secure_parent(root, destination.parent)
+    stage = Path(tempfile.mkdtemp(prefix=f".{destination.name}.stage.", dir=str(destination.parent)))
     try:
-        stage = Path(tempfile.mkdtemp(prefix=f".{destination.name}.stage.", dir=str(destination.parent)))
         _write_stage_file(stage / "pack.mcmeta", PACK_META)
         for source, packed in PACK_ASSETS.items():
             _write_stage_file(stage / packed, snapshots[source])
         _verify_pack(stage, snapshots)
-        _publish(stage, destination, snapshots)
-    except PreviewPackFailure:
-        raise
     except BaseException as exc:
-        if "stage" in locals() and _lexists(stage):
-            shutil.rmtree(stage, ignore_errors=True)
-        raise PreviewPackFailure(f"preview pack transaction failed: {exc}") from exc
+        cleanup_errors: list[str] = []
+        _cleanup_tree(stage, "stage", cleanup_errors)
+        raise PreviewPackFailure(_failure_message(exc, [], cleanup_errors)) from exc
+    _publish(stage, destination, snapshots)
     return destination
 
 

@@ -53,6 +53,12 @@ class PreviewPackContract(unittest.TestCase):
             if path.is_file()
         }
         self.assertEqual(actual_files, expected_files)
+        actual_directories = {
+            path.relative_to(destination)
+            for path in destination.rglob("*")
+            if path.is_dir()
+        }
+        self.assertEqual(actual_directories, preview_pack.EXPECTED_PACK_DIRECTORIES)
         self.assertEqual(
             json.loads((destination / "pack.mcmeta").read_text(encoding="utf-8")),
             {
@@ -143,9 +149,39 @@ class PreviewPackContract(unittest.TestCase):
         extra = destination / "stale.txt"
         extra.write_text("keep", encoding="utf-8")
         with mock.patch.object(preview_pack, "_run_validator"):
-            with self.assertRaisesRegex(preview_pack.PreviewPackFailure, "unexpected files"):
+            with self.assertRaisesRegex(preview_pack.PreviewPackFailure, "unexpected entries.*stale.txt"):
                 preview_pack.build_preview_pack(self.root)
         self.assertEqual(extra.read_text("utf-8"), "keep")
+
+    def test_empty_extra_directories_at_top_and_deep_are_rejected_unchanged(self):
+        destination = self.build()
+        top = destination / "unexpected-empty"
+        deep = destination / "assets/usless_mobs/textures/entity/deep-empty"
+        top.mkdir()
+        deep.mkdir()
+        before = sorted(path.relative_to(destination).as_posix() for path in destination.rglob("*"))
+        with mock.patch.object(preview_pack, "_run_validator"):
+            with self.assertRaisesRegex(preview_pack.PreviewPackFailure, "unexpected entries.*directories.*deep-empty"):
+                preview_pack.build_preview_pack(self.root)
+        after = sorted(path.relative_to(destination).as_posix() for path in destination.rglob("*"))
+        self.assertEqual(after, before)
+        self.assertTrue(top.is_dir())
+        self.assertTrue(deep.is_dir())
+
+    def test_symlink_entry_is_rejected_without_touching_destination_when_supported(self):
+        destination = self.build()
+        link = destination / "linked"
+        try:
+            link.symlink_to(self.root, target_is_directory=True)
+        except OSError as exc:
+            self.skipTest(f"symlink creation unavailable: {exc}")
+        try:
+            with mock.patch.object(preview_pack, "_run_validator"):
+                with self.assertRaisesRegex(preview_pack.PreviewPackFailure, "symlink/reparse"):
+                    preview_pack.build_preview_pack(self.root)
+            self.assertTrue(link.is_symlink())
+        finally:
+            link.unlink(missing_ok=True)
 
     def test_stage_failure_and_publish_failure_roll_back(self):
         destination = self.build()
@@ -166,19 +202,139 @@ class PreviewPackContract(unittest.TestCase):
         self.assertEqual(old, {p.relative_to(destination): p.read_bytes() for p in destination.rglob("*") if p.is_file()})
 
         real_replace = os.replace
-        replace_calls = 0
 
-        def fail_second_replace(source, target):
-            nonlocal replace_calls
-            replace_calls += 1
-            if replace_calls == 2:
+        def fail_stage_publish(source, target):
+            if ".stage." in Path(source).name and Path(target) == destination:
                 raise OSError("injected publish failure")
             return real_replace(source, target)
 
-        with mock.patch.object(preview_pack, "_run_validator"), mock.patch.object(preview_pack.os, "replace", side_effect=fail_second_replace):
+        with mock.patch.object(preview_pack, "_run_validator"), mock.patch.object(preview_pack.os, "replace", side_effect=fail_stage_publish):
             with self.assertRaisesRegex(preview_pack.PreviewPackFailure, "injected publish failure"):
                 preview_pack.build_preview_pack(self.root)
         self.assertEqual(old, {p.relative_to(destination): p.read_bytes() for p in destination.rglob("*") if p.is_file()})
+
+    def test_stage_cleanup_failure_preserves_primary_and_reports_retained_path(self):
+        with mock.patch.object(preview_pack, "_run_validator"), \
+                mock.patch.object(preview_pack, "_write_stage_file", side_effect=OSError("primary stage write")), \
+                mock.patch.object(preview_pack, "_remove_tree", side_effect=OSError("stage locked")):
+            with self.assertRaises(preview_pack.PreviewPackFailure) as raised:
+                preview_pack.build_preview_pack(self.root)
+        message = str(raised.exception)
+        self.assertIn("primary stage write", message)
+        self.assertIn("stage cleanup failed", message)
+        self.assertIn("stage locked", message)
+        retained = list((self.root / "run/resourcepacks").glob(".corrupted_silverfish_v3_preview.stage.*"))
+        self.assertEqual(len(retained), 1)
+        shutil.rmtree(retained[0])
+
+    def test_temporary_file_cleanup_does_not_mask_write_primary(self):
+        target = self.root / "stage" / "file.bin"
+        target.parent.mkdir()
+        with mock.patch.object(preview_pack.os, "replace", side_effect=OSError("replace primary")), \
+                mock.patch.object(Path, "unlink", side_effect=OSError("temp locked")):
+            with self.assertRaises(OSError) as raised:
+                preview_pack._write_stage_file(target, b"candidate")
+        message = str(raised.exception)
+        self.assertIn("replace primary", message)
+        self.assertIn("temporary cleanup failed", message)
+        self.assertIn("temp locked", message)
+        for temporary in target.parent.glob(".*.tmp"):
+            temporary.unlink()
+
+    def test_prepublish_verification_failure_cleans_stage_and_preserves_old_pack(self):
+        destination = self.build()
+        old = {p.relative_to(destination): p.read_bytes() for p in destination.rglob("*") if p.is_file()}
+        with mock.patch.object(preview_pack, "_run_validator"), \
+                mock.patch.object(preview_pack, "_verify_pack", side_effect=preview_pack.PreviewPackFailure("prepublish verify")):
+            with self.assertRaisesRegex(preview_pack.PreviewPackFailure, "prepublish verify"):
+                preview_pack.build_preview_pack(self.root)
+        self.assertEqual(old, {p.relative_to(destination): p.read_bytes() for p in destination.rglob("*") if p.is_file()})
+        self.assertEqual(list(destination.parent.glob(".corrupted_silverfish_v3_preview.stage.*")), [])
+
+    def test_publish_failure_restores_old_and_reports_failed_cleanup_path(self):
+        destination = self.build()
+        old_meta = destination.joinpath("pack.mcmeta").read_bytes()
+        verify_calls = 0
+        real_verify = preview_pack._verify_pack
+
+        def fail_published(path, snapshots):
+            nonlocal verify_calls
+            verify_calls += 1
+            if verify_calls == 2:
+                raise preview_pack.PreviewPackFailure("published verify failed")
+            return real_verify(path, snapshots)
+
+        with mock.patch.object(preview_pack, "_run_validator"), \
+                mock.patch.object(preview_pack, "_verify_pack", side_effect=fail_published), \
+                mock.patch.object(preview_pack, "_remove_tree", side_effect=OSError("failed dir locked")):
+            with self.assertRaises(preview_pack.PreviewPackFailure) as raised:
+                preview_pack.build_preview_pack(self.root)
+        self.assertIn("published verify failed", str(raised.exception))
+        self.assertIn("failed publication cleanup failed", str(raised.exception))
+        self.assertEqual(destination.joinpath("pack.mcmeta").read_bytes(), old_meta)
+        failed = list(destination.parent.glob(".corrupted_silverfish_v3_preview.failed.*"))
+        self.assertEqual(len(failed), 1)
+        self.assertEqual(list(destination.parent.glob(".corrupted_silverfish_v3_preview.backup.*")), [])
+        shutil.rmtree(failed[0])
+
+    def test_rollback_failure_preserves_backup_and_failed_pack_with_paths(self):
+        destination = self.build()
+        verify_calls = 0
+        real_verify = preview_pack._verify_pack
+        real_replace = os.replace
+
+        def fail_published(path, snapshots):
+            nonlocal verify_calls
+            verify_calls += 1
+            if verify_calls == 2:
+                raise preview_pack.PreviewPackFailure("published verify failed")
+            return real_verify(path, snapshots)
+
+        def fail_restore(source, target):
+            if ".backup." in str(source) and Path(target) == destination:
+                raise OSError("restore locked")
+            return real_replace(source, target)
+
+        with mock.patch.object(preview_pack, "_run_validator"), \
+                mock.patch.object(preview_pack, "_verify_pack", side_effect=fail_published), \
+                mock.patch.object(preview_pack.os, "replace", side_effect=fail_restore):
+            with self.assertRaises(preview_pack.PreviewPackFailure) as raised:
+                preview_pack.build_preview_pack(self.root)
+        message = str(raised.exception)
+        self.assertIn("rollback failed restoring backup", message)
+        self.assertIn("restore locked", message)
+        self.assertFalse(destination.exists())
+        backups = list(destination.parent.glob(".corrupted_silverfish_v3_preview.backup.*"))
+        failed = list(destination.parent.glob(".corrupted_silverfish_v3_preview.failed.*"))
+        self.assertEqual((len(backups), len(failed)), (1, 1))
+        os.replace(backups[0], destination)
+        shutil.rmtree(failed[0])
+
+    def test_successful_publish_with_backup_cleanup_failure_keeps_new_pack(self):
+        destination = self.build()
+        old_meta = destination.joinpath("pack.mcmeta").read_bytes()
+        replacement_meta = preview_pack.PACK_META.replace(b"preview", b"preview-new")
+        with mock.patch.object(preview_pack, "_run_validator"), \
+                mock.patch.object(preview_pack, "PACK_META", replacement_meta), \
+                mock.patch.object(preview_pack, "_remove_tree", side_effect=OSError("backup locked")):
+            with self.assertRaises(preview_pack.PreviewPackFailure) as raised:
+                preview_pack.build_preview_pack(self.root)
+        message = str(raised.exception)
+        self.assertIn("pack published, cleanup incomplete", message)
+        self.assertIn("backup locked", message)
+        self.assertEqual(destination.joinpath("pack.mcmeta").read_bytes(), replacement_meta)
+        self.assertNotEqual(destination.joinpath("pack.mcmeta").read_bytes(), old_meta)
+        backups = list(destination.parent.glob(".corrupted_silverfish_v3_preview.backup.*"))
+        self.assertEqual(len(backups), 1)
+        shutil.rmtree(backups[0])
+
+    def test_normal_publish_leaves_no_transaction_directories(self):
+        destination = self.build()
+        leftovers = [
+            path for path in destination.parent.iterdir()
+            if path.name.startswith(".corrupted_silverfish_v3_preview.")
+        ]
+        self.assertEqual(leftovers, [])
 
     def test_preview_closes_java_resource_and_animation_gate(self):
         destination = self.build()
