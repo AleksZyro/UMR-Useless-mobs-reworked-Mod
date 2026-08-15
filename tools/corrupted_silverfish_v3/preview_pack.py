@@ -101,18 +101,19 @@ def _secure_parent(root: Path, parent: Path) -> None:
                 raise PreviewPackFailure(f"cannot create preview destination {current}: {exc}") from exc
 
 
-def _run_validator(root: Path) -> None:
+def _run_validator(project_root: Path, candidate_root: Path) -> None:
+    validator_entry = project_root / "tools/corrupted_silverfish_v3/validate.py"
+    _secure_existing(project_root, validator_entry, "validator entry")
     command = [
         sys.executable,
-        "-m",
-        "tools.corrupted_silverfish_v3.validate",
+        str(validator_entry),
         "--root",
-        str(root),
+        str(candidate_root),
     ]
     try:
         result = subprocess.run(
             command,
-            cwd=str(root),
+            cwd=str(project_root),
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -127,35 +128,91 @@ def _run_validator(root: Path) -> None:
         raise PreviewPackFailure(f"validator failed: {detail}")
 
 
-def _verified_candidate(root: Path) -> Dict[Path, bytes]:
-    manifest_path = root / validate.MANIFEST_RELATIVE
-    _secure_existing(root, manifest_path, "candidate manifest")
+def _parse_manifest(contents: bytes, label: str) -> Mapping[str, object]:
     try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise PreviewPackFailure(f"candidate manifest is unreadable: {exc}") from exc
+        manifest = json.loads(contents.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise PreviewPackFailure(f"{label} is unreadable: {exc}") from exc
     expected_keys = {path.as_posix() for path in validate.RELATIVE_PATHS}
     if not isinstance(manifest, dict) or set(manifest) != expected_keys:
-        raise PreviewPackFailure("candidate manifest must contain exactly the 5 candidate paths")
+        raise PreviewPackFailure(f"{label} must contain exactly the 5 candidate paths")
+    return manifest
 
-    snapshots: Dict[Path, bytes] = {}
+
+def _read_bounded_once(path: Path, limit: int, label: str) -> bytes:
+    try:
+        size = path.stat().st_size
+        if size > limit:
+            raise PreviewPackFailure(f"{label} exceeds size limit {limit} bytes: {size}")
+        contents = path.read_bytes()
+    except PreviewPackFailure:
+        raise
+    except OSError as exc:
+        raise PreviewPackFailure(f"{label} is unreadable ({path}): {exc}") from exc
+    if len(contents) > limit:
+        raise PreviewPackFailure(f"{label} exceeds size limit {limit} bytes after read: {len(contents)}")
+    return contents
+
+
+def _verify_manifest_hashes(
+    manifest_contents: bytes,
+    snapshots: Mapping[Path, bytes],
+    label: str,
+) -> None:
+    manifest = _parse_manifest(manifest_contents, label)
     for relative in validate.RELATIVE_PATHS:
         expected = manifest.get(relative.as_posix())
         if not isinstance(expected, str) or len(expected) != 64 or expected != expected.upper():
-            raise PreviewPackFailure(f"invalid manifest hash for {relative.as_posix()}")
-        path = root / relative
-        _secure_existing(root, path, "candidate file")
-        try:
-            contents = path.read_bytes()
-        except OSError as exc:
-            raise PreviewPackFailure(f"candidate file is unreadable ({relative.as_posix()}): {exc}") from exc
-        actual = hashlib.sha256(contents).hexdigest().upper()
+            raise PreviewPackFailure(f"invalid {label} hash for {relative.as_posix()}")
+        actual = hashlib.sha256(snapshots[relative]).hexdigest().upper()
         if actual != expected:
             raise PreviewPackFailure(
-                f"manifest hash mismatch for {relative.as_posix()}: expected {expected}, got {actual}"
+                f"{label} hash mismatch for {relative.as_posix()}: expected {expected}, got {actual}"
             )
-        snapshots[relative] = contents
-    return snapshots
+
+
+def _read_candidate_snapshots(root: Path) -> tuple[Dict[Path, bytes], bytes]:
+    manifest_path = root / validate.MANIFEST_RELATIVE
+    _secure_existing(root, manifest_path, "candidate manifest")
+    manifest_contents = _read_bounded_once(manifest_path, 64 * 1024, "candidate manifest")
+    snapshots: Dict[Path, bytes] = {}
+    for relative, limit in zip(validate.RELATIVE_PATHS, validate.FILE_LIMITS):
+        path = root / relative
+        _secure_existing(root, path, "candidate file")
+        snapshots[relative] = _read_bounded_once(path, limit, f"candidate file {relative.as_posix()}")
+    _verify_manifest_hashes(manifest_contents, snapshots, "committed candidate manifest")
+    return snapshots, manifest_contents
+
+
+def _validate_snapshots(
+    root: Path,
+    snapshots: Mapping[Path, bytes],
+    committed_manifest: bytes,
+) -> None:
+    validation_root = Path(tempfile.mkdtemp(prefix=".corrupted_silverfish_v3_validation.", dir=str(root)))
+    primary: Optional[BaseException] = None
+    cleanup_errors: list[str] = []
+    try:
+        for relative in validate.RELATIVE_PATHS:
+            _write_stage_file(validation_root / relative, snapshots[relative])
+        _write_stage_file(validation_root / validate.MANIFEST_RELATIVE, committed_manifest)
+        _run_validator(root, validation_root)
+        snapshot_manifest = validation_root / validate.MANIFEST_RELATIVE
+        _secure_existing(validation_root, snapshot_manifest, "validated snapshot manifest")
+        generated_manifest = _read_bounded_once(
+            snapshot_manifest, 64 * 1024, "validated snapshot manifest"
+        )
+        _verify_manifest_hashes(generated_manifest, snapshots, "validated snapshot manifest")
+    except BaseException as exc:
+        primary = exc
+    finally:
+        _cleanup_tree(validation_root, "validated snapshot", cleanup_errors)
+    if primary is not None or cleanup_errors:
+        if primary is None:
+            raise PreviewPackFailure(
+                "validated snapshots passed, cleanup incomplete; " + "; ".join(cleanup_errors)
+            )
+        raise PreviewPackFailure(_failure_message(primary, [], cleanup_errors)) from primary
 
 
 def _expected_pack_files() -> set[Path]:
@@ -325,10 +382,10 @@ def build_preview_pack(root: Path) -> Path:
     if _is_reparse_or_link(root):
         raise PreviewPackFailure(f"project root is a symlink/reparse point: {root}")
 
-    # Validation intentionally happens in an independent interpreter before any
-    # destination inspection, directory creation, staging or publication.
-    _run_validator(root)
-    snapshots = _verified_candidate(root)
+    # Read each source exactly once, then validate only the immutable staged
+    # snapshots. Every later hash check and pack write consumes those bytes.
+    snapshots, committed_manifest = _read_candidate_snapshots(root)
+    _validate_snapshots(root, snapshots, committed_manifest)
 
     destination = root / PREVIEW_RELATIVE
     _reject_stale_destination(root, destination)

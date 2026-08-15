@@ -41,7 +41,11 @@ class PreviewPackContract(unittest.TestCase):
         with mock.patch.object(preview_pack, "_run_validator") as run:
             run.return_value = None
             result = preview_pack.build_preview_pack(self.root)
-        run.assert_called_once_with(self.root)
+        run.assert_called_once()
+        project_root, snapshot_root = run.call_args.args
+        self.assertEqual(project_root, self.root)
+        self.assertTrue(snapshot_root.name.startswith(".corrupted_silverfish_v3_validation."))
+        self.assertFalse(snapshot_root.exists())
         return result
 
     def test_pack_metadata_assets_hashes_and_no_extras_are_exact(self):
@@ -97,13 +101,47 @@ class PreviewPackContract(unittest.TestCase):
         failed = subprocess.CompletedProcess([], 1, "", "ASSET_CHECK_FAILED: broken\n")
         with mock.patch.object(preview_pack.subprocess, "run", return_value=failed) as run:
             with self.assertRaisesRegex(preview_pack.PreviewPackFailure, "validator failed.*broken"):
-                preview_pack._run_validator(self.root)
+                preview_pack._run_validator(ROOT, self.root)
         command = run.call_args.args[0]
-        self.assertEqual(command[:3], [preview_pack.sys.executable, "-m", "tools.corrupted_silverfish_v3.validate"])
+        self.assertEqual(
+            command[:2],
+            [preview_pack.sys.executable, str(ROOT / "tools/corrupted_silverfish_v3/validate.py")],
+        )
         false_success = subprocess.CompletedProcess([], 0, "not the validator\n", "")
         with mock.patch.object(preview_pack.subprocess, "run", return_value=false_success):
             with self.assertRaisesRegex(preview_pack.PreviewPackFailure, "validator failed"):
-                preview_pack._run_validator(self.root)
+                preview_pack._run_validator(ROOT, self.root)
+
+    def test_source_swap_after_snapshot_validation_cannot_reach_published_pack(self):
+        validator = self.root / "tools/corrupted_silverfish_v3/validate.py"
+        validator.parent.mkdir(parents=True)
+        shutil.copyfile(ROOT / "tools/corrupted_silverfish_v3/validate.py", validator)
+        old_assets = {
+            relative: (self.root / relative).read_bytes()
+            for relative in validate.RELATIVE_PATHS
+        }
+        old_pack_assets = {
+            relative: old_assets[relative]
+            for relative in preview_pack.PACK_ASSETS
+        }
+        real_validator = preview_pack._run_validator
+
+        def validate_then_replace_sources(project_root, snapshot_root):
+            real_validator(project_root, snapshot_root)
+            replacements = {}
+            for index, relative in enumerate(validate.RELATIVE_PATHS):
+                replacement = f"unchecked-replacement-{index}".encode("ascii")
+                (self.root / relative).write_bytes(replacement)
+                replacements[relative.as_posix()] = hashlib.sha256(replacement).hexdigest().upper()
+            (self.root / validate.MANIFEST_RELATIVE).write_text(
+                json.dumps(replacements, indent=2) + "\n", encoding="utf-8"
+            )
+
+        with mock.patch.object(preview_pack, "_run_validator", side_effect=validate_then_replace_sources):
+            destination = preview_pack.build_preview_pack(self.root)
+        for relative, packed in preview_pack.PACK_ASSETS.items():
+            self.assertEqual((destination / packed).read_bytes(), old_pack_assets[relative])
+            self.assertNotEqual((destination / packed).read_bytes(), (self.root / relative).read_bytes())
 
     def test_cli_has_exact_pass_and_failure_prefixes(self):
         expected = self.root / preview_pack.PREVIEW_RELATIVE
@@ -196,7 +234,7 @@ class PreviewPackContract(unittest.TestCase):
                 raise OSError("injected stage failure")
             return original_write(path, contents)
 
-        with mock.patch.object(preview_pack, "_run_validator"), mock.patch.object(preview_pack, "_write_stage_file", side_effect=fail_fifth):
+        with mock.patch.object(preview_pack, "_validate_snapshots"), mock.patch.object(preview_pack, "_write_stage_file", side_effect=fail_fifth):
             with self.assertRaisesRegex(preview_pack.PreviewPackFailure, "injected stage failure"):
                 preview_pack.build_preview_pack(self.root)
         self.assertEqual(old, {p.relative_to(destination): p.read_bytes() for p in destination.rglob("*") if p.is_file()})
@@ -214,7 +252,7 @@ class PreviewPackContract(unittest.TestCase):
         self.assertEqual(old, {p.relative_to(destination): p.read_bytes() for p in destination.rglob("*") if p.is_file()})
 
     def test_stage_cleanup_failure_preserves_primary_and_reports_retained_path(self):
-        with mock.patch.object(preview_pack, "_run_validator"), \
+        with mock.patch.object(preview_pack, "_validate_snapshots"), \
                 mock.patch.object(preview_pack, "_write_stage_file", side_effect=OSError("primary stage write")), \
                 mock.patch.object(preview_pack, "_remove_tree", side_effect=OSError("stage locked")):
             with self.assertRaises(preview_pack.PreviewPackFailure) as raised:
@@ -264,7 +302,7 @@ class PreviewPackContract(unittest.TestCase):
                 raise preview_pack.PreviewPackFailure("published verify failed")
             return real_verify(path, snapshots)
 
-        with mock.patch.object(preview_pack, "_run_validator"), \
+        with mock.patch.object(preview_pack, "_validate_snapshots"), \
                 mock.patch.object(preview_pack, "_verify_pack", side_effect=fail_published), \
                 mock.patch.object(preview_pack, "_remove_tree", side_effect=OSError("failed dir locked")):
             with self.assertRaises(preview_pack.PreviewPackFailure) as raised:
@@ -314,7 +352,7 @@ class PreviewPackContract(unittest.TestCase):
         destination = self.build()
         old_meta = destination.joinpath("pack.mcmeta").read_bytes()
         replacement_meta = preview_pack.PACK_META.replace(b"preview", b"preview-new")
-        with mock.patch.object(preview_pack, "_run_validator"), \
+        with mock.patch.object(preview_pack, "_validate_snapshots"), \
                 mock.patch.object(preview_pack, "PACK_META", replacement_meta), \
                 mock.patch.object(preview_pack, "_remove_tree", side_effect=OSError("backup locked")):
             with self.assertRaises(preview_pack.PreviewPackFailure) as raised:
