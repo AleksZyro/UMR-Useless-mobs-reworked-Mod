@@ -62,7 +62,13 @@ def _crystal(result: List[dict], name: str, bone: str, x: float, y: float, z: fl
 def cubes() -> List[dict]:
     c: List[dict] = [
         _cube("head_core", "head", (-7, 2.2, -9), (14, 5.8, 6.5), "core"),
-        _cube("head_armor", "head", (-7.7, 6.0, -8.6), (15.4, 4.0, 5.5), "steel"),
+        _cube("head_armor", "head", (-6.6, 6.0, -8.8), (13.2, 4.0, 5.9), "steel"),
+        _cube("head_armor_left", "head", (-7.8, 6.2, -7.9), (1.8, 3.4, 4.3), "steel_dark"),
+        _cube("head_armor_right", "head", (6.0, 6.2, -7.9), (1.8, 3.4, 4.3), "steel_dark"),
+        _cube("head_top_plate", "head", (-5.8, 10.0, -8.2), (11.6, .55, 4.8), "steel_light"),
+        _cube("head_corruption_left", "head", (-3.0, 10.5, -7.5), (1.25, .5, 4.0), "corruption", (0, 35, 0)),
+        _cube("head_corruption_right", "head", (1.75, 10.5, -7.5), (1.25, .5, 4.0), "corruption", (0, -35, 0)),
+        _cube("head_corruption_core", "head", (-.9, 10.8, -6.1), (1.8, .45, 2.2), "magenta"),
         _cube("head_brow_left", "head", (-6.4, 4.8, -9.35), (5.1, 2.2, .7), "steel_light"),
         _cube("head_brow_right", "head", (1.3, 4.8, -9.35), (5.1, 2.2, .7), "steel_light"),
         _cube("face_corruption", "head", (-1.1, 5.1, -9.48), (2.2, 3.8, .5), "magenta"),
@@ -72,11 +78,20 @@ def cubes() -> List[dict]:
         _cube("mandible_right", "mandible_right", (1.5, 1.2, -12.2), (2.4, 4.0, 3.4), "steel_light"),
         _cube("body_core", "body", (-6.4, 2.3, -3.2), (12.8, 5.3, 19.2), "core"),
         _cube("armor_front", "shell_front", (-8.0, 5.0, -2.6), (16.0, 5.1, 6.8), "steel"),
-        _cube("armor_front_highlight", "shell_front", (-7.4, 9.0, -2.1), (14.8, 1.4, 5.8), "steel_light"),
+        _cube("armor_front_frame", "shell_front", (-7.5, 10.05, -2.1), (15.0, .55, 5.8), "steel_dark"),
+        _cube("armor_front_top", "shell_front", (-6.8, 10.55, -1.7), (13.6, .45, 5.0), "steel_light"),
+        _cube("armor_front_inset", "shell_front", (-2.0, 10.95, -.7), (4.0, .4, 3.0), "seam"),
+        _cube("armor_front_core", "shell_front", (-.8, 11.3, -.15), (1.6, .35, 1.8), "magenta"),
         _cube("armor_mid", "shell_mid", (-7.7, 4.8, 3.5), (15.4, 5.1, 7.0), "steel"),
-        _cube("armor_mid_highlight", "shell_mid", (-7.1, 8.8, 4.0), (14.2, 1.4, 6.0), "steel_light"),
+        _cube("armor_mid_frame", "shell_mid", (-7.2, 9.85, 4.0), (14.4, .55, 6.0), "steel_dark"),
+        _cube("armor_mid_top", "shell_mid", (-6.5, 10.35, 4.4), (13.0, .45, 5.2), "steel_light"),
+        _cube("armor_mid_inset", "shell_mid", (-2.0, 10.75, 5.5), (4.0, .4, 3.0), "seam"),
+        _cube("armor_mid_core", "shell_mid", (-.8, 11.1, 6.05), (1.6, .35, 1.8), "magenta"),
         _cube("armor_rear", "shell_rear", (-7.0, 4.2, 9.8), (14.0, 4.8, 6.8), "steel"),
-        _cube("armor_rear_highlight", "shell_rear", (-6.4, 8.0, 10.3), (12.8, 1.35, 5.8), "steel_light"),
+        _cube("armor_rear_frame", "shell_rear", (-6.5, 9.0, 10.3), (13.0, .55, 5.8), "steel_dark"),
+        _cube("armor_rear_top", "shell_rear", (-5.8, 9.5, 10.7), (11.6, .45, 5.0), "steel_light"),
+        _cube("armor_rear_inset", "shell_rear", (-1.8, 9.9, 11.75), (3.6, .4, 2.8), "seam"),
+        _cube("armor_rear_core", "shell_rear", (-.7, 10.25, 12.25), (1.4, .35, 1.7), "magenta"),
         _cube("front_seam", "body", (-6.7, 3.9, 3.0), (13.4, 1.4, 1.0), "corruption"),
         _cube("rear_seam", "body", (-6.2, 3.6, 9.4), (12.4, 1.4, 1.0), "corruption"),
         _cube("corruption_panel_left_front", "shell_front", (-8.25, 4.7, -.9), (.7, 2.5, 3.0), "magenta"),
@@ -86,7 +101,9 @@ def cubes() -> List[dict]:
         _cube("corruption_panel_left_rear", "shell_rear", (-7.25, 4.0, 11.8), (.7, 2.3, 2.8), "magenta"),
         _cube("corruption_panel_right_rear", "shell_rear", (6.55, 4.0, 11.8), (.7, 2.3, 2.8), "magenta"),
         _cube("tail_base", "tail", (-5.0, 3.0, 16.0), (10.0, 4.5, 3.3), "steel_dark"),
+        _cube("tail_base_top", "tail", (-4.4, 7.5, 16.3), (8.8, .8, 2.7), "steel"),
         _cube("tail_mid", "tail", (-3.5, 2.7, 19.2), (7.0, 3.7, 3.0), "steel"),
+        _cube("tail_mid_top", "tail", (-2.9, 6.4, 19.45), (5.8, .7, 2.5), "steel_light"),
         _cube("tail_end", "tail", (-2.2, 2.4, 22.1), (4.4, 3.0, 2.4), "steel_dark"),
         _cube("tail_tip", "tail", (-1.1, 2.15, 24.4), (2.2, 2.3, 2.1), "violet"),
     ]
@@ -98,14 +115,17 @@ def cubes() -> List[dict]:
                            (upper_x, 2.0, z), (4.0, 2.2, 2.7), "violet"))
             c.append(_cube(f"leg_{side}_{index}_lower", f"leg_{side}_{index}",
                            (lower_x, 0.0, z + .15), (3.0, 2.5, 2.4), "steel_dark"))
-    _crystal(c, "crystal_crown", "crystals_front", 0, 10.0, -.3, 7.0)
-    _crystal(c, "crystal_front_left", "crystals_front", -5.2, 10.0, 1.2, 4.5)
-    _crystal(c, "crystal_mid_right", "crystals_mid", 4.2, 9.8, 6.4, 6.0)
-    _crystal(c, "crystal_rear_left", "crystals_rear", -4.3, 9.0, 12.2, 4.2)
+    _crystal(c, "crystal_crown", "crystals_front", 0, 11.65, -.3, 7.0)
+    _crystal(c, "crystal_front_left", "crystals_front", -5.2, 11.0, 1.2, 4.5)
+    _crystal(c, "crystal_mid_right", "crystals_mid", 4.2, 10.8, 6.4, 6.0)
+    _crystal(c, "crystal_rear_left", "crystals_rear", -4.3, 9.95, 12.2, 4.2)
     # Small asymmetric corruption cluster on one flank.
     c.extend([
         _cube("side_crystal_left_1", "crystals_rear", (-8.1, 6.0, 11.2), (1.5, 3.2, 1.5), "magenta", (0, 0, -18)),
         _cube("side_crystal_left_2", "crystals_rear", (-8.4, 5.0, 13.0), (1.3, 2.5, 1.3), "violet", (0, 0, -28)),
+        _cube("side_cluster_left_a", "crystals_rear", (-8.4, 7.1, 10.7), (1.7, 1.8, 1.7), "corruption", (0, 18, -20)),
+        _cube("side_cluster_left_b", "crystals_rear", (-9.0, 7.7, 12.0), (1.45, 2.3, 1.45), "magenta", (0, -12, -28)),
+        _cube("side_cluster_right_a", "crystals_rear", (6.8, 6.1, 12.6), (1.5, 2.0, 1.5), "magenta", (0, -18, 24)),
     ])
     return c
 
@@ -156,14 +176,26 @@ def _texture_image() -> Image.Image:
         dark = tuple(max(0, channel - 24) for channel in colour[:3]) + (255,)
         light = tuple(min(255, channel + 22) for channel in colour[:3]) + (255,)
         draw.rectangle((x, y, x + 15, y + 15), fill=colour)
+        # Coarse 4 px value shifts mimic the reference's Minecraft pixel clusters
+        # without turning broad armor plates into noisy black/white stripes.
+        for tile_y in range(1, 15, 4):
+            for tile_x in range(1, 15, 4):
+                shift = 10 if (tile_x // 4 + tile_y // 4 + index) % 3 == 0 else -7
+                patch = tuple(min(255, max(0, channel + shift)) for channel in colour[:3]) + (255,)
+                draw.rectangle((x + tile_x, y + tile_y, x + min(14, tile_x + 3), y + min(14, tile_y + 3)), fill=patch)
         draw.line((x, y + 15, x + 15, y + 15), fill=dark, width=2)
         draw.line((x + 15, y, x + 15, y + 15), fill=dark, width=2)
         draw.line((x, y, x + 14, y), fill=light, width=2)
         draw.line((x, y, x, y + 14), fill=light, width=2)
         if material.startswith("steel"):
-            draw.rectangle((x + 4, y + 5, x + 11, y + 6), fill=light)
+            draw.rectangle((x + 3, y + 4, x + 12, y + 5), fill=light)
+            draw.rectangle((x + 5, y + 10, x + 13, y + 11), fill=dark)
         elif material in {"magenta", "violet", "corruption"}:
-            draw.rectangle((x + 5, y + 3, x + 7, y + 12), fill=light)
+            draw.rectangle((x + 4, y + 3, x + 7, y + 12), fill=light)
+            draw.rectangle((x + 8, y + 6, x + 12, y + 9), fill=dark)
+        elif material == "eye":
+            draw.rectangle((x + 3, y + 3, x + 11, y + 11), fill=colour)
+            draw.rectangle((x + 5, y + 4, x + 8, y + 6), fill=light)
     return image
 
 
