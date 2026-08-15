@@ -14,7 +14,7 @@ Das direkt aus Tripo importierte Modell bleibt die visuelle Quelle. Geometrie, U
 
 ## Gewählter Ansatz
 
-Das Mesh wird anhand räumlich zusammenhängender Flächen in bewegliche Regionen getrennt. Daraus entsteht eine klare Knochenhierarchie für Root, drei Körpersegmente, Kopf/Mandibeln, sechs Beine, Schwanz und sichtbare Kristallgruppen. Jede erzeugte Teilfläche übernimmt ihre ursprünglichen Vertex-Positionen, UV-Koordinaten und Texturreferenz unverändert.
+Das Mesh wird anhand räumlicher Gelenkgrenzen in bewegliche Regionen getrennt. Die Quelldatei besitzt nur vier zusammenhängende Komponenten; 101'672 von 101'723 Flächen bilden eine einzige verschweisste Komponente. Eine reine Komponentenaufteilung kann deshalb keine Beine oder Körpersegmente erzeugen. An den Gelenkgrenzen dürfen Vertex-Referenzen technisch dupliziert werden, während Positionen, Flächen, UV-Koordinaten und Texturreferenz unverändert bleiben. Daraus entsteht eine klare Knochenhierarchie für Root, drei Körpersegmente, Kopf/Mandibeln, sechs Beine, Schwanz und sichtbare Kristallgruppen.
 
 Eine erneute Cuboid-/Voxel-Konvertierung wird nicht verwendet, weil sie die bereits sichtbar beanstandete Abweichung erzeugt. Ein eigener Minecraft-Mesh-Renderer wird ebenfalls noch nicht gebaut; zuerst wird das visuell korrekte Blockbench-Mastermodell geriggt und geprüft.
 
@@ -22,7 +22,7 @@ Eine erneute Cuboid-/Voxel-Konvertierung wird nicht verwendet, weil sie die bere
 
 1. Die gespeicherte Tripo-Mesh-Datei bleibt unverändert als Referenz erhalten.
 2. Das geriggte Modell wird als neue Datei gespeichert.
-3. Vorher-/Nachher-Prüfung: gleiche Texturbytes, gleiche Gesamtzahl der Vertices und Flächen, identische UV-Daten und identische Ruhepose.
+3. Vorher-/Nachher-Prüfung: gleiche Texturbytes, exakt dieselben Dreiecksflächen mit denselben Positionen und UV-Daten sowie eine pixelidentische Ruhepose. Zusätzliche Vertex-IDs sind ausschliesslich an Gelenkgrenzen zulässig, weil Blockbench Mesh-Objekte keine Vertex-Gewichte über mehrere Knochen unterstützen.
 4. Keine Produktionsassets, Java-Dateien oder v2–v4-Modelle werden in dieser Stufe verändert.
 5. Erst nach visueller Freigabe des Rigs folgen Idle-, Walk-, Attack-, Hurt- und Death-Animationen.
 
