@@ -29,8 +29,7 @@ final class CorruptedSilverfishMesh {
     private static final int MAX_BONES = 64;
     private static final int MAX_FACES_PER_BONE = 200_000;
     private static final Set<String> EXPECTED_BONES = Set.of(
-            "tail", "body_rear", "body_middle", "body_front", "head",
-            "leg_front_left", "leg_front_right", "leg_middle_left",
+            "body", "leg_front_left", "leg_front_right", "leg_middle_left",
             "leg_middle_right", "leg_rear_left", "leg_rear_right");
 
     private final Map<String, MeshPart> parts;

@@ -67,6 +67,10 @@ def make_two_triangle_fixture():
 def make_shared_seam_fixture():
     document = make_two_triangle_fixture()
     mesh = document["elements"][0]
+    mesh["vertices"]["a"][0] = -8
+    mesh["vertices"]["b"][0] = -8
+    mesh["vertices"]["d"][0] = 8
+    mesh["vertices"]["e"][0] = 8
     mesh["vertices"]["seam"] = [0, 1, 0]
     mesh["faces"]["left"]["vertices"][2] = "seam"
     mesh["faces"]["left"]["uv"].pop("c")
@@ -116,12 +120,9 @@ class RegionClassificationTests(unittest.TestCase):
             },
         )
 
-    def test_longitudinal_boundaries_have_deterministic_owners(self):
-        self.assertEqual(classify_centroid((0, 6, -10.0001)), "tail")
-        self.assertEqual(classify_centroid((0, 6, -10)), "body_rear")
-        self.assertEqual(classify_centroid((0, 6, -3)), "body_middle")
-        self.assertEqual(classify_centroid((0, 6, 4)), "body_front")
-        self.assertEqual(classify_centroid((0, 6, 10)), "head")
+    def test_whole_axial_mesh_stays_on_one_body_bone(self):
+        for z in (-20, -10, -3, 4, 10, 20):
+            self.assertEqual(classify_centroid((0, 6, z)), "body")
 
     def test_nonfinite_centroid_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "finite"):
@@ -165,17 +166,13 @@ class RegionClassificationTests(unittest.TestCase):
 
 class BoneHierarchyTests(unittest.TestCase):
     EXPECTED_PARENTS = {
-        "body_rear": "root",
-        "tail": "body_rear",
-        "body_middle": "body_rear",
-        "body_front": "body_middle",
-        "head": "body_front",
-        "leg_front_left": "body_front",
-        "leg_front_right": "body_front",
-        "leg_middle_left": "body_middle",
-        "leg_middle_right": "body_middle",
-        "leg_rear_left": "body_rear",
-        "leg_rear_right": "body_rear",
+        "body": "root",
+        "leg_front_left": "body",
+        "leg_front_right": "body",
+        "leg_middle_left": "body",
+        "leg_middle_right": "body",
+        "leg_rear_left": "body",
+        "leg_rear_right": "body",
     }
 
     @staticmethod

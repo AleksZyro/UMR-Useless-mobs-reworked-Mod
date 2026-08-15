@@ -142,6 +142,20 @@ class ProductionIntegrationContractTests(unittest.TestCase):
         self.assertIn("meshes/entity/corrupted_silverfish.mesh", mesh_class)
         self.assertNotIn("Minecraft.getInstance()", mesh_class)
 
+    def test_renderer_faces_the_tripo_mesh_along_entity_forward(self):
+        renderer = RENDERER.read_text(encoding="utf-8")
+
+        self.assertEqual(renderer.count("void preRender("), 1)
+        self.assertEqual(renderer.count("Axis.YP.rotationDegrees(180F)"), 1)
+        self.assertIn("super.preRender(", renderer)
+
+    def test_java_mesh_loader_accepts_the_cohesive_runtime_bones(self):
+        mesh_class = MESH_CLASS.read_text(encoding="utf-8")
+
+        self.assertIn('"body"', mesh_class)
+        for obsolete in ("tail", "body_rear", "body_middle", "body_front", "head"):
+            self.assertNotIn(f'"{obsolete}"', mesh_class)
+
 
 if __name__ == "__main__":
     unittest.main()

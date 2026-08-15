@@ -89,16 +89,34 @@ class AnimatedRigContractTests(unittest.TestCase):
     def test_motion_contract_is_visible_and_directional(self):
         specs = ANIMATION_SPECS
         walk = specs["animation.corrupted_silverfish.walk"]["bones"]
+        self.assertEqual(
+            set(walk),
+            {
+                "body",
+                "leg_front_left", "leg_front_right",
+                "leg_middle_left", "leg_middle_right",
+                "leg_rear_left", "leg_rear_right",
+            },
+        )
         first = walk["leg_front_left"]["rotation"][0][1]
         opposite = walk["leg_front_right"]["rotation"][0][1]
         self.assertEqual(first, [-value for value in opposite])
         self.assertGreater(abs(first[1]), 10)
+        self.assertEqual(len(walk["leg_front_left"]["rotation"]), 17)
+        leg_y = [vector[1] for _, vector in walk["leg_front_left"]["rotation"]]
+        self.assertLessEqual(max(abs(right - left) for left, right in zip(leg_y, leg_y[1:])), 4)
+
+        for animation in specs.values():
+            self.assertFalse(
+                {"tail", "body_rear", "body_middle", "body_front", "head"}
+                & set(animation["bones"])
+            )
 
         attack = specs["animation.corrupted_silverfish.attack"]["bones"]
-        self.assertGreater(attack["head"]["position"][1][1][2], 1)
+        self.assertGreater(attack["body"]["position"][1][1][2], 0.4)
 
         death = specs["animation.corrupted_silverfish.death"]["bones"]
-        self.assertGreater(abs(death["body_rear"]["rotation"][-1][1][2]), 70)
+        self.assertGreater(abs(death["body"]["rotation"][-1][1][2]), 70)
 
     def test_serialized_bytes_are_deterministic(self):
         first = animation_bytes(add_animations(self.rig))

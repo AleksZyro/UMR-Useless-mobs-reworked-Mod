@@ -25,11 +25,7 @@ DEFAULT_OUTPUT = EXPORT_ROOT / "blockbench" / "Corrupted Silverfish v5 Tripo Rig
 DEFAULT_REPORT = EXPORT_ROOT / "review" / "rig_segmentation.json"
 UUID_NAMESPACE = UUID("adc0aed5-25ba-5f3f-b8c7-8fa3e16fb397")
 REGION_ORDER = (
-    "tail",
-    "body_rear",
-    "body_middle",
-    "body_front",
-    "head",
+    "body",
     "leg_front_left",
     "leg_front_right",
     "leg_middle_left",
@@ -38,17 +34,13 @@ REGION_ORDER = (
     "leg_rear_right",
 )
 PARENTS = {
-    "body_rear": "root",
-    "tail": "body_rear",
-    "body_middle": "body_rear",
-    "body_front": "body_middle",
-    "head": "body_front",
-    "leg_front_left": "body_front",
-    "leg_front_right": "body_front",
-    "leg_middle_left": "body_middle",
-    "leg_middle_right": "body_middle",
-    "leg_rear_left": "body_rear",
-    "leg_rear_right": "body_rear",
+    "body": "root",
+    "leg_front_left": "body",
+    "leg_front_right": "body",
+    "leg_middle_left": "body",
+    "leg_middle_right": "body",
+    "leg_rear_left": "body",
+    "leg_rear_right": "body",
 }
 
 
@@ -127,15 +119,7 @@ def classify_centroid(point: Iterable[float]) -> str:
         )[1]
         side = "left" if x < 0 else "right"
         return f"leg_{station}_{side}"
-    if z < -10:
-        return "tail"
-    if z < -3:
-        return "body_rear"
-    if z < 4:
-        return "body_middle"
-    if z < 10:
-        return "body_front"
-    return "head"
+    return "body"
 
 
 def _mesh_elements(document: JsonObject) -> List[JsonObject]:
@@ -205,15 +189,8 @@ def _region_origin(
             float(max(point[1] for point in points)),
             float(median(point[2] for point in points)),
         ]
-    boundary_z = {
-        "tail": -10.0,
-        "body_rear": -10.0,
-        "body_middle": -3.0,
-        "body_front": 4.0,
-        "head": 10.0,
-    }[region]
     region_y = float(median(point[1] for point in points)) if points else fallback_y
-    return [0.0, region_y, boundary_z]
+    return [0.0, region_y, 0.0]
 
 
 def _group_record(name: str, origin: List[float]) -> JsonObject:

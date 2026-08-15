@@ -24,49 +24,13 @@
           ]
         },
         {
-          "name": "tail",
+          "name": "body",
           "pivot": [
             0.0,
-            2.23356,
-            -10.0
-          ],
-          "parent": "body_rear"
-        },
-        {
-          "name": "body_rear",
-          "pivot": [
-            0.0,
-            6.8598,
-            -10.0
+            5.92014,
+            0.0
           ],
           "parent": "root"
-        },
-        {
-          "name": "body_middle",
-          "pivot": [
-            0.0,
-            8.9222,
-            -3.0
-          ],
-          "parent": "body_rear"
-        },
-        {
-          "name": "body_front",
-          "pivot": [
-            0.0,
-            6.52269,
-            4.0
-          ],
-          "parent": "body_middle"
-        },
-        {
-          "name": "head",
-          "pivot": [
-            0.0,
-            3.39631,
-            10.0
-          ],
-          "parent": "body_front"
         },
         {
           "name": "leg_front_left",
@@ -75,7 +39,7 @@
             4.54338,
             6.319190000000001
           ],
-          "parent": "body_front"
+          "parent": "body"
         },
         {
           "name": "leg_front_right",
@@ -84,7 +48,7 @@
             4.57393,
             4.0977
           ],
-          "parent": "body_front"
+          "parent": "body"
         },
         {
           "name": "leg_middle_left",
@@ -93,7 +57,7 @@
             4.55872,
             0.87094
           ],
-          "parent": "body_middle"
+          "parent": "body"
         },
         {
           "name": "leg_middle_right",
@@ -102,7 +66,7 @@
             4.58683,
             -0.50662
           ],
-          "parent": "body_middle"
+          "parent": "body"
         },
         {
           "name": "leg_rear_left",
@@ -111,7 +75,7 @@
             4.58069,
             -4.01226
           ],
-          "parent": "body_rear"
+          "parent": "body"
         },
         {
           "name": "leg_rear_right",
@@ -120,7 +84,7 @@
             4.58512,
             -6.260249999999999
           ],
-          "parent": "body_rear"
+          "parent": "body"
         }
       ]
     }

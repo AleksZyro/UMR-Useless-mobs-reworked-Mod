@@ -37,20 +37,28 @@ def _channel(times: Iterable[float], vectors: Iterable[Iterable[float]]) -> Tupl
 def _animation_specs() -> Dict[str, JsonObject]:
     idle_times = (0, 0.8, 1.6)
     idle = {
-        "body_rear": {"position": _channel(idle_times, ((0, 0, 0), (0, 0.12, 0), (0, 0, 0)))},
-        "body_middle": {"rotation": _channel(idle_times, ((0, 0, 0), (0, 1.2, 0), (0, 0, 0)))},
-        "body_front": {"rotation": _channel(idle_times, ((0, 0, 0), (0, -1.5, 0), (0, 0, 0)))},
-        "head": {"rotation": _channel(idle_times, ((0, 0, 0), (0, 1.8, 0), (0, 0, 0)))},
-        "tail": {"rotation": _channel(idle_times, ((0, 0, 0), (0, -2.2, 0), (0, 0, 0)))},
+        "body": {
+            "position": _channel(idle_times, ((0, 0, 0), (0, 0.08, 0), (0, 0, 0))),
+            "rotation": _channel(idle_times, ((0, 0, 0), (0, 0.4, 0.35), (0, 0, 0))),
+        },
     }
 
-    walk_times = (0, 0.2, 0.4, 0.6, 0.8)
+    walk_times = tuple(index * 0.05 for index in range(17))
+    stride = tuple(round(10.4 * math.cos(2 * math.pi * time / 0.8), 6) for time in walk_times)
+    lift = tuple(round(4 * math.cos(2 * math.pi * time / 0.8), 6) for time in walk_times)
+    bob = tuple(
+        round(0.02 + 0.10 * (0.5 - 0.5 * math.cos(4 * math.pi * time / 0.8)), 6)
+        for time in walk_times
+    )
+    sway = tuple(round(math.cos(2 * math.pi * time / 0.8), 6) for time in walk_times)
     walk: Dict[str, JsonObject] = {
-        "body_rear": {"position": _channel(walk_times, ((0, 0.04, 0), (0, 0, 0), (0, 0.04, 0), (0, 0, 0), (0, 0.04, 0)))},
-        "body_middle": {"rotation": _channel(walk_times, ((0, 2.5, 0), (0, 0, 0), (0, -2.5, 0), (0, 0, 0), (0, 2.5, 0)))},
-        "body_front": {"rotation": _channel(walk_times, ((0, -3, 0), (0, 0, 0), (0, 3, 0), (0, 0, 0), (0, -3, 0)))},
-        "head": {"rotation": _channel(walk_times, ((0, 2, 0), (0, 0, 0), (0, -2, 0), (0, 0, 0), (0, 2, 0)))},
-        "tail": {"rotation": _channel(walk_times, ((0, -4, 0), (0, 0, 0), (0, 4, 0), (0, 0, 0), (0, -4, 0)))},
+        "body": {
+            "position": _channel(walk_times, ((0, value, 0) for value in bob)),
+            "rotation": _channel(
+                walk_times,
+                ((0, 0.5 * value, 0.7 * value) for value in sway),
+            ),
+        },
     }
     first_tripod = {"leg_front_left", "leg_middle_right", "leg_rear_left"}
     for bone in (
@@ -58,35 +66,31 @@ def _animation_specs() -> Dict[str, JsonObject]:
         "leg_middle_right", "leg_rear_left", "leg_rear_right",
     ):
         phase = 1 if bone in first_tripod else -1
-        start = (0, phase * 16, phase * 8)
-        opposite = (0, -phase * 16, -phase * 8)
         walk[bone] = {
-            "rotation": _channel(walk_times, (start, (0, 0, 0), opposite, (0, 0, 0), start))
+            "rotation": _channel(
+                walk_times,
+                ((0, phase * y, phase * z) for y, z in zip(stride, lift)),
+            )
         }
 
     attack_times = (0, 0.225, 0.45)
     attack = {
-        "body_front": {"position": _channel(attack_times, ((0, 0, 0), (0, 0, 0.45), (0, 0, 0)))},
-        "head": {"position": _channel(attack_times, ((0, 0, 0), (0, 0, 1.5), (0, 0, 0)))},
+        "body": {"position": _channel(attack_times, ((0, 0, 0), (0, 0, 0.55), (0, 0, 0)))},
         "leg_front_left": {"rotation": _channel(attack_times, ((0, 0, 0), (0, 12, -8), (0, 0, 0)))},
         "leg_front_right": {"rotation": _channel(attack_times, ((0, 0, 0), (0, -12, 8), (0, 0, 0)))},
     }
 
     hurt_times = (0, 0.1, 0.2, 0.3)
     hurt = {
-        "body_rear": {"rotation": _channel(hurt_times, ((0, 0, 0), (0, 0, 7), (0, 0, -3), (0, 0, 0)))},
-        "head": {"rotation": _channel(hurt_times, ((0, 0, 0), (-5, 0, 0), (2, 0, 0), (0, 0, 0)))},
-        "tail": {"rotation": _channel(hurt_times, ((0, 0, 0), (4, -5, 0), (-2, 2, 0), (0, 0, 0)))},
+        "body": {"rotation": _channel(hurt_times, ((0, 0, 0), (0, 0, 7), (0, 0, -3), (0, 0, 0)))},
     }
 
     death_times = (0, 0.55, 1.0)
     death: Dict[str, JsonObject] = {
-        "body_rear": {
+        "body": {
             "position": _channel(death_times, ((0, 0, 0), (0, -0.6, 0), (0, -1.5, 0))),
             "rotation": _channel(death_times, ((0, 0, 0), (0, 0, 38), (0, 0, 82))),
         },
-        "head": {"rotation": _channel(death_times, ((0, 0, 0), (8, 0, 0), (15, 0, 0)))},
-        "tail": {"rotation": _channel(death_times, ((0, 0, 0), (-7, 0, 0), (-14, 0, 0)))},
     }
     for bone in (
         "leg_front_left", "leg_middle_left", "leg_rear_left",
