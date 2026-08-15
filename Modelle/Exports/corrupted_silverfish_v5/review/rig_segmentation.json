@@ -1,0 +1,23 @@
+{
+  "source_faces": 101723,
+  "output_faces": 101723,
+  "regions": {
+    "tail": 6327,
+    "body_rear": 16652,
+    "body_middle": 19373,
+    "body_front": 13775,
+    "head": 14505,
+    "leg_front_left": 5661,
+    "leg_front_right": 3667,
+    "leg_middle_left": 7648,
+    "leg_middle_right": 6797,
+    "leg_rear_left": 2955,
+    "leg_rear_right": 4363
+  },
+  "source_vertices": 50897,
+  "output_vertices": 52734,
+  "duplicated_boundary_vertices": 1837,
+  "source_sha256": "48058B08A71C37647AFA5CAE30E32A376DD629E794E7DDB6D83A4DF6EF2CBAC1",
+  "texture_sha256": "739B8AA30A62BB39481F9C69D9EE8202D3FC7429485E714A188C092D744C9137",
+  "region_count": 11
+}

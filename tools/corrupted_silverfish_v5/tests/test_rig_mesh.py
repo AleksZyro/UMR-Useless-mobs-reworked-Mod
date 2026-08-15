@@ -1,6 +1,10 @@
 import copy
+import json
 import math
+from pathlib import Path
+import tempfile
 import unittest
+from unittest import mock
 
 from tools.corrupted_silverfish_v5.rig_mesh import (
     build_rig_document,
@@ -8,6 +12,7 @@ from tools.corrupted_silverfish_v5.rig_mesh import (
     classify_centroid,
     rig_bytes,
     texture_signature,
+    write_rig_files,
 )
 
 
@@ -49,7 +54,7 @@ def make_two_triangle_fixture():
         "textures": [
             {
                 "name": "texture",
-                "source": "data:image/png;base64,fixture",
+                "source": "data:image/png;base64,Zml4dHVyZQ==",
                 "width": 4096,
                 "height": 4096,
                 "uv_width": 16,
@@ -213,6 +218,69 @@ class BoneHierarchyTests(unittest.TestCase):
             self.assertEqual(len(group["origin"]), 3)
             self.assertTrue(all(math.isfinite(value) for value in group["origin"]))
         self.assertEqual(rigged["animations"], [])
+
+
+class SafeRigWriterTests(unittest.TestCase):
+    def test_source_may_not_be_used_as_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source.bbmodel"
+            report = Path(directory) / "report.json"
+            source.write_text(json.dumps(make_two_triangle_fixture()), encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "source"):
+                write_rig_files(source, source, report)
+
+            self.assertEqual(json.loads(source.read_text(encoding="utf-8"))["name"], "fixture")
+            self.assertFalse(report.exists())
+
+    def test_publish_failure_restores_both_existing_targets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source.bbmodel"
+            output = root / "rig.bbmodel"
+            report = root / "report.json"
+            source.write_text(json.dumps(make_two_triangle_fixture()), encoding="utf-8")
+            output.write_bytes(b"OLD_RIG")
+            report.write_bytes(b"OLD_REPORT")
+            real_replace = __import__("os").replace
+            calls = 0
+
+            def fail_second_publish(old, new):
+                nonlocal calls
+                calls += 1
+                if calls == 4:
+                    raise OSError("injected second publish failure")
+                return real_replace(old, new)
+
+            with mock.patch(
+                "tools.corrupted_silverfish_v5.rig_mesh.os.replace",
+                side_effect=fail_second_publish,
+            ):
+                with self.assertRaisesRegex(OSError, "second publish"):
+                    write_rig_files(source, output, report)
+
+            self.assertEqual(output.read_bytes(), b"OLD_RIG")
+            self.assertEqual(report.read_bytes(), b"OLD_REPORT")
+            self.assertEqual(
+                sorted(path.name for path in root.iterdir()),
+                ["report.json", "rig.bbmodel", "source.bbmodel"],
+            )
+
+    def test_success_writes_valid_rig_and_report(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source.bbmodel"
+            output = root / "rig.bbmodel"
+            report = root / "report.json"
+            source.write_text(json.dumps(make_two_triangle_fixture()), encoding="utf-8")
+
+            result = write_rig_files(source, output, report)
+
+            rigged = json.loads(output.read_text(encoding="utf-8"))
+            written_report = json.loads(report.read_text(encoding="utf-8"))
+            self.assertEqual(canonical_faces(rigged), canonical_faces(make_two_triangle_fixture()))
+            self.assertEqual(written_report, result)
+            self.assertEqual(written_report["output_faces"], 2)
 
 
 if __name__ == "__main__":

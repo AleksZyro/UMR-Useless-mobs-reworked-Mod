@@ -2,17 +2,27 @@
 
 from __future__ import annotations
 
+import argparse
+import base64
 from collections import Counter
 import copy
+import hashlib
 import json
 import math
+import os
 from pathlib import Path
 from statistics import median
+import tempfile
 from typing import Any, Dict, Iterable, List, Tuple
 from uuid import UUID, uuid5
 
 
 JsonObject = Dict[str, Any]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+EXPORT_ROOT = PROJECT_ROOT / "Modelle" / "Exports" / "corrupted_silverfish_v5"
+DEFAULT_SOURCE = EXPORT_ROOT / "blockbench" / "Corrupted Silverfish v5 Tripo Mesh.bbmodel"
+DEFAULT_OUTPUT = EXPORT_ROOT / "blockbench" / "Corrupted Silverfish v5 Tripo Rig.bbmodel"
+DEFAULT_REPORT = EXPORT_ROOT / "review" / "rig_segmentation.json"
 UUID_NAMESPACE = UUID("adc0aed5-25ba-5f3f-b8c7-8fa3e16fb397")
 REGION_ORDER = (
     "tail",
@@ -164,6 +174,20 @@ def rig_bytes(document: JsonObject) -> bytes:
     return (json.dumps(document, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
 
 
+def _texture_sha256(document: JsonObject) -> str:
+    source = texture_signature(document)[0]
+    if not isinstance(source, str):
+        raise ValueError("Embedded texture source must be a data URI")
+    marker = ";base64,"
+    if marker not in source:
+        raise ValueError("Embedded texture source must be base64 encoded")
+    try:
+        texture_bytes = base64.b64decode(source.split(marker, 1)[1], validate=True)
+    except (ValueError, base64.binascii.Error) as exc:
+        raise ValueError("Embedded texture contains invalid base64 data") from exc
+    return hashlib.sha256(texture_bytes).hexdigest().upper()
+
+
 def _region_origin(
     region: str,
     region_elements: Dict[str, JsonObject],
@@ -307,3 +331,100 @@ def build_rig_document(source: JsonObject) -> Tuple[JsonObject, JsonObject]:
         "duplicated_boundary_vertices": output_vertices - len(referenced_source_vertices),
     }
     return result, report
+
+
+def _unique_sidecar(target: Path, suffix: str) -> Path:
+    descriptor, name = tempfile.mkstemp(
+        prefix=f".{target.name}.", suffix=suffix, dir=str(target.parent)
+    )
+    os.close(descriptor)
+    path = Path(name)
+    path.unlink()
+    return path
+
+
+def _publish_transaction(payloads: Dict[Path, bytes]) -> None:
+    staged: Dict[Path, Path] = {}
+    backups: Dict[Path, Path] = {}
+    published: List[Path] = []
+    try:
+        for target, payload in payloads.items():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            descriptor, temporary_name = tempfile.mkstemp(
+                prefix=f".{target.name}.", suffix=".tmp", dir=str(target.parent)
+            )
+            temporary = Path(temporary_name)
+            try:
+                with os.fdopen(descriptor, "wb") as handle:
+                    handle.write(payload)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+            except BaseException:
+                temporary.unlink(missing_ok=True)
+                raise
+            staged[target] = temporary
+
+        for target in payloads:
+            if target.exists():
+                backup = _unique_sidecar(target, ".backup")
+                os.replace(target, backup)
+                backups[target] = backup
+        for target in payloads:
+            os.replace(staged[target], target)
+            published.append(target)
+    except BaseException:
+        for target in reversed(published):
+            target.unlink(missing_ok=True)
+        for target, backup in reversed(list(backups.items())):
+            os.replace(backup, target)
+        raise
+    finally:
+        for temporary in staged.values():
+            temporary.unlink(missing_ok=True)
+        for backup in backups.values():
+            backup.unlink(missing_ok=True)
+
+
+def write_rig_files(source_path: Path, output_path: Path, report_path: Path) -> JsonObject:
+    """Build and transactionally publish a rig plus its validation report."""
+    source_path = source_path.resolve()
+    output_path = output_path.resolve()
+    report_path = report_path.resolve()
+    if source_path in (output_path, report_path):
+        raise ValueError("Rig output and report must not overwrite the source model")
+    if output_path == report_path:
+        raise ValueError("Rig output and report paths must be different")
+
+    source_bytes = source_path.read_bytes()
+    source = load_document(source_path)
+    rigged, report = build_rig_document(source)
+    report["source_sha256"] = hashlib.sha256(source_bytes).hexdigest().upper()
+    report["texture_sha256"] = _texture_sha256(source)
+    report["region_count"] = len(report["regions"])
+    report_bytes = (json.dumps(report, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    _publish_transaction({output_path: rig_bytes(rigged), report_path: report_bytes})
+    return report
+
+
+def main(argv: List[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--report", type=Path, default=DEFAULT_REPORT)
+    args = parser.parse_args(argv)
+    try:
+        report = write_rig_files(args.source, args.output, args.report)
+    except (OSError, ValueError) as exc:
+        parser.exit(1, f"RIG_FAILED: {exc}\n")
+    print(
+        "RIG_PASS "
+        f"SOURCE_FACES={report['source_faces']} "
+        f"OUTPUT_FACES={report['output_faces']} "
+        f"REGIONS={report['region_count']} "
+        f"TEXTURE_SHA256={report['texture_sha256']}"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
