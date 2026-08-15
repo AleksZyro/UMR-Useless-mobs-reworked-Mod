@@ -76,9 +76,12 @@ class RuntimeExportContractTests(unittest.TestCase):
                         for vertex_id in face["vertices"]
                     )
                 )
-            expected[element["name"]] = expected_faces
+            element_name = element["name"]
+            self.assertTrue(element_name.endswith("_mesh"))
+            expected[element_name.removesuffix("_mesh")] = expected_faces
 
         self.assertEqual(sum(len(faces) for faces in decoded.values()), 101_723)
+        self.assertEqual(set(decoded), set(expected))
         self.assertEqual(decoded, expected)
 
     def test_geo_contains_exact_rig_hierarchy_without_fake_cubes(self):

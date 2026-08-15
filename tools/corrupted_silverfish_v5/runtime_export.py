@@ -78,9 +78,12 @@ def _mesh_bytes(document: JsonObject) -> bytes:
     payload.extend(struct.pack("<I", len(elements)))
     seen_names = set()
     for element in elements:
-        name = element.get("name")
-        if not isinstance(name, str) or not name or name in seen_names:
-            raise ValueError(f"Runtime mesh element has invalid name: {name!r}")
+        element_name = element.get("name")
+        if not isinstance(element_name, str) or not element_name.endswith("_mesh"):
+            raise ValueError(f"Runtime mesh element must use the '<bone>_mesh' name: {element_name!r}")
+        name = element_name.removesuffix("_mesh")
+        if not name or name in seen_names:
+            raise ValueError(f"Runtime mesh element maps to an invalid bone name: {element_name!r}")
         seen_names.add(name)
         if element.get("type") != "mesh":
             raise ValueError(f"Runtime element is not a mesh: {name}")
