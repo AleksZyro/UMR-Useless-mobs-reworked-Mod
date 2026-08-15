@@ -1,4 +1,5 @@
 import copy
+import math
 import unittest
 
 from tools.corrupted_silverfish_v5.rig_mesh import (
@@ -155,6 +156,63 @@ class RegionClassificationTests(unittest.TestCase):
 
         self.assertEqual(first, second)
         self.assertTrue(first.endswith(b"\n"))
+
+
+class BoneHierarchyTests(unittest.TestCase):
+    EXPECTED_PARENTS = {
+        "body_rear": "root",
+        "tail": "body_rear",
+        "body_middle": "body_rear",
+        "body_front": "body_middle",
+        "head": "body_front",
+        "leg_front_left": "body_front",
+        "leg_front_right": "body_front",
+        "leg_middle_left": "body_middle",
+        "leg_middle_right": "body_middle",
+        "leg_rear_left": "body_rear",
+        "leg_rear_right": "body_rear",
+    }
+
+    @staticmethod
+    def _parent_maps(document):
+        groups = {group["uuid"]: group["name"] for group in document["groups"]}
+        group_parents = {}
+        element_owners = {}
+
+        def visit(node, parent_name=None):
+            name = groups[node["uuid"]]
+            if parent_name is not None:
+                group_parents[name] = parent_name
+            for child in node["children"]:
+                if isinstance(child, dict):
+                    visit(child, name)
+                else:
+                    element_owners[child] = name
+
+        for root in document["outliner"]:
+            visit(root)
+        return group_parents, element_owners
+
+    def test_expected_group_hierarchy_and_mesh_ownership(self):
+        rigged, _ = build_rig_document(make_two_triangle_fixture())
+
+        group_parents, element_owners = self._parent_maps(rigged)
+        groups = {group["name"]: group for group in rigged["groups"]}
+
+        self.assertEqual(set(groups), {"root", *self.EXPECTED_PARENTS})
+        self.assertEqual(group_parents, self.EXPECTED_PARENTS)
+        for element in rigged["elements"]:
+            region = element["name"].removesuffix("_mesh")
+            self.assertEqual(element_owners[element["uuid"]], region)
+
+    def test_pivots_are_finite_and_rest_rotations_are_zero(self):
+        rigged, _ = build_rig_document(make_two_triangle_fixture())
+
+        for group in rigged["groups"]:
+            self.assertEqual(group["rotation"], [0, 0, 0])
+            self.assertEqual(len(group["origin"]), 3)
+            self.assertTrue(all(math.isfinite(value) for value in group["origin"]))
+        self.assertEqual(rigged["animations"], [])
 
 
 if __name__ == "__main__":

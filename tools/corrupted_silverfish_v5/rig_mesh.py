@@ -7,6 +7,7 @@ import copy
 import json
 import math
 from pathlib import Path
+from statistics import median
 from typing import Any, Dict, Iterable, List, Tuple
 from uuid import UUID, uuid5
 
@@ -26,6 +27,19 @@ REGION_ORDER = (
     "leg_rear_left",
     "leg_rear_right",
 )
+PARENTS = {
+    "body_rear": "root",
+    "tail": "body_rear",
+    "body_middle": "body_rear",
+    "body_front": "body_middle",
+    "head": "body_front",
+    "leg_front_left": "body_front",
+    "leg_front_right": "body_front",
+    "leg_middle_left": "body_middle",
+    "leg_middle_right": "body_middle",
+    "leg_rear_left": "body_rear",
+    "leg_rear_right": "body_rear",
+}
 
 
 def load_document(path: Path) -> JsonObject:
@@ -150,6 +164,82 @@ def rig_bytes(document: JsonObject) -> bytes:
     return (json.dumps(document, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
 
 
+def _region_origin(
+    region: str,
+    region_elements: Dict[str, JsonObject],
+    fallback_y: float,
+) -> List[float]:
+    element = region_elements.get(region)
+    points = list(element["vertices"].values()) if element is not None else []
+    if region.startswith("leg_"):
+        station = 6.0 if "front" in region else (0.0 if "middle" in region else -6.0)
+        fallback_x = -4.0 if region.endswith("left") else 4.0
+        if not points:
+            return [fallback_x, 4.4, station]
+        return [
+            float(median(point[0] for point in points)),
+            float(max(point[1] for point in points)),
+            float(median(point[2] for point in points)),
+        ]
+    boundary_z = {
+        "tail": -10.0,
+        "body_rear": -10.0,
+        "body_middle": -3.0,
+        "body_front": 4.0,
+        "head": 10.0,
+    }[region]
+    region_y = float(median(point[1] for point in points)) if points else fallback_y
+    return [0.0, region_y, boundary_z]
+
+
+def _group_record(name: str, origin: List[float]) -> JsonObject:
+    return {
+        "name": name,
+        "uuid": _stable_id("group", name),
+        "export": True,
+        "locked": False,
+        "origin": origin,
+        "rotation": [0, 0, 0],
+        "color": 0,
+        "children": [],
+        "reset": False,
+        "shade": True,
+        "mirror_uv": False,
+        "visibility": True,
+        "autouv": 0,
+        "isOpen": True,
+    }
+
+
+def _groups_and_outliner(region_elements: Dict[str, JsonObject]) -> Tuple[List[JsonObject], List[JsonObject]]:
+    all_points = [
+        point
+        for element in region_elements.values()
+        for point in element["vertices"].values()
+    ]
+    fallback_y = float(median(point[1] for point in all_points)) if all_points else 0.0
+    groups_by_name = {"root": _group_record("root", [0.0, 0.0, 0.0])}
+    for region in REGION_ORDER:
+        groups_by_name[region] = _group_record(
+            region,
+            _region_origin(region, region_elements, fallback_y),
+        )
+
+    nodes = {
+        name: {"uuid": group["uuid"], "isOpen": True, "children": []}
+        for name, group in groups_by_name.items()
+    }
+    for region, element in region_elements.items():
+        nodes[region]["children"].append(element["uuid"])
+    for region in REGION_ORDER:
+        nodes[PARENTS[region]]["children"].append(nodes[region])
+
+    ordered_groups = [groups_by_name["root"]] + [
+        groups_by_name[region] for region in REGION_ORDER
+    ]
+    return ordered_groups, [nodes["root"]]
+
+
 def build_rig_document(source: JsonObject) -> Tuple[JsonObject, JsonObject]:
     """Split source faces into deterministic mesh regions without changing rendering data."""
     result = copy.deepcopy(source)
@@ -196,7 +286,7 @@ def build_rig_document(source: JsonObject) -> Tuple[JsonObject, JsonObject]:
 
     ordered_regions = [region for region in REGION_ORDER if region in region_elements]
     result["elements"] = [region_elements[region] for region in ordered_regions]
-    result["outliner"] = [element["uuid"] for element in result["elements"]]
+    result["groups"], result["outliner"] = _groups_and_outliner(region_elements)
     result["animations"] = []
     source_faces = sum(canonical_faces(source).values())
     result_faces = sum(canonical_faces(result).values())
