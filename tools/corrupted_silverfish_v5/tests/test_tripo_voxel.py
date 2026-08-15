@@ -1,9 +1,15 @@
 from pathlib import Path
+import json
 import unittest
 
 import numpy as np
 
-from tools.corrupted_silverfish_v5.tripo_voxel import load_glb, normalise_positions
+from tools.corrupted_silverfish_v5.tripo_voxel import (
+    build_candidate,
+    candidate_bytes,
+    load_glb,
+    normalise_positions,
+)
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -50,6 +56,35 @@ class TripoGlbTests(unittest.TestCase):
                     load_glb(bad)
             finally:
                 bad.unlink(missing_ok=True)
+
+
+class CandidateTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.candidate = build_candidate(GLB)
+
+    def test_candidate_is_bounded_merged_and_textured(self):
+        candidate = self.candidate
+        self.assertGreater(candidate.occupied_voxel_count, 500)
+        self.assertLess(candidate.cuboid_count, candidate.occupied_voxel_count)
+        self.assertLess(candidate.cuboid_count, 5000)
+        self.assertEqual(candidate.texture_size, (16, 16))
+        self.assertTrue(candidate.all_uvs_in_bounds)
+        self.assertGreaterEqual(max(colour[0] for colour in candidate.palette), 200)
+        self.assertGreaterEqual(
+            max(max(colour[:3]) - min(colour[:3]) for colour in candidate.palette),
+            120,
+        )
+
+    def test_candidate_bytes_are_deterministic_and_structural(self):
+        first_model, first_texture = candidate_bytes(self.candidate)
+        second_model, second_texture = candidate_bytes(build_candidate(GLB))
+        self.assertEqual(first_model, second_model)
+        self.assertEqual(first_texture, second_texture)
+        document = json.loads(first_model)
+        self.assertEqual(document["meta"]["model_format"], "geckolib_model")
+        self.assertEqual(len(document["elements"]), self.candidate.cuboid_count)
+        self.assertEqual(len(document["textures"]), 1)
 
 
 if __name__ == "__main__":

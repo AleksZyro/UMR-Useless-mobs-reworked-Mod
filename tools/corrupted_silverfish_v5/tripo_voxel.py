@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import argparse
+import base64
 from io import BytesIO
 import json
 import math
+import os
 from pathlib import Path
 import struct
+import tempfile
 from typing import Any, Dict, List, Tuple
+from uuid import UUID, uuid5
 
 import numpy as np
 from PIL import Image
@@ -25,6 +30,41 @@ class MeshData:
     uvs: np.ndarray
     triangles: np.ndarray
     base_colour: Image.Image
+
+
+@dataclass(frozen=True)
+class Cuboid:
+    lower: Tuple[int, int, int]
+    upper: Tuple[int, int, int]
+    colour: int
+
+
+@dataclass(frozen=True)
+class Candidate:
+    cuboids: Tuple[Cuboid, ...]
+    palette: Tuple[Tuple[int, int, int, int], ...]
+    occupied_voxel_count: int
+
+    @property
+    def cuboid_count(self) -> int:
+        return len(self.cuboids)
+
+    @property
+    def texture_size(self) -> Tuple[int, int]:
+        return (16, 16)
+
+    @property
+    def all_uvs_in_bounds(self) -> bool:
+        return all(0 <= cuboid.colour < 256 for cuboid in self.cuboids)
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+EXPORT_ROOT = PROJECT_ROOT / "Modelle" / "Exports" / "corrupted_silverfish_v5"
+DEFAULT_GLB = EXPORT_ROOT / "tripo_export" / "corrupted_silverfish_tripo_multiview_v5.glb"
+DEFAULT_MODEL = EXPORT_ROOT / "blockbench" / "Corrupted Silverfish v5 Tripo Cubes.bbmodel"
+DEFAULT_TEXTURE = EXPORT_ROOT / "blockbench" / "corrupted_silverfish_v5_palette.png"
+UUID_NAMESPACE = UUID("730de6a5-2a4c-5ef5-a466-3c96560bdcab")
+FACE_NAMES = ("north", "east", "south", "west", "up", "down")
 
 
 def _parse_glb(path: Path) -> Tuple[Dict[str, Any], bytes]:
@@ -193,3 +233,263 @@ def normalise_positions(positions: np.ndarray, target_length: float = 32.0) -> n
     result[:, 2] -= (lower[2] + upper[2]) / 2
     result[:, 1] -= lower[1]
     return result
+
+
+def _sample_surface(mesh: MeshData) -> Tuple[np.ndarray, np.ndarray]:
+    """Return dense, deterministic vertex/edge/centre samples and their UVs."""
+
+    tri_pos = normalise_positions(mesh.positions)[mesh.triangles]
+    tri_uv = mesh.uvs[mesh.triangles]
+    points = [normalise_positions(mesh.positions), tri_pos.mean(axis=1)]
+    texcoords = [mesh.uvs, tri_uv.mean(axis=1)]
+    for left, right in ((0, 1), (1, 2), (2, 0)):
+        points.append((tri_pos[:, left] + tri_pos[:, right]) * 0.5)
+        texcoords.append((tri_uv[:, left] + tri_uv[:, right]) * 0.5)
+    return np.concatenate(points), np.concatenate(texcoords)
+
+
+def _voxel_colours(mesh: MeshData) -> Dict[Tuple[int, int, int], Tuple[int, int, int, int]]:
+    points, uvs = _sample_surface(mesh)
+    cells = np.floor(points + np.array([0.5, 0.0, 0.5])).astype(np.int32)
+    texture = np.asarray(mesh.base_colour, dtype=np.uint8)
+    width, height = mesh.base_colour.size
+    px = np.clip(np.rint(uvs[:, 0] * (width - 1)), 0, width - 1).astype(np.int32)
+    py = np.clip(np.rint((1.0 - uvs[:, 1]) * (height - 1)), 0, height - 1).astype(np.int32)
+    colours = texture[py, px]
+
+    # Use each voxel's dominant quantised texel instead of averaging contrasting
+    # armour/crystal pixels into muddy colours.
+    order = np.lexsort((cells[:, 2], cells[:, 1], cells[:, 0]))
+    cells = cells[order]
+    colours = colours[order]
+    unique, starts, counts = np.unique(cells, axis=0, return_index=True, return_counts=True)
+    result: Dict[Tuple[int, int, int], Tuple[int, int, int, int]] = {}
+    for cell, start, count in zip(unique, starts, counts):
+        histogram: Dict[Tuple[int, int, int, int], int] = {}
+        for rgba in colours[start : start + count]:
+            quantised = tuple(min(255, (int(channel) // 8) * 8 + 4) for channel in rgba[:3]) + (255,)
+            histogram[quantised] = histogram.get(quantised, 0) + 1
+        dominant = min(histogram, key=lambda colour: (-histogram[colour], colour))
+        result[tuple(map(int, cell))] = dominant
+    return result
+
+
+def _palette_indices(
+    voxels: Dict[Tuple[int, int, int], Tuple[int, int, int, int]],
+) -> Tuple[Tuple[Tuple[int, int, int, int], ...], Dict[Tuple[int, int, int], int]]:
+    # Five bits per RGB channel retain Tripo shading while allowing a compact fixed atlas.
+    histogram: Dict[Tuple[int, int, int, int], int] = {}
+    quantised: Dict[Tuple[int, int, int], Tuple[int, int, int, int]] = {}
+    for cell, rgba in voxels.items():
+        colour = tuple(min(255, (channel // 8) * 8 + 4) for channel in rgba[:3]) + (255,)
+        quantised[cell] = colour
+        histogram[colour] = histogram.get(colour, 0) + 1
+    ranked = sorted(histogram, key=lambda colour: (-histogram[colour], colour))
+    accents = sorted(
+        histogram,
+        key=lambda colour: (-(max(colour[:3]) - min(colour[:3])), -max(colour[:3]), colour),
+    )[:32]
+    selected = list(dict.fromkeys(accents + ranked))[:256]
+    palette = tuple(selected)
+    palette_rgb = np.asarray([colour[:3] for colour in palette], dtype=np.int16)
+    lookup: Dict[Tuple[int, int, int, int], int] = {}
+    for colour in sorted(histogram):
+        if colour in palette:
+            lookup[colour] = palette.index(colour)
+        else:
+            delta = palette_rgb - np.asarray(colour[:3], dtype=np.int16)
+            lookup[colour] = int(np.argmin(np.sum(delta.astype(np.int32) ** 2, axis=1)))
+    return palette, {cell: lookup[colour] for cell, colour in quantised.items()}
+
+
+def _greedy_merge(labels: Dict[Tuple[int, int, int], int]) -> Tuple[Cuboid, ...]:
+    remaining = dict(labels)
+    result: List[Cuboid] = []
+    while remaining:
+        x0, y0, z0 = min(remaining, key=lambda cell: (cell[2], cell[1], cell[0]))
+        colour = remaining[(x0, y0, z0)]
+        x1 = x0 + 1
+        while remaining.get((x1, y0, z0)) == colour:
+            x1 += 1
+        y1 = y0 + 1
+        while all(remaining.get((x, y1, z0)) == colour for x in range(x0, x1)):
+            y1 += 1
+        z1 = z0 + 1
+        while all(
+            remaining.get((x, y, z1)) == colour
+            for y in range(y0, y1)
+            for x in range(x0, x1)
+        ):
+            z1 += 1
+        for z in range(z0, z1):
+            for y in range(y0, y1):
+                for x in range(x0, x1):
+                    del remaining[(x, y, z)]
+        result.append(Cuboid((x0, y0, z0), (x1, y1, z1), colour))
+    return tuple(result)
+
+
+def build_candidate(path: Path = DEFAULT_GLB) -> Candidate:
+    voxels = _voxel_colours(load_glb(Path(path)))
+    if not voxels:
+        raise ValueError("Tripo mesh produced no occupied voxels")
+    palette, labels = _palette_indices(voxels)
+    cuboids = _greedy_merge(labels)
+    if len(cuboids) >= 5000:
+        raise ValueError(f"Tripo candidate has excessive cuboid count: {len(cuboids)}")
+    return Candidate(cuboids, palette, len(voxels))
+
+
+def _stable_uuid(kind: str, name: str) -> str:
+    return str(uuid5(UUID_NAMESPACE, f"{kind}:{name}"))
+
+
+def _palette_png(candidate: Candidate) -> bytes:
+    image = Image.new("RGBA", candidate.texture_size, (0, 0, 0, 0))
+    pixels = image.load()
+    for index, colour in enumerate(candidate.palette):
+        pixels[index % 16, index // 16] = colour
+    output = BytesIO()
+    image.save(output, format="PNG", optimize=False, compress_level=9)
+    return output.getvalue()
+
+
+def _region_for(cuboid: Cuboid, minimum_z: int, span_z: int) -> str:
+    centre = (cuboid.lower[2] + cuboid.upper[2]) / 2
+    band = min(4, max(0, int((centre - minimum_z) * 5 / max(1, span_z))))
+    return f"section_{band}"
+
+
+def candidate_bytes(candidate: Candidate) -> Tuple[bytes, bytes]:
+    texture_bytes = _palette_png(candidate)
+    texture_source = "data:image/png;base64," + base64.b64encode(texture_bytes).decode("ascii")
+    minimum_z = min(cuboid.lower[2] for cuboid in candidate.cuboids)
+    maximum_z = max(cuboid.upper[2] for cuboid in candidate.cuboids)
+    region_names = [f"section_{index}" for index in range(5)]
+    grouped: Dict[str, List[str]] = {name: [] for name in region_names}
+    elements = []
+    for index, cuboid in enumerate(candidate.cuboids):
+        name = f"voxel_box_{index:04d}"
+        element_uuid = _stable_uuid("element", name)
+        region = _region_for(cuboid, minimum_z, maximum_z - minimum_z)
+        grouped[region].append(element_uuid)
+        u = cuboid.colour % 16
+        v = cuboid.colour // 16
+        faces = {face: {"uv": [u, v, u + 1, v + 1], "texture": 0} for face in FACE_NAMES}
+        lower = list(cuboid.lower)
+        upper = list(cuboid.upper)
+        elements.append(
+            {
+                "name": name,
+                "box_uv": False,
+                "from": lower,
+                "to": upper,
+                "origin": [(lower[i] + upper[i]) / 2 for i in range(3)],
+                "rotation": [0, 0, 0],
+                "faces": faces,
+                "type": "cube",
+                "uuid": element_uuid,
+                "bone": region,
+            }
+        )
+    groups = []
+    outliner = []
+    for name in region_names:
+        group_uuid = _stable_uuid("group", name)
+        groups.append(
+            {
+                "name": name,
+                "uuid": group_uuid,
+                "export": True,
+                "locked": False,
+                "origin": [0, 0, 0],
+                "rotation": [0, 0, 0],
+                "color": 0,
+                "children": [],
+                "reset": False,
+                "shade": True,
+                "mirror_uv": False,
+                "visibility": True,
+                "autouv": 0,
+                "isOpen": True,
+            }
+        )
+        outliner.append({"uuid": group_uuid, "isOpen": True, "children": grouped[name]})
+    document = {
+        "meta": {"format_version": "5.0", "model_format": "geckolib_model", "box_uv": False},
+        "name": "Corrupted Silverfish v5 Tripo Cubes",
+        "model_identifier": "geometry.corrupted_silverfish_v5",
+        "visible_box": [3.5, 2.0, 0],
+        "variable_placeholders": "",
+        "timeline_setups": [],
+        "unhandled_root_fields": {},
+        "geckolib_modid": "usless_mobs",
+        "geckolib_filepath_cache": "",
+        "resolution": {"width": 16, "height": 16},
+        "elements": elements,
+        "groups": groups,
+        "outliner": outliner,
+        "textures": [
+            {
+                "path": "",
+                "name": "corrupted_silverfish_v5_palette.png",
+                "folder": "entity",
+                "namespace": "usless_mobs",
+                "id": "0",
+                "particle": False,
+                "render_mode": "default",
+                "visible": True,
+                "mode": "bitmap",
+                "saved": True,
+                "uuid": _stable_uuid("texture", "palette"),
+                "source": texture_source,
+            }
+        ],
+        "animations": [],
+        "geckolib_model_type": "Entity",
+    }
+    model_bytes = (json.dumps(document, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    return model_bytes, texture_bytes
+
+
+def _atomic_write(path: Path, payload: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def write_candidate(candidate: Candidate, model_path: Path, texture_path: Path) -> None:
+    expected_root = EXPORT_ROOT.resolve()
+    for path in (model_path, texture_path):
+        if expected_root not in Path(path).resolve().parents:
+            raise ValueError(f"Refusing output outside v5 export root: {path}")
+    model_bytes, texture_bytes = candidate_bytes(candidate)
+    _atomic_write(Path(texture_path), texture_bytes)
+    _atomic_write(Path(model_path), model_bytes)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", type=Path, default=DEFAULT_GLB)
+    parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
+    parser.add_argument("--texture", type=Path, default=DEFAULT_TEXTURE)
+    args = parser.parse_args()
+    candidate = build_candidate(args.input)
+    write_candidate(candidate, args.model, args.texture)
+    print(
+        f"TRIPO_VOXEL_PASS VOXELS={candidate.occupied_voxel_count} "
+        f"CUBOIDS={candidate.cuboid_count} PALETTE={len(candidate.palette)}"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
