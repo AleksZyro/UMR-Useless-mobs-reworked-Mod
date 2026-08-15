@@ -267,6 +267,11 @@ _FACE_VERTICES = {
     "north": (0, 3, 2, 1), "east": (1, 2, 6, 5), "south": (4, 5, 6, 7),
     "west": (0, 4, 7, 3), "up": (3, 7, 6, 2), "down": (0, 1, 5, 4),
 }
+_FACE_UV_CORNERS = {
+    "north": (3, 0, 1, 2), "east": (3, 0, 1, 2),
+    "south": (2, 3, 0, 1), "west": (2, 3, 0, 1),
+    "up": (0, 3, 2, 1), "down": (3, 2, 1, 0),
+}
 
 
 def _cube_vertices(cube: Mapping[str, Any]) -> Tuple[Vec3, ...]:
@@ -295,42 +300,78 @@ def _project(point: Vec3, camera: Tuple[Vec3, Vec3, Vec3], canvas_size: Tuple[in
     return (canvas_size[0] / 2 + _dot(relative, screen_x) * scale, canvas_size[1] / 2 - _dot(relative, screen_y) * scale)
 
 
-def _textured_face(texture: Image.Image, projected: Sequence[Tuple[float, float]], uv: Mapping[str, Any]) -> Tuple[Image.Image, Tuple[int, int]]:
+def _face_uv_coordinates(face_name: str, uv: Mapping[str, Any]) -> Tuple[Tuple[float, float], ...]:
     try:
         start = _vec3([*uv["uv"], 0], "face uv")[:2]
         size = _vec3([*uv["uv_size"], 0], "face uv_size")[:2]
     except (KeyError, TypeError):
         _fail("cube face must define explicit uv and uv_size")
-    min_x, max_x = math.floor(min(p[0] for p in projected)), math.ceil(max(p[0] for p in projected))
-    min_y, max_y = math.floor(min(p[1] for p in projected)), math.ceil(max(p[1] for p in projected))
-    width, height = max_x - min_x + 1, max_y - min_y + 1
-    p0, p1, _, p3 = projected
-    ax, ay = p1[0] - p0[0], p1[1] - p0[1]
-    bx, by = p3[0] - p0[0], p3[1] - p0[1]
-    determinant = ax * by - ay * bx
-    if abs(determinant) < 1e-9:
-        return Image.new("RGBA", (1, 1)), (min_x, min_y)
-    ds_dx, ds_dy = by / determinant, -bx / determinant
-    dt_dx, dt_dy = -ay / determinant, ax / determinant
-    local_zero_x, local_zero_y = min_x + 0.5 - p0[0], min_y + 0.5 - p0[1]
     u0, v0 = start
     du, dv = size
-    coefficients = (
-        du * ds_dx, du * ds_dy, u0 + du * (ds_dx * local_zero_x + ds_dy * local_zero_y),
-        dv * dt_dx, dv * dt_dy, v0 + dv * (dt_dx * local_zero_x + dt_dy * local_zero_y),
-    )
-    tile = texture.transform((width, height), Image.Transform.AFFINE, coefficients, resample=Image.Resampling.NEAREST)
-    mask = Image.new("L", (width, height), 0)
-    ImageDraw.Draw(mask).polygon([(round(x - min_x), round(y - min_y)) for x, y in projected], fill=255)
-    tile.putalpha(Image.composite(tile.getchannel("A"), Image.new("L", tile.size, 0), mask))
-    return tile, (min_x, min_y)
+    corners = ((u0, v0), (u0 + du, v0), (u0 + du, v0 + dv), (u0, v0 + dv))
+    return tuple(corners[index] for index in _FACE_UV_CORNERS[face_name])
+
+
+def _raster_triangle(
+    image: Image.Image,
+    texture: Image.Image,
+    z_buffer: list[list[float]],
+    rank_buffer: list[list[int]],
+    translucent: Dict[Tuple[int, int], list[Tuple[float, int, Tuple[int, int, int, int]]]],
+    projected: Sequence[Tuple[float, float]],
+    depths: Sequence[float],
+    texture_uvs: Sequence[Tuple[float, float]],
+    rank: int,
+) -> None:
+    (x0, y0), (x1, y1), (x2, y2) = projected
+    denominator = (y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2)
+    if abs(denominator) < 1e-9:
+        return
+    minimum_x = max(0, math.floor(min(x0, x1, x2)))
+    maximum_x = min(image.width, math.ceil(max(x0, x1, x2)))
+    minimum_y = max(0, math.floor(min(y0, y1, y2)))
+    maximum_y = min(image.height, math.ceil(max(y0, y1, y2)))
+    pixels = image.load()
+    texture_pixels = texture.load()
+    epsilon = 1e-9
+    for y in range(minimum_y, maximum_y):
+        sample_y = y + 0.5
+        for x in range(minimum_x, maximum_x):
+            sample_x = x + 0.5
+            first = ((y1 - y2) * (sample_x - x2) + (x2 - x1) * (sample_y - y2)) / denominator
+            second = ((y2 - y0) * (sample_x - x2) + (x0 - x2) * (sample_y - y2)) / denominator
+            third = 1.0 - first - second
+            if first < -epsilon or second < -epsilon or third < -epsilon:
+                continue
+            depth = first * depths[0] + second * depths[1] + third * depths[2]
+            if depth < z_buffer[y][x] - epsilon:
+                continue
+            if abs(depth - z_buffer[y][x]) <= epsilon and rank <= rank_buffer[y][x]:
+                continue
+            u = first * texture_uvs[0][0] + second * texture_uvs[1][0] + third * texture_uvs[2][0]
+            v = first * texture_uvs[0][1] + second * texture_uvs[1][1] + third * texture_uvs[2][1]
+            texture_x = min(texture.width - 1, max(0, math.floor(u)))
+            texture_y = min(texture.height - 1, max(0, math.floor(v)))
+            colour = texture_pixels[texture_x, texture_y]
+            if colour[3] == 0:
+                continue
+            if colour[3] < 255:
+                translucent.setdefault((x, y), []).append((depth, rank, colour))
+                continue
+            pixels[x, y] = colour
+            z_buffer[y][x] = depth
+            rank_buffer[y][x] = rank
 
 
 def render_cubes(cubes: Iterable[Tuple[Mapping[str, Any], Matrix]], texture: Image.Image,
                  camera: Tuple[Vec3, Vec3, Vec3], canvas_size: Tuple[int, int] = CANVAS_SIZE,
                  pixels_per_unit: float = PIXELS_PER_UNIT, center_world: Vec3 = MODEL_CENTER) -> Image.Image:
     outward = camera[0]
-    faces = []
+    image = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
+    z_buffer = [[-math.inf] * canvas_size[0] for _ in range(canvas_size[1])]
+    rank_buffer = [[-1] * canvas_size[0] for _ in range(canvas_size[1])]
+    translucent: Dict[Tuple[int, int], list[Tuple[float, int, Tuple[int, int, int, int]]]] = {}
+    rank = 0
     for cube, bone_matrix in cubes:
         matrix = _multiply(bone_matrix, _cube_matrix(cube))
         vertices = tuple(transform_point(matrix, point) for point in _cube_vertices(cube))
@@ -345,12 +386,39 @@ def render_cubes(cubes: Iterable[Tuple[Mapping[str, Any], Matrix]], texture: Ima
             if _dot(normal, outward) <= 1e-9:
                 continue
             projected = tuple(_project(point, camera, canvas_size, pixels_per_unit, center_world) for point in points)
-            depth = sum(_dot(point, outward) for point in points) / 4
-            faces.append((depth, projected, uv_faces[face_name]))
-    image = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
-    for _, projected, uv in sorted(faces, key=lambda item: item[0]):
-        tile, position = _textured_face(texture, projected, uv)
-        image.alpha_composite(tile, position)
+            depths = tuple(_dot(point, outward) for point in points)
+            texture_uvs = _face_uv_coordinates(face_name, uv_faces[face_name])
+            for triangle in ((0, 1, 2), (0, 2, 3)):
+                _raster_triangle(
+                    image, texture, z_buffer, rank_buffer, translucent,
+                    tuple(projected[index] for index in triangle),
+                    tuple(depths[index] for index in triangle),
+                    tuple(texture_uvs[index] for index in triangle), rank,
+                )
+                rank += 1
+    pixels = image.load()
+    epsilon = 1e-9
+    for (x, y), fragments in translucent.items():
+        opaque_depth = z_buffer[y][x]
+        opaque_rank = rank_buffer[y][x]
+        visible = [
+            fragment for fragment in fragments
+            if fragment[0] > opaque_depth + epsilon
+            or (abs(fragment[0] - opaque_depth) <= epsilon and fragment[1] > opaque_rank)
+        ]
+        destination = pixels[x, y]
+        for _depth, _rank, source in sorted(visible, key=lambda item: (item[0], item[1])):
+            source_alpha = source[3] / 255.0
+            destination_alpha = destination[3] / 255.0
+            output_alpha = source_alpha + destination_alpha * (1.0 - source_alpha)
+            if output_alpha == 0:
+                destination = (0, 0, 0, 0)
+            else:
+                destination = (
+                    *(round((source[channel] * source_alpha + destination[channel] * destination_alpha * (1.0 - source_alpha)) / output_alpha) for channel in range(3)),
+                    round(output_alpha * 255),
+                )
+        pixels[x, y] = destination
     return image
 
 
@@ -373,23 +441,150 @@ def _png_bytes(image: Image.Image) -> bytes:
     return buffer.getvalue()
 
 
-def _atomic_write(path: Path, contents: bytes) -> None:
+def _stage_bytes(path: Path, contents: bytes, role: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.{role}.", suffix=".tmp", dir=str(path.parent)
+    )
     temporary = Path(temporary_name)
     try:
         with os.fdopen(descriptor, "wb") as handle:
+            descriptor = -1
             handle.write(contents)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, path)
-    except BaseException:
+        return temporary
+    except BaseException as primary_error:
+        cleanup_failures = []
+        if descriptor != -1:
+            try:
+                os.close(descriptor)
+            except BaseException as error:
+                cleanup_failures.append((f"file_descriptor={descriptor}", error))
         try:
-            os.close(descriptor)
-        except OSError:
-            pass
-        temporary.unlink(missing_ok=True)
-        raise
+            temporary.unlink(missing_ok=True)
+        except BaseException as error:
+            cleanup_failures.append((str(temporary), error))
+        if cleanup_failures:
+            _append_cleanup_details(primary_error, cleanup_failures)
+        raise primary_error.with_traceback(primary_error.__traceback__)
+
+
+def _cleanup_paths(paths: Iterable[Path]) -> list[tuple[str, BaseException]]:
+    failures = []
+    for path in paths:
+        try:
+            path.unlink(missing_ok=True)
+        except BaseException as error:
+            failures.append((str(path), error))
+    return failures
+
+
+def _cleanup_details(failures: Sequence[tuple[str, BaseException]]) -> str:
+    return "; ".join(
+        f"path={path}, cleanup_error={type(error).__name__}: {error}"
+        for path, error in failures
+    )
+
+
+def _append_cleanup_details(primary_error: BaseException, failures: Sequence[tuple[str, BaseException]]) -> None:
+    primary_error.args = (
+        f"{primary_error}; cleanup incomplete: {_cleanup_details(failures)}",
+        *primary_error.args[1:],
+    )
+
+
+def _publish_transaction(payloads: Sequence[Tuple[Path, bytes]]) -> None:
+    """Publish all review PNGs together or restore every previous byte."""
+
+    targets = [target for target, _contents in payloads]
+    if len(targets) != len(set(targets)):
+        raise ValueError("review transaction targets must be unique")
+    candidates: Dict[Path, Path] = {}
+    backups: Dict[Path, Optional[Path]] = {}
+    published: list[Path] = []
+    retained_backups: set[Path] = set()
+    operation_error: Optional[BaseException] = None
+    try:
+        for target, contents in payloads:
+            candidates[target] = _stage_bytes(target, contents, "candidate")
+        for target in targets:
+            backups[target] = _stage_bytes(target, target.read_bytes(), "backup") if target.is_file() else None
+        contents_by_target = dict(payloads)
+        for target in targets:
+            os.replace(candidates[target], target)
+            published.append(target)
+            if target.read_bytes() != contents_by_target[target]:
+                raise OSError(f"review publish verification failed: {target}")
+    except BaseException as publish_error:
+        rollback_failures = []
+        for target in reversed(published):
+            backup = backups[target]
+            try:
+                if backup is None:
+                    target.unlink(missing_ok=True)
+                else:
+                    os.replace(backup, target)
+            except BaseException as rollback_error:
+                rollback_failures.append((target, backup, rollback_error))
+                if backup is not None:
+                    retained_backups.add(backup)
+            else:
+                backups.pop(target)
+        if rollback_failures:
+            details = "; ".join(
+                f"target={target}, retained_backup={backup or '<none>'}, "
+                f"rollback_error={type(error).__name__}: {error}"
+                for target, backup, error in rollback_failures
+            )
+            chain: BaseException = publish_error
+            for _target, _backup, rollback_error in rollback_failures:
+                rollback_error.__cause__ = chain
+                chain = rollback_error
+            operation_error = RuntimeError(
+                "review transaction rollback failed after "
+                f"publish_error={type(publish_error).__name__}: {publish_error}; {details}"
+            )
+            operation_error.__cause__ = chain
+        else:
+            operation_error = publish_error
+
+    cleanup_failures = _cleanup_paths(
+        temporary
+        for temporary in (*candidates.values(), *backups.values())
+        if temporary is not None and temporary not in retained_backups
+    )
+    if operation_error is not None:
+        if cleanup_failures:
+            _append_cleanup_details(operation_error, cleanup_failures)
+        raise operation_error.with_traceback(operation_error.__traceback__)
+    if cleanup_failures:
+        raise RuntimeError(
+            "review images published, cleanup incomplete: " + _cleanup_details(cleanup_failures)
+        )
+
+
+def _candidate_layout(
+    images: Mapping[str, Image.Image], content_size: Tuple[int, int]
+) -> Tuple[Dict[str, Image.Image], float]:
+    cropped: Dict[str, Image.Image] = {}
+    for name, image in images.items():
+        bounds = image.getchannel("A").getbbox()
+        if bounds is None:
+            _fail(f"candidate review image {name} is empty")
+        cropped[name] = image.crop(bounds)
+    scale = min(
+        content_size[0] / max(image.width for image in cropped.values()),
+        content_size[1] / max(image.height for image in cropped.values()),
+    )
+    fitted = {
+        name: image.resize(
+            (max(1, round(image.width * scale)), max(1, round(image.height * scale))),
+            Image.Resampling.NEAREST,
+        )
+        for name, image in cropped.items()
+    }
+    return fitted, scale
 
 
 def _contact_sheet(images: Mapping[str, Image.Image], concept_path: Optional[Path]) -> Image.Image:
@@ -398,16 +593,22 @@ def _contact_sheet(images: Mapping[str, Image.Image], concept_path: Optional[Pat
     entries = [
         ("candidate_front.png", "FRONT"), ("candidate_right.png", "RIGHT"),
         ("candidate_back.png", "BACK"), ("candidate_top.png", "TOP"),
-        ("candidate_idle.png", "IDLE 0.8 s"), ("candidate_walk.png", "WALK 0.2 s"),
+        ("candidate_idle.png", "IDLE 0.8 s"), ("candidate_walk.png", "WALK 0.1 s"),
         ("candidate_attack.png", "ATTACK 0.225 s"), (None, "CONCEPT"),
     ]
-    cell_w, cell_h = 192, 384
+    columns = 3
+    cell_w, cell_h = 256, 256
+    content_size = (cell_w - 12, cell_h - 38)
+    candidate_names = [name for name, _label in entries if name is not None]
+    fitted_candidates, _scale = _candidate_layout(
+        {name: images[name] for name in candidate_names}, content_size
+    )
     for index, (name, label) in enumerate(entries):
-        left, top = index % 4 * cell_w, index // 4 * cell_h
+        left, top = index % columns * cell_w, index // columns * cell_h
         draw.rounded_rectangle((left + 4, top + 4, left + cell_w - 5, top + cell_h - 5), 7, fill=(24, 23, 31, 235), outline=(87, 82, 99, 255))
         source: Optional[Image.Image]
         if name is not None:
-            source = images[name]
+            source = fitted_candidates[name]
         elif concept_path is not None and concept_path.is_file():
             try:
                 with Image.open(concept_path) as concept:
@@ -419,9 +620,10 @@ def _contact_sheet(images: Mapping[str, Image.Image], concept_path: Optional[Pat
             source = None
         if source is not None:
             copy = source.copy()
-            copy.thumbnail((cell_w - 16, cell_h - 42), CONCEPT_RESAMPLING if name is None else Image.Resampling.NEAREST)
+            if name is None:
+                copy.thumbnail(content_size, CONCEPT_RESAMPLING)
             x = left + (cell_w - copy.width) // 2
-            y = top + 27 + (cell_h - 35 - copy.height) // 2
+            y = top + 30 + (cell_h - 34 - copy.height) // 2
             sheet.alpha_composite(copy, (x, y))
         else:
             draw.text((left + 60, top + cell_h // 2), "NOT AVAILABLE", fill=(165, 160, 175, 255))
@@ -457,15 +659,17 @@ def render_review_set(root: Path, output_root: Optional[Path] = None, concept_pa
         "candidate_back.png": render_model(assets, "back"),
         "candidate_top.png": render_model(assets, "top"),
         "candidate_idle.png": render_model(assets, "three_quarter", "animation.corrupted_silverfish.idle", 0.8),
-        "candidate_walk.png": render_model(assets, "three_quarter", "animation.corrupted_silverfish.walk", 0.2),
+        "candidate_walk.png": render_model(assets, "three_quarter", "animation.corrupted_silverfish.walk", 0.1),
         "candidate_attack.png": render_model(assets, "three_quarter", "animation.corrupted_silverfish.attack", 0.225),
     }
     images["candidate_contact_sheet.png"] = _contact_sheet(images, concept_path)
     paths: Dict[str, Path] = {}
+    payloads = []
     for name in OUTPUT_NAMES:
         path = output_root / name
-        _atomic_write(path, _png_bytes(images[name]))
+        payloads.append((path, _png_bytes(images[name])))
         paths[name] = path
+    _publish_transaction(tuple(payloads))
     return paths
 
 
