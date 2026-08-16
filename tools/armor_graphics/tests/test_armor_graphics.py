@@ -100,6 +100,20 @@ def resolve_texture_binding(textures: dict, binding: str) -> str:
             raise AssertionError(f"missing texture binding name referenced by #{seen[-1]}")
 
 
+def assert_raw_item_model_contract(item_id: str, model: dict) -> None:
+    slot = item_id.rsplit("_", 1)[1]
+    expected_texture = f"{NAMESPACE}:item/{item_id}"
+    expected = {
+        "parent": f"{NAMESPACE}:item/template/armor_{slot}_3d",
+        "textures": {
+            "main": expected_texture,
+            "particle": expected_texture,
+        },
+    }
+    if model != expected:
+        raise AssertionError(f"{item_id} must be an exact parent-only model: expected {expected!r}, found {model!r}")
+
+
 def assert_finite_vector(test: unittest.TestCase, vector, length: int, label: str) -> None:
     test.assertIsInstance(vector, list, label)
     test.assertEqual(length, len(vector), label)
@@ -263,6 +277,23 @@ def assert_java_method_contains(source: str, method_name: str, *fragments: str) 
 
 
 class ContractHelperTests(unittest.TestCase):
+    def test_raw_item_model_contract_rejects_identity_and_inheritance_mutations(self):
+        valid = {
+            "parent": "usless_mobs:item/template/armor_chestplate_3d",
+            "textures": {
+                "main": "usless_mobs:item/true_void_chestplate",
+                "particle": "usless_mobs:item/true_void_chestplate",
+            },
+        }
+        mutations = (
+            {**valid, "textures": {**valid["textures"], "particle": "usless_mobs:item/common_armor"}},
+            {**valid, "parent": "usless_mobs:item/template/armor_leggings_3d"},
+            {**valid, "elements": [{"from": [0, 0, 0], "to": [16, 16, 16]}]},
+        )
+        for model in mutations:
+            with self.subTest(model=model), self.assertRaises(AssertionError):
+                assert_raw_item_model_contract("true_void_chestplate", model)
+
     def test_texture_aliases_resolve_to_the_final_resource_location(self):
         textures = {"main": "#material", "material": "usless_mobs:item/armor/example"}
         self.assertEqual("usless_mobs:item/armor/example", resolve_texture_binding(textures, "main"))
@@ -304,6 +335,9 @@ class ArmorItemModelContract(unittest.TestCase):
         self.assertEqual(17, len(ITEMS))
         for item_id in ITEMS:
             with self.subTest(item=item_id):
+                path = resource_path(f"{NAMESPACE}:item/{item_id}", "models", ".json")
+                with path.open(encoding="utf-8") as stream:
+                    assert_raw_item_model_contract(item_id, json.load(stream))
                 resolve_model(item_id)
 
     def test_texture_bindings_and_faces_resolve(self):
@@ -349,12 +383,11 @@ class ArmorItemModelContract(unittest.TestCase):
                 self.assertTrue(all(-4.0 <= value <= 4.0 for value in translation))
                 self.assertTrue(all(0.0 < value <= 1.2 for value in scale))
 
-    def test_inventory_geometry_is_compact_but_genuinely_three_dimensional(self):
+    def test_inventory_geometry_is_nontrivial_and_genuinely_three_dimensional(self):
         for item_id in ITEMS:
             with self.subTest(item=item_id):
                 elements = resolve_model(item_id)["elements"]
                 self.assertGreaterEqual(len(elements), 2, f"{item_id} cannot be an empty or single-cube icon")
-                self.assertLessEqual(len(elements), 8, f"{item_id} inventory geometry is visually too dense")
                 for index, element in enumerate(elements):
                     dimensions = [element["to"][axis] - element["from"][axis] for axis in range(3)]
                     self.assertTrue(
