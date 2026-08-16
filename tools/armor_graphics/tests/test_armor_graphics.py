@@ -1,3 +1,4 @@
+import hashlib
 import json
 import math
 import re
@@ -277,6 +278,152 @@ def assert_java_method_contains(source: str, method_name: str, *fragments: str) 
             raise AssertionError(f"{method_name} is missing {normalized_fragment!r}")
 
 
+def split_java_arguments(arguments: str) -> list[str]:
+    parts = []
+    start = 0
+    stack = []
+    quote = None
+    index = 0
+    pairs = {"(": ")", "[": "]", "{": "}"}
+    while index < len(arguments):
+        char = arguments[index]
+        if quote:
+            if char == "\\":
+                index += 2
+                continue
+            if char == quote:
+                quote = None
+        elif char in ('"', "'"):
+            quote = char
+        elif char in pairs:
+            stack.append(pairs[char])
+        elif stack and char == stack[-1]:
+            stack.pop()
+        elif char == "," and not stack:
+            parts.append(arguments[start:index].strip())
+            start = index + 1
+        index += 1
+    if quote or stack:
+        raise AssertionError("unbalanced Java argument list")
+    parts.append(arguments[start:].strip())
+    return parts
+
+
+JAVA_NUMBER = re.compile(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?[fFdD]?")
+
+
+def java_number(value: str, label: str) -> float:
+    value = value.strip()
+    if not JAVA_NUMBER.fullmatch(value):
+        raise AssertionError(f"{label} must be a finite numeric literal, found {value!r}")
+    number = float(value.rstrip("fFdD"))
+    if not math.isfinite(number):
+        raise AssertionError(f"{label} must be finite, found {value!r}")
+    return number
+
+
+def worn_model_cuboids(source: str) -> list[tuple[str, float, float, tuple[float, float, float]]]:
+    source = strip_java_comments(source)
+    cuboids = []
+    paired_tex_offs = 0
+    paired_add_boxes = 0
+    for match in re.finditer(r"\.addOrReplaceChild\s*\(", source):
+        opening = source.find("(", match.start())
+        closing = matching_java_delimiter(source, opening, "(", ")")
+        arguments = split_java_arguments(source[opening + 1 : closing])
+        if len(arguments) < 2:
+            continue
+        part_match = re.fullmatch(r'"([^"\\]+)"', arguments[0])
+        if not part_match:
+            continue
+        part = part_match.group(1)
+        builder = arguments[1]
+        calls = []
+        for call in re.finditer(r"\b(texOffs|addBox)\s*\(", builder):
+            call_opening = builder.find("(", call.start())
+            call_closing = matching_java_delimiter(builder, call_opening, "(", ")")
+            calls.append((call.group(1), split_java_arguments(builder[call_opening + 1 : call_closing])))
+        if not calls:
+            continue
+        if len(calls) % 2 or any(
+            calls[index][0] != ("texOffs" if index % 2 == 0 else "addBox")
+            for index in range(len(calls))
+        ):
+            raise AssertionError(f"{part}: every texOffs must be followed by its corresponding addBox")
+        for index in range(0, len(calls), 2):
+            tex_args = calls[index][1]
+            box_args = calls[index + 1][1]
+            if len(tex_args) != 2 or len(box_args) < 6:
+                raise AssertionError(f"{part}: malformed texOffs/addBox cuboid")
+            u = java_number(tex_args[0], f"{part} texture U")
+            v = java_number(tex_args[1], f"{part} texture V")
+            dimensions = tuple(java_number(box_args[axis], f"{part} dimension {axis - 2}") for axis in range(3, 6))
+            cuboids.append((part, u, v, dimensions))
+            paired_tex_offs += 1
+            paired_add_boxes += 1
+    total_tex_offs = len(re.findall(r"\btexOffs\s*\(", source))
+    total_add_boxes = len(re.findall(r"\baddBox\s*\(", source))
+    if paired_tex_offs != total_tex_offs or paired_add_boxes != total_add_boxes:
+        raise AssertionError(
+            f"parsed {paired_tex_offs}/{total_tex_offs} texOffs and {paired_add_boxes}/{total_add_boxes} addBox calls"
+        )
+    return cuboids
+
+
+def assert_show_for_type_contract(source: str) -> None:
+    body = java_method_body(source, "showForType")
+    switch_match = re.search(r"\bswitch\s*\(\s*type\s*\)\s*\{", body)
+    if not switch_match:
+        raise AssertionError("showForType must switch on type")
+    switch_opening = body.find("{", switch_match.start())
+    switch_closing = matching_java_delimiter(body, switch_opening, "{", "}")
+    prefix = normalize_java(body[: switch_match.start()])
+    if prefix != "model.setAllVisible(false);":
+        raise AssertionError("showForType must first hide every base model part")
+    expected = {
+        "HELMET": {"head", "hat"},
+        "CHESTPLATE": {"body", "rightArm", "leftArm"},
+        "LEGGINGS": {"body", "rightLeg", "leftLeg"},
+        "BOOTS": {"rightLeg", "leftLeg"},
+    }
+    actual = {}
+    switch_body = body[switch_opening + 1 : switch_closing]
+    for case in re.finditer(r"\bcase\s+(HELMET|CHESTPLATE|LEGGINGS|BOOTS)\s*->\s*\{", switch_body):
+        opening = switch_body.find("{", case.start())
+        closing = matching_java_delimiter(switch_body, opening, "{", "}")
+        assignments = re.findall(r"\bmodel\.(\w+)\.visible\s*=\s*(true|false)\s*;", switch_body[opening + 1 : closing])
+        if any(value != "true" for _, value in assignments):
+            raise AssertionError(f"showForType {case.group(1)} may only reveal its required parts")
+        parts = [part for part, _ in assignments]
+        if len(parts) != len(set(parts)):
+            raise AssertionError(f"showForType {case.group(1)} contains duplicate visibility assignments")
+        actual[case.group(1)] = set(parts)
+    if actual != expected:
+        raise AssertionError(f"showForType visibility mapping must be {expected!r}, found {actual!r}")
+    if len(re.findall(r"\.visible\s*=", body)) != sum(len(parts) for parts in expected.values()):
+        raise AssertionError("showForType contains visibility assignments outside its four slot cases")
+
+
+def assert_custom_armor_model_contract(source: str, factory_call: str) -> None:
+    body = normalize_java(java_method_body(source, "getHumanoidArmorModel"))
+    guard = normalize_java("if (slot != getType().getSlot()) { return original; }")
+    if not body.startswith(guard):
+        raise AssertionError("getHumanoidArmorModel must first return the original model for every other slot")
+    copy_pose = normalize_java("((HumanoidModel) original).copyPropertiesTo((HumanoidModel) model);")
+    show_slot = normalize_java("WornTruePathArmorModel.showForType(model, getType());")
+    factory_call = normalize_java(factory_call)
+    required = (factory_call, copy_pose, show_slot, "return model;")
+    positions = []
+    for fragment in required:
+        if body.count(fragment) != 1:
+            raise AssertionError(f"getHumanoidArmorModel must contain exactly one {fragment!r}")
+        positions.append(body.index(fragment))
+    if positions != sorted(positions):
+        raise AssertionError("getHumanoidArmorModel must create, pose, select, then return the custom model")
+    if body.count("return original;") != 1 or body.count("return model;") != 1:
+        raise AssertionError("getHumanoidArmorModel may only return the original guard or the correctly posed custom model")
+
+
 class ContractHelperTests(unittest.TestCase):
     def test_display_rotation_matches_forge_z_then_y_then_x_point_order(self):
         rotated = rotate_point((1.0, 0.0, 0.0), [90.0, 90.0, 0.0])
@@ -339,6 +486,73 @@ class ContractHelperTests(unittest.TestCase):
                 }}'''
                 with self.assertRaisesRegex(AssertionError, "getArmorTexture"):
                     assert_java_method_contains(source, "getArmorTexture", expected)
+
+    def test_worn_cuboid_parser_names_parts_and_rejects_invalid_or_unpaired_geometry(self):
+        valid = '''class Example {
+            void build(PartDefinition root) {
+                root.addOrReplaceChild("named_part",
+                    CubeListBuilder.create().texOffs(1, 2)
+                        .addBox(0.0F, 0.0F, 0.0F, 3.0F, 4.0F, 5.0F, new CubeDeformation(0.0F)),
+                    PartPose.ZERO);
+            }
+        }'''
+        self.assertEqual([("named_part", 1.0, 2.0, (3.0, 4.0, 5.0))], worn_model_cuboids(valid))
+        mutations = (
+            valid.replace("3.0F", "true", 1),
+            valid.replace(".addBox", ".mirror()"),
+            valid.replace("texOffs(1, 2)", "texOffs(1, Float.NaN)"),
+        )
+        for mutation in mutations:
+            with self.subTest(mutation=mutation), self.assertRaisesRegex(AssertionError, "named_part|parsed"):
+                worn_model_cuboids(mutation)
+
+    def test_show_for_type_contract_ignores_comments_and_dead_methods(self):
+        valid_method = '''static void showForType(HumanoidModel<?> model, ArmorItem.Type type) {
+            model.setAllVisible(false);
+            switch (type) {
+                case HELMET -> { model.head.visible = true; model.hat.visible = true; }
+                case CHESTPLATE -> { model.body.visible = true; model.rightArm.visible = true; model.leftArm.visible = true; }
+                case LEGGINGS -> { model.body.visible = true; model.rightLeg.visible = true; model.leftLeg.visible = true; }
+                case BOOTS -> { model.rightLeg.visible = true; model.leftLeg.visible = true; }
+            }
+        }'''
+        assert_show_for_type_contract(f"class Example {{ {valid_method} }}")
+        bad_method = valid_method.replace("model.leftLeg.visible = true;", "", 1)
+        dead_method = valid_method.replace("showForType", "deadMethod", 1)
+        for decoy in (
+            f"// {valid_method}",
+            f"/* {valid_method} */",
+            dead_method,
+        ):
+            with self.subTest(decoy=decoy), self.assertRaisesRegex(AssertionError, "showForType"):
+                assert_show_for_type_contract(f"class Example {{ {decoy} {bad_method} }}")
+
+    def test_custom_armor_model_contract_rejects_comment_dead_method_and_order_mutations(self):
+        factory = "model = WornTruePathArmorModel.create(path, getType());"
+        valid_method = f'''HumanoidModel<?> getHumanoidArmorModel(LivingEntity entity, ItemStack stack,
+                EquipmentSlot slot, HumanoidModel<?> original) {{
+            if (slot != getType().getSlot()) {{ return original; }}
+            if (model == null) {{ {factory} }}
+            ((HumanoidModel) original).copyPropertiesTo((HumanoidModel) model);
+            WornTruePathArmorModel.showForType(model, getType());
+            return model;
+        }}'''
+        assert_custom_armor_model_contract(f"class Example {{ {valid_method} }}", factory)
+        bad_method = valid_method.replace("if (slot != getType().getSlot()) { return original; }", "")
+        dead_method = valid_method.replace("getHumanoidArmorModel", "deadMethod", 1)
+        for decoy in (
+            f"// {valid_method}",
+            f"/* {valid_method} */",
+            dead_method,
+        ):
+            with self.subTest(decoy=decoy), self.assertRaisesRegex(AssertionError, "getHumanoidArmorModel"):
+                assert_custom_armor_model_contract(f"class Example {{ {decoy} {bad_method} }}", factory)
+        reversed_pose = valid_method.replace(
+            "((HumanoidModel) original).copyPropertiesTo((HumanoidModel) model);\n            WornTruePathArmorModel.showForType(model, getType());",
+            "WornTruePathArmorModel.showForType(model, getType());\n            ((HumanoidModel) original).copyPropertiesTo((HumanoidModel) model);",
+        )
+        with self.assertRaisesRegex(AssertionError, "create, pose, select"):
+            assert_custom_armor_model_contract(f"class Example {{ {reversed_pose} }}", factory)
 
 
 class ArmorItemModelContract(unittest.TestCase):
@@ -466,6 +680,58 @@ class WornArmorContract(unittest.TestCase):
             with self.subTest(layer=layer):
                 path = resource_path(f"{NAMESPACE}:models/armor/{layer}", "textures", ".png")
                 self.assertEqual((128, 64), png_dimensions(path), f"{path} must match the 128x64 worn model atlas")
+
+    def test_corrupted_layer_is_an_exact_two_by_nearest_neighbour_upscale(self):
+        path = resource_path(f"{NAMESPACE}:models/armor/corrupted_crystal_layer_2", "textures", ".png")
+        with Image.open(path) as image:
+            image.load()
+            self.assertEqual("RGBA", image.mode, f"{path} must preserve RGBA transparency semantics")
+            self.assertEqual((128, 64), image.size)
+            pixels = image.load()
+            downsampled = bytearray()
+            for source_y in range(32):
+                for source_x in range(64):
+                    block = {
+                        pixels[source_x * 2 + offset_x, source_y * 2 + offset_y]
+                        for offset_y in range(2)
+                        for offset_x in range(2)
+                    }
+                    self.assertEqual(1, len(block), f"source pixel ({source_x}, {source_y}) must remain one sharp 2x2 block")
+                    downsampled.extend(next(iter(block)))
+        self.assertEqual(
+            "340a3af52d5e547e9990a8ca765099e4035871053d27f59985e07010674d1c41",
+            hashlib.sha256(downsampled).hexdigest(),
+            "downsampled decoded pixels must exactly match the original 64x32 RGBA texture",
+        )
+
+    def test_worn_java_cuboids_fit_the_declared_128_by_64_atlas(self):
+        path = REPO_ROOT / "src/main/java/com/Momik/usless_mobs/client/WornTruePathArmorModel.java"
+        cuboids = worn_model_cuboids(path.read_text(encoding="utf-8"))
+        self.assertGreaterEqual(len(cuboids), 30, "worn model parsing must be non-vacuous")
+        self.assertIn("true_outer_helm", {part for part, _, _, _ in cuboids})
+        self.assertIn("true_left_boot_leaf", {part for part, _, _, _ in cuboids})
+        for part, u, v, dimensions in cuboids:
+            with self.subTest(part=part, u=u, v=v, dimensions=dimensions):
+                width, height, depth = dimensions
+                self.assertTrue(all(dimension > 0.0 for dimension in dimensions), f"{part} must have positive finite dimensions")
+                self.assertGreaterEqual(u, 0.0, f"{part} texture U")
+                self.assertGreaterEqual(v, 0.0, f"{part} texture V")
+                self.assertLessEqual(u + 2.0 * (width + depth), 128.0, f"{part} cuboid UV width exceeds the atlas")
+                self.assertLessEqual(v + depth + height, 64.0, f"{part} cuboid UV height exceeds the atlas")
+
+    def test_worn_java_slot_visibility_mapping_is_exact(self):
+        path = REPO_ROOT / "src/main/java/com/Momik/usless_mobs/client/WornTruePathArmorModel.java"
+        assert_show_for_type_contract(path.read_text(encoding="utf-8"))
+
+    def test_custom_worn_models_are_slot_guarded_and_copy_the_original_pose(self):
+        contracts = {
+            "TruePathArmorItem.java": "model = WornTruePathArmorModel.create(path, getType());",
+            "ArmorOfBalanceItem.java": "model = WornTruePathArmorModel.createBalanced(getType());",
+        }
+        for filename, factory_call in contracts.items():
+            with self.subTest(item=filename):
+                path = REPO_ROOT / "src/main/java/com/Momik/usless_mobs/item" / filename
+                assert_custom_armor_model_contract(path.read_text(encoding="utf-8"), factory_call)
 
     def test_java_items_select_the_correct_worn_layer(self):
         true_path = (REPO_ROOT / "src/main/java/com/Momik/usless_mobs/item/TruePathArmorItem.java").read_text(encoding="utf-8")
