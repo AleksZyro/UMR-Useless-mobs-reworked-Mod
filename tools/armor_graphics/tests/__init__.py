@@ -1,0 +1,1 @@
+"""Armour graphics contract tests."""
