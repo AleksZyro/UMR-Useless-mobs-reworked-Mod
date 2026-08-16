@@ -125,7 +125,8 @@ def assert_finite_vector(test: unittest.TestCase, vector, length: int, label: st
 
 def rotate_point(point: tuple[float, float, float], rotation: list[float]) -> tuple[float, float, float]:
     x, y, z = point
-    for axis, degrees in enumerate(rotation):
+    for axis in (2, 1, 0):
+        degrees = rotation[axis]
         angle = math.radians(degrees)
         cosine = math.cos(angle)
         sine = math.sin(angle)
@@ -277,6 +278,11 @@ def assert_java_method_contains(source: str, method_name: str, *fragments: str) 
 
 
 class ContractHelperTests(unittest.TestCase):
+    def test_display_rotation_matches_forge_z_then_y_then_x_point_order(self):
+        rotated = rotate_point((1.0, 0.0, 0.0), [90.0, 90.0, 0.0])
+        for actual, expected in zip(rotated, (0.0, 1.0, 0.0)):
+            self.assertAlmostEqual(expected, actual, places=7)
+
     def test_raw_item_model_contract_rejects_identity_and_inheritance_mutations(self):
         valid = {
             "parent": "usless_mobs:item/template/armor_chestplate_3d",
@@ -306,13 +312,18 @@ class ContractHelperTests(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, "missing"):
             resolve_texture_binding({"main": "#material"}, "main")
 
-    def test_truncated_png_header_is_rejected(self):
-        fake_png = b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\rIHDR" + struct.pack(">II", 128, 64)
+    def test_corrupt_or_truncated_png_is_rejected(self):
+        fixtures = {
+            "corrupt": b"not a png",
+            "truncated": b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\rIHDR" + struct.pack(">II", 128, 64),
+        }
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "truncated.png"
-            path.write_bytes(fake_png)
-            with self.assertRaisesRegex(AssertionError, "invalid PNG"):
-                png_dimensions(path)
+            for name, contents in fixtures.items():
+                with self.subTest(name=name):
+                    path = Path(directory) / f"{name}.png"
+                    path.write_bytes(contents)
+                    with self.assertRaisesRegex(AssertionError, "invalid PNG"):
+                        png_dimensions(path)
 
     def test_java_wiring_fragments_in_comments_or_other_methods_are_rejected(self):
         expected = 'return "usless_mobs:textures/models/armor/example.png";'
@@ -347,7 +358,9 @@ class ArmorItemModelContract(unittest.TestCase):
                 textures = model.get("textures", {})
                 for binding in ("main", "particle"):
                     location = resolve_texture_binding(textures, binding)
-                    self.assertTrue(resource_path(location, "textures", ".png").is_file())
+                    width, height = png_dimensions(resource_path(location, "textures", ".png"))
+                    self.assertGreater(width, 0)
+                    self.assertGreater(height, 0)
                 for element in model.get("elements", []):
                     for face in element.get("faces", {}).values():
                         self.assertEqual("#main", face.get("texture"))
