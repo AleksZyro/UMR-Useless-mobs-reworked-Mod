@@ -1,8 +1,12 @@
 import json
 import math
+import re
 import struct
+import tempfile
 import unittest
 from pathlib import Path
+
+from PIL import Image
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -77,6 +81,25 @@ def resolve_model(item_id: str) -> dict:
     return resolved
 
 
+def resolve_texture_binding(textures: dict, binding: str) -> str:
+    seen = []
+    current = binding
+    while True:
+        if current in seen:
+            raise AssertionError(f"texture binding cycle: {' -> '.join(seen + [current])}")
+        seen.append(current)
+        if current not in textures:
+            raise AssertionError(f"missing texture binding #{current}")
+        value = textures[current]
+        if not isinstance(value, str) or not value:
+            raise AssertionError(f"invalid texture binding #{current}: {value!r}")
+        if not value.startswith("#"):
+            return value
+        current = value[1:]
+        if not current:
+            raise AssertionError(f"missing texture binding name referenced by #{seen[-1]}")
+
+
 def assert_finite_vector(test: unittest.TestCase, vector, length: int, label: str) -> None:
     test.assertIsInstance(vector, list, label)
     test.assertEqual(length, len(vector), label)
@@ -87,11 +110,156 @@ def assert_finite_vector(test: unittest.TestCase, vector, length: int, label: st
 
 
 def png_dimensions(path: Path) -> tuple[int, int]:
-    with path.open("rb") as stream:
-        header = stream.read(24)
-    if len(header) != 24 or header[:8] != b"\x89PNG\r\n\x1a\n" or header[12:16] != b"IHDR":
-        raise AssertionError(f"not a PNG: {path}")
-    return struct.unpack(">II", header[16:24])
+    try:
+        with Image.open(path) as image:
+            if image.format != "PNG":
+                raise AssertionError(f"not a PNG: {path}")
+            dimensions = image.size
+            image.verify()
+            return dimensions
+    except (OSError, SyntaxError, ValueError) as error:
+        raise AssertionError(f"invalid PNG: {path}: {error}") from error
+
+
+def strip_java_comments(source: str) -> str:
+    output = []
+    index = 0
+    state = "code"
+    while index < len(source):
+        char = source[index]
+        following = source[index + 1] if index + 1 < len(source) else ""
+        if state == "code":
+            if char == "/" and following == "/":
+                output.extend((" ", " "))
+                index += 2
+                state = "line_comment"
+                continue
+            if char == "/" and following == "*":
+                output.extend((" ", " "))
+                index += 2
+                state = "block_comment"
+                continue
+            output.append(char)
+            if char == '"':
+                state = "string"
+            elif char == "'":
+                state = "character"
+        elif state == "line_comment":
+            output.append("\n" if char == "\n" else " ")
+            if char == "\n":
+                state = "code"
+        elif state == "block_comment":
+            if char == "*" and following == "/":
+                output.extend((" ", " "))
+                index += 2
+                state = "code"
+                continue
+            output.append("\n" if char == "\n" else " ")
+        else:
+            output.append(char)
+            if char == "\\" and following:
+                output.append(following)
+                index += 2
+                continue
+            if (state == "string" and char == '"') or (state == "character" and char == "'"):
+                state = "code"
+        index += 1
+    if state == "block_comment":
+        raise AssertionError("unterminated Java block comment")
+    return "".join(output)
+
+
+def matching_java_delimiter(source: str, start: int, opening: str, closing: str) -> int:
+    depth = 0
+    quote = None
+    index = start
+    while index < len(source):
+        char = source[index]
+        if quote:
+            if char == "\\":
+                index += 2
+                continue
+            if char == quote:
+                quote = None
+        elif char in ('"', "'"):
+            quote = char
+        elif char == opening:
+            depth += 1
+        elif char == closing:
+            depth -= 1
+            if depth == 0:
+                return index
+        index += 1
+    raise AssertionError(f"unbalanced Java delimiter {opening}{closing}")
+
+
+def java_method_body(source: str, method_name: str) -> str:
+    source_without_comments = strip_java_comments(source)
+    bodies = []
+    for match in re.finditer(rf"\b{re.escape(method_name)}\s*\(", source_without_comments):
+        opening_parenthesis = source_without_comments.find("(", match.start())
+        closing_parenthesis = matching_java_delimiter(source_without_comments, opening_parenthesis, "(", ")")
+        opening_brace = closing_parenthesis + 1
+        while opening_brace < len(source_without_comments) and source_without_comments[opening_brace].isspace():
+            opening_brace += 1
+        if source_without_comments.startswith("throws", opening_brace):
+            opening_brace = source_without_comments.find("{", opening_brace)
+        if opening_brace < 0 or opening_brace >= len(source_without_comments) or source_without_comments[opening_brace] != "{":
+            continue
+        closing_brace = matching_java_delimiter(source_without_comments, opening_brace, "{", "}")
+        bodies.append(source_without_comments[opening_brace + 1 : closing_brace])
+    if len(bodies) != 1:
+        raise AssertionError(f"expected one brace-balanced {method_name} method, found {len(bodies)}")
+    return bodies[0]
+
+
+def normalize_java(source: str) -> str:
+    return " ".join(source.split())
+
+
+def assert_java_method_contains(source: str, method_name: str, *fragments: str) -> None:
+    body = normalize_java(java_method_body(source, method_name))
+    for fragment in fragments:
+        normalized_fragment = normalize_java(fragment)
+        if normalized_fragment not in body:
+            raise AssertionError(f"{method_name} is missing {normalized_fragment!r}")
+
+
+class ContractHelperTests(unittest.TestCase):
+    def test_texture_aliases_resolve_to_the_final_resource_location(self):
+        textures = {"main": "#material", "material": "usless_mobs:item/armor/example"}
+        self.assertEqual("usless_mobs:item/armor/example", resolve_texture_binding(textures, "main"))
+
+    def test_texture_alias_cycles_are_rejected(self):
+        with self.assertRaisesRegex(AssertionError, "cycle"):
+            resolve_texture_binding({"main": "#material", "material": "#main"}, "main")
+
+    def test_missing_texture_aliases_are_rejected(self):
+        with self.assertRaisesRegex(AssertionError, "missing"):
+            resolve_texture_binding({"main": "#material"}, "main")
+
+    def test_truncated_png_header_is_rejected(self):
+        fake_png = b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\rIHDR" + struct.pack(">II", 128, 64)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "truncated.png"
+            path.write_bytes(fake_png)
+            with self.assertRaisesRegex(AssertionError, "invalid PNG"):
+                png_dimensions(path)
+
+    def test_java_wiring_fragments_in_comments_or_other_methods_are_rejected(self):
+        expected = 'return "usless_mobs:textures/models/armor/example.png";'
+        for decoy in (
+            f"// String getArmorTexture() {{ {expected} }}",
+            f"/* String getArmorTexture() {{ {expected} }} */",
+            f"String unrelated() {{ {expected} }}",
+        ):
+            with self.subTest(decoy=decoy):
+                source = f'''class Example {{
+                    {decoy}
+                    String getArmorTexture() {{ return "wrong"; }}
+                }}'''
+                with self.assertRaisesRegex(AssertionError, "getArmorTexture"):
+                    assert_java_method_contains(source, "getArmorTexture", expected)
 
 
 class ArmorItemModelContract(unittest.TestCase):
@@ -107,11 +275,12 @@ class ArmorItemModelContract(unittest.TestCase):
                 model = resolve_model(item_id)
                 textures = model.get("textures", {})
                 for binding in ("main", "particle"):
-                    self.assertIn(binding, textures)
-                    self.assertTrue(resource_path(textures[binding], "textures", ".png").is_file())
+                    location = resolve_texture_binding(textures, binding)
+                    self.assertTrue(resource_path(location, "textures", ".png").is_file())
                 for element in model.get("elements", []):
                     for face in element.get("faces", {}).values():
                         self.assertEqual("#main", face.get("texture"))
+                        resolve_texture_binding(textures, face["texture"][1:])
 
     def test_geometry_uv_and_display_numbers_are_bounded(self):
         for item_id in ITEMS:
@@ -162,11 +331,23 @@ class WornArmorContract(unittest.TestCase):
         balance = (REPO_ROOT / "src/main/java/com/Momik/usless_mobs/item/ArmorOfBalanceItem.java").read_text(encoding="utf-8")
         corrupted = (REPO_ROOT / "src/main/mobs/endermite/java/net/mysith/silverfish/CorruptedCrystalLeggingsItem.java").read_text(encoding="utf-8")
         leggings_only = 'getType() == Type.LEGGINGS ? "_layer_2.png" : "_layer_1.png"'
-        self.assertIn(leggings_only, true_path)
-        self.assertIn('":textures/models/armor/" + path.key + layer', true_path)
-        self.assertIn(leggings_only, balance)
-        self.assertIn('":textures/models/armor/true_balance" + layer', balance)
-        self.assertIn('"usless_mobs:textures/models/armor/corrupted_crystal_layer_2.png"', corrupted)
+        assert_java_method_contains(
+            true_path,
+            "getArmorTexture",
+            leggings_only,
+            'return Usless_mobs.MODID + ":textures/models/armor/" + path.key + layer;',
+        )
+        assert_java_method_contains(
+            balance,
+            "getArmorTexture",
+            leggings_only,
+            'return Usless_mobs.MODID + ":textures/models/armor/true_balance" + layer;',
+        )
+        assert_java_method_contains(
+            corrupted,
+            "getArmorTexture",
+            'return "usless_mobs:textures/models/armor/corrupted_crystal_layer_2.png";',
+        )
 
 
 class VisualBaselineContract(unittest.TestCase):
