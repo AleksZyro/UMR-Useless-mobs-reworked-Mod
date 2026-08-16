@@ -86,37 +86,93 @@ class AnimatedRigContractTests(unittest.TestCase):
                 for keyframes in by_channel.values():
                     self.assertEqual(keyframes[0]["data_points"], keyframes[-1]["data_points"])
 
-    def test_motion_contract_is_visible_and_directional(self):
-        specs = ANIMATION_SPECS
-        walk = specs["animation.corrupted_silverfish.walk"]["bones"]
-        self.assertEqual(
-            set(walk),
-            {
-                "body",
-                "leg_front_left", "leg_front_right",
-                "leg_middle_left", "leg_middle_right",
-                "leg_rear_left", "leg_rear_right",
-            },
-        )
-        first = walk["leg_front_left"]["rotation"][0][1]
-        opposite = walk["leg_front_right"]["rotation"][0][1]
-        self.assertEqual(first, [-value for value in opposite])
-        self.assertGreater(abs(first[1]), 10)
-        self.assertEqual(len(walk["leg_front_left"]["rotation"]), 17)
-        leg_y = [vector[1] for _, vector in walk["leg_front_left"]["rotation"]]
-        self.assertLessEqual(max(abs(right - left) for left, right in zip(leg_y, leg_y[1:])), 4)
+    def test_walk_has_exact_stronger_smooth_opposite_tripod_motion(self):
+        walk = ANIMATION_SPECS["animation.corrupted_silverfish.walk"]["bones"]
+        first_tripod = ("leg_front_left", "leg_middle_right", "leg_rear_left")
+        opposite_tripod = ("leg_front_right", "leg_middle_left", "leg_rear_right")
+        leg_bones = first_tripod + opposite_tripod
+        expected_times = tuple(index * 0.05 for index in range(17))
 
-        for animation in specs.values():
-            self.assertFalse(
-                {"tail", "body_rear", "body_middle", "body_front", "head"}
-                & set(animation["bones"])
+        self.assertEqual(set(walk), {"body", *leg_bones})
+        self.assertEqual(set(walk["body"]), {"position", "rotation"})
+
+        reference = walk[first_tripod[0]]["rotation"]
+        for bone in leg_bones:
+            self.assertEqual(set(walk[bone]), {"rotation"})
+            rotations = walk[bone]["rotation"]
+            self.assertEqual(tuple(time for time, _ in rotations), expected_times)
+            self.assertEqual(len(rotations), 17)
+            self.assertEqual(max(abs(vector[1]) for _, vector in rotations), 16.64)
+            self.assertEqual(max(abs(vector[2]) for _, vector in rotations), 6.4)
+            self.assertLessEqual(max(abs(vector[1]) for _, vector in rotations), 17)
+            self.assertLessEqual(max(abs(vector[2]) for _, vector in rotations), 6.5)
+            self.assertTrue(all(vector[0] == 0 for _, vector in rotations))
+            leg_y = [vector[1] for _, vector in rotations]
+            # 6.4 is the ceil-bound for the exact 60%-scaled cosine samples;
+            # GeckoLib linearly interpolates between these ordered keyframes.
+            self.assertLessEqual(
+                max(abs(right - left) for left, right in zip(leg_y, leg_y[1:])),
+                6.4,
             )
 
-        attack = specs["animation.corrupted_silverfish.attack"]["bones"]
-        self.assertGreater(attack["body"]["position"][1][1][2], 0.4)
+        for bone in first_tripod:
+            self.assertEqual(walk[bone]["rotation"], reference)
+        for bone in opposite_tripod:
+            opposite = walk[bone]["rotation"]
+            for (first_time, first), (opposite_time, second) in zip(reference, opposite):
+                self.assertEqual(opposite_time, first_time)
+                self.assertEqual(first, [-value for value in second])
 
-        death = specs["animation.corrupted_silverfish.death"]["bones"]
-        self.assertGreater(abs(death["body"]["rotation"][-1][1][2]), 70)
+    def test_non_walk_specs_remain_at_the_independent_literal_contract(self):
+        expected = {
+            "animation.corrupted_silverfish.idle": {
+                "loop": True,
+                "length": 1.6,
+                "bones": {
+                    "body": {
+                        "position": ((0.0, [0.0, 0.0, 0.0]), (0.8, [0.0, 0.08, 0.0]), (1.6, [0.0, 0.0, 0.0])),
+                        "rotation": ((0.0, [0.0, 0.0, 0.0]), (0.8, [0.0, 0.4, 0.35]), (1.6, [0.0, 0.0, 0.0])),
+                    }
+                },
+            },
+            "animation.corrupted_silverfish.attack": {
+                "loop": False,
+                "length": 0.45,
+                "bones": {
+                    "body": {"position": ((0.0, [0.0, 0.0, 0.0]), (0.225, [0.0, 0.0, 0.55]), (0.45, [0.0, 0.0, 0.0]))},
+                    "leg_front_left": {"rotation": ((0.0, [0.0, 0.0, 0.0]), (0.225, [0.0, 12.0, -8.0]), (0.45, [0.0, 0.0, 0.0]))},
+                    "leg_front_right": {"rotation": ((0.0, [0.0, 0.0, 0.0]), (0.225, [0.0, -12.0, 8.0]), (0.45, [0.0, 0.0, 0.0]))},
+                },
+            },
+            "animation.corrupted_silverfish.hurt": {
+                "loop": False,
+                "length": 0.3,
+                "bones": {
+                    "body": {"rotation": ((0.0, [0.0, 0.0, 0.0]), (0.1, [0.0, 0.0, 7.0]), (0.2, [0.0, 0.0, -3.0]), (0.3, [0.0, 0.0, 0.0]))}
+                },
+            },
+            "animation.corrupted_silverfish.death": {
+                "loop": False,
+                "length": 1.0,
+                "bones": {
+                    "body": {
+                        "position": ((0.0, [0.0, 0.0, 0.0]), (0.55, [0.0, -0.6, 0.0]), (1.0, [0.0, -1.5, 0.0])),
+                        "rotation": ((0.0, [0.0, 0.0, 0.0]), (0.55, [0.0, 0.0, 38.0]), (1.0, [0.0, 0.0, 82.0])),
+                    },
+                    "leg_front_left": {"rotation": ((0.0, [0.0, 0.0, 0.0]), (0.55, [0.0, 0.0, 24.0]), (1.0, [0.0, 0.0, 48.0]))},
+                    "leg_middle_left": {"rotation": ((0.0, [0.0, 0.0, 0.0]), (0.55, [0.0, 0.0, 24.0]), (1.0, [0.0, 0.0, 48.0]))},
+                    "leg_rear_left": {"rotation": ((0.0, [0.0, 0.0, 0.0]), (0.55, [0.0, 0.0, 24.0]), (1.0, [0.0, 0.0, 48.0]))},
+                    "leg_front_right": {"rotation": ((0.0, [0.0, 0.0, 0.0]), (0.55, [0.0, 0.0, -24.0]), (1.0, [0.0, 0.0, -48.0]))},
+                    "leg_middle_right": {"rotation": ((0.0, [0.0, 0.0, 0.0]), (0.55, [0.0, 0.0, -24.0]), (1.0, [0.0, 0.0, -48.0]))},
+                    "leg_rear_right": {"rotation": ((0.0, [0.0, 0.0, 0.0]), (0.55, [0.0, 0.0, -24.0]), (1.0, [0.0, 0.0, -48.0]))},
+                },
+            },
+        }
+
+        self.assertEqual(
+            {name: ANIMATION_SPECS[name] for name in expected},
+            expected,
+        )
 
     def test_serialized_bytes_are_deterministic(self):
         first = animation_bytes(add_animations(self.rig))

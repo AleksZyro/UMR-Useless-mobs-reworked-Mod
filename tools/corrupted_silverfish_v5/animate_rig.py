@@ -44,8 +44,8 @@ def _animation_specs() -> Dict[str, JsonObject]:
     }
 
     walk_times = tuple(index * 0.05 for index in range(17))
-    stride = tuple(round(10.4 * math.cos(2 * math.pi * time / 0.8), 6) for time in walk_times)
-    lift = tuple(round(4 * math.cos(2 * math.pi * time / 0.8), 6) for time in walk_times)
+    stride = tuple(round(16.64 * math.cos(2 * math.pi * time / 0.8), 6) for time in walk_times)
+    lift = tuple(round(6.4 * math.cos(2 * math.pi * time / 0.8), 6) for time in walk_times)
     bob = tuple(
         round(0.02 + 0.10 * (0.5 - 0.5 * math.cos(4 * math.pi * time / 0.8)), 6)
         for time in walk_times
