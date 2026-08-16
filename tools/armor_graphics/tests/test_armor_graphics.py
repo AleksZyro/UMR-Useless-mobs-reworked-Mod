@@ -309,6 +309,76 @@ def split_java_arguments(arguments: str) -> list[str]:
     return parts
 
 
+def mask_java_literal_contents(source: str) -> str:
+    masked = list(source)
+    quote = None
+    index = 0
+    while index < len(source):
+        char = source[index]
+        if quote:
+            if char == "\\" and quote != '"""':
+                masked[index] = " "
+                if index + 1 < len(source):
+                    masked[index + 1] = "\n" if source[index + 1] == "\n" else " "
+                index += 2
+                continue
+            if source.startswith(quote, index):
+                index += len(quote)
+                quote = None
+                continue
+            masked[index] = "\n" if char == "\n" else " "
+        elif source.startswith('"""', index):
+            quote = '"""'
+            index += 3
+            continue
+        elif char in ('"', "'"):
+            quote = char
+        index += 1
+    if quote:
+        raise AssertionError("unterminated Java string or character literal")
+    return "".join(masked)
+
+
+def java_top_level_units(source: str) -> list[str]:
+    units = []
+    start = None
+    stack = []
+    quote = None
+    index = 0
+    pairs = {"(": ")", "[": "]", "{": "}"}
+    while index < len(source):
+        char = source[index]
+        if start is None:
+            if char.isspace():
+                index += 1
+                continue
+            start = index
+        if quote:
+            if char == "\\":
+                index += 2
+                continue
+            if char == quote:
+                quote = None
+        elif char in ('"', "'"):
+            quote = char
+        elif char in pairs:
+            stack.append(pairs[char])
+        elif char in ")]}":
+            if not stack or char != stack[-1]:
+                raise AssertionError("unbalanced Java top-level flow")
+            stack.pop()
+            if char == "}" and not stack:
+                units.append(source[start : index + 1])
+                start = None
+        elif char == ";" and not stack:
+            units.append(source[start : index + 1])
+            start = None
+        index += 1
+    if quote or stack or (start is not None and source[start:].strip()):
+        raise AssertionError("incomplete Java top-level flow")
+    return units
+
+
 JAVA_NUMBER = re.compile(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?[fFdD]?")
 
 
@@ -324,12 +394,13 @@ def java_number(value: str, label: str) -> float:
 
 def worn_model_cuboids(source: str) -> list[tuple[str, float, float, tuple[float, float, float]]]:
     source = strip_java_comments(source)
+    searchable_source = mask_java_literal_contents(source)
     cuboids = []
     paired_tex_offs = 0
     paired_add_boxes = 0
-    for match in re.finditer(r"\.addOrReplaceChild\s*\(", source):
-        opening = source.find("(", match.start())
-        closing = matching_java_delimiter(source, opening, "(", ")")
+    for match in re.finditer(r"\.addOrReplaceChild\s*\(", searchable_source):
+        opening = searchable_source.find("(", match.start())
+        closing = matching_java_delimiter(searchable_source, opening, "(", ")")
         arguments = split_java_arguments(source[opening + 1 : closing])
         if len(arguments) < 2:
             continue
@@ -338,10 +409,11 @@ def worn_model_cuboids(source: str) -> list[tuple[str, float, float, tuple[float
             continue
         part = part_match.group(1)
         builder = arguments[1]
+        searchable_builder = mask_java_literal_contents(builder)
         calls = []
-        for call in re.finditer(r"\b(texOffs|addBox)\s*\(", builder):
-            call_opening = builder.find("(", call.start())
-            call_closing = matching_java_delimiter(builder, call_opening, "(", ")")
+        for call in re.finditer(r"\b(texOffs|addBox)\s*\(", searchable_builder):
+            call_opening = searchable_builder.find("(", call.start())
+            call_closing = matching_java_delimiter(searchable_builder, call_opening, "(", ")")
             calls.append((call.group(1), split_java_arguments(builder[call_opening + 1 : call_closing])))
         if not calls:
             continue
@@ -361,8 +433,8 @@ def worn_model_cuboids(source: str) -> list[tuple[str, float, float, tuple[float
             cuboids.append((part, u, v, dimensions))
             paired_tex_offs += 1
             paired_add_boxes += 1
-    total_tex_offs = len(re.findall(r"\btexOffs\s*\(", source))
-    total_add_boxes = len(re.findall(r"\baddBox\s*\(", source))
+    total_tex_offs = len(re.findall(r"\btexOffs\s*\(", searchable_source))
+    total_add_boxes = len(re.findall(r"\baddBox\s*\(", searchable_source))
     if paired_tex_offs != total_tex_offs or paired_add_boxes != total_add_boxes:
         raise AssertionError(
             f"parsed {paired_tex_offs}/{total_tex_offs} texOffs and {paired_add_boxes}/{total_add_boxes} addBox calls"
@@ -413,29 +485,18 @@ def assert_show_for_type_contract(source: str) -> None:
 
 
 def assert_custom_armor_model_contract(source: str, factory_call: str) -> None:
-    body = normalize_java(java_method_body(source, "getHumanoidArmorModel"))
+    body = java_method_body(source, "getHumanoidArmorModel")
     guard = normalize_java("if (slot != getType().getSlot()) { return original; }")
-    if not body.startswith(guard):
-        raise AssertionError("getHumanoidArmorModel must first return the original model for every other slot")
     copy_pose = normalize_java("((HumanoidModel) original).copyPropertiesTo((HumanoidModel) model);")
     show_slot = normalize_java("WornTruePathArmorModel.showForType(model, getType());")
     factory_call = normalize_java(factory_call)
     factory_block = normalize_java(f"if (model == null) {{ {factory_call} }}")
-    if body.count(factory_block) != 1:
-        raise AssertionError("getHumanoidArmorModel must create its custom model only inside the null guard")
-    model_assignments = re.findall(r"(?<![\w.])(?:this\.)?model\s*=(?!=)[^;]+;", body)
-    if model_assignments != [factory_call]:
-        raise AssertionError("getHumanoidArmorModel may only assign model with its custom factory")
-    required = (factory_call, copy_pose, show_slot, "return model;")
-    positions = []
-    for fragment in required:
-        if body.count(fragment) != 1:
-            raise AssertionError(f"getHumanoidArmorModel must contain exactly one {fragment!r}")
-        positions.append(body.index(fragment))
-    if positions != sorted(positions):
-        raise AssertionError("getHumanoidArmorModel must create, pose, select, then return the custom model")
-    if body.count("return original;") != 1 or body.count("return model;") != 1:
-        raise AssertionError("getHumanoidArmorModel may only return the original guard or the correctly posed custom model")
+    expected_flow = [guard, factory_block, copy_pose, show_slot, "return model;"]
+    actual_flow = [normalize_java(unit) for unit in java_top_level_units(body)]
+    if actual_flow != expected_flow:
+        raise AssertionError(
+            "getHumanoidArmorModel must create, pose, select, then return the custom model in the exact top-level flow"
+        )
 
 
 class ContractHelperTests(unittest.TestCase):
@@ -510,7 +571,13 @@ class ContractHelperTests(unittest.TestCase):
                     PartPose.ZERO);
             }
         }'''
-        self.assertEqual([("named_part", 1.0, 2.0, (3.0, 4.0, 5.0))], worn_model_cuboids(valid))
+        expected = [("named_part", 1.0, 2.0, (3.0, 4.0, 5.0))]
+        self.assertEqual(expected, worn_model_cuboids(valid))
+        diagnostic = valid.replace(
+            "void build(PartDefinition root)",
+            'String diagnostic = "texOffs(99, 99).addBox(0, 0, 0, 1, 1, 1)";\n            void build(PartDefinition root)',
+        )
+        self.assertEqual(expected, worn_model_cuboids(diagnostic))
         mutations = (
             valid.replace("3.0F", "true", 1),
             valid.replace(".addBox", ".mirror()"),
@@ -586,6 +653,13 @@ class ContractHelperTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(AssertionError, "getHumanoidArmorModel"):
             assert_custom_armor_model_contract(f"class Example {{ {reassigned_model} }}", factory)
+        unreachable_pose = valid_method.replace(
+            "((HumanoidModel) original).copyPropertiesTo((HumanoidModel) model);\n            WornTruePathArmorModel.showForType(model, getType());",
+            "if (false) { ((HumanoidModel) original).copyPropertiesTo((HumanoidModel) model);\n"
+            "                WornTruePathArmorModel.showForType(model, getType()); }",
+        )
+        with self.assertRaisesRegex(AssertionError, "getHumanoidArmorModel"):
+            assert_custom_armor_model_contract(f"class Example {{ {unreachable_pose} }}", factory)
 
 
 class ArmorItemModelContract(unittest.TestCase):
