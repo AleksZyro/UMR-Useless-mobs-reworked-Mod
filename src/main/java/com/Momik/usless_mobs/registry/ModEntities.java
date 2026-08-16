@@ -59,7 +59,7 @@ public final class ModEntities {
 
     public static final RegistryObject<EntityType<CorruptedSilverfishEntity>> CORRUPTED_SILVERFISH = ENTITY_TYPES.register("corrupted_silverfish",
             () -> EntityType.Builder.of(CorruptedSilverfishEntity::new, MobCategory.MONSTER)
-                    .sized(0.4F, 0.3F)
+                    .sized(2.0F, 0.92F)
                     .clientTrackingRange(8)
                     .build(Usless_mobs.MODID + ":corrupted_silverfish"));
 

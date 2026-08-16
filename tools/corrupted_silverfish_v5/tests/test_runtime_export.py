@@ -2,6 +2,7 @@ import base64
 import importlib.util
 import json
 from pathlib import Path
+import re
 import struct
 import unittest
 
@@ -19,6 +20,7 @@ SOURCE = (
 RUNTIME_ROOT = ROOT / "src" / "main" / "mobs" / "endermite" / "resources" / "assets" / "usless_mobs"
 RENDERER = ROOT / "src" / "main" / "mobs" / "endermite" / "java" / "net" / "mysith" / "client" / "CorruptedSilverfishRenderer.java"
 MESH_CLASS = ROOT / "src" / "main" / "mobs" / "endermite" / "java" / "net" / "mysith" / "client" / "CorruptedSilverfishMesh.java"
+MOD_ENTITIES = ROOT / "src" / "main" / "java" / "com" / "Momik" / "usless_mobs" / "registry" / "ModEntities.java"
 
 
 def load_runtime_export():
@@ -122,6 +124,22 @@ class RuntimeExportContractTests(unittest.TestCase):
 
 
 class ProductionIntegrationContractTests(unittest.TestCase):
+    def test_entity_hitbox_matches_the_approved_mesh_visible_bounds(self):
+        geometry = json.loads(
+            (RUNTIME_ROOT / "geo" / "corrupted_silverfish.geo.json").read_text(encoding="utf-8")
+        )["minecraft:geometry"][0]["description"]
+        source = MOD_ENTITIES.read_text(encoding="utf-8")
+        registration = re.search(
+            r'CORRUPTED_SILVERFISH\s*=.*?\.sized\(([0-9.]+)F,\s*([0-9.]+)F\)',
+            source,
+            flags=re.DOTALL,
+        )
+
+        self.assertIsNotNone(registration, "Corrupted Silverfish registration must declare its hitbox")
+        width, height = (float(value) for value in registration.groups())
+        self.assertAlmostEqual(width, geometry["visible_bounds_width"], places=2)
+        self.assertAlmostEqual(height, geometry["visible_bounds_height"], places=2)
+
     def test_committed_runtime_assets_match_the_approved_bundle(self):
         module = load_runtime_export()
         bundle = module.build_runtime_bundle(json.loads(SOURCE.read_text(encoding="utf-8")))
