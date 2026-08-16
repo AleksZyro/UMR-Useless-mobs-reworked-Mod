@@ -380,6 +380,10 @@ def assert_show_for_type_contract(source: str) -> None:
     prefix = normalize_java(body[: switch_match.start()])
     if prefix != "model.setAllVisible(false);":
         raise AssertionError("showForType must first hide every base model part")
+    if normalize_java(body[switch_closing + 1 :]):
+        raise AssertionError("showForType must not execute anything after its slot switch")
+    if len(re.findall(r"\bmodel\.setAllVisible\s*\(", body)) != 1:
+        raise AssertionError("showForType must call setAllVisible exactly once")
     expected = {
         "HELMET": {"head", "hat"},
         "CHESTPLATE": {"body", "rightArm", "leftArm"},
@@ -391,7 +395,11 @@ def assert_show_for_type_contract(source: str) -> None:
     for case in re.finditer(r"\bcase\s+(HELMET|CHESTPLATE|LEGGINGS|BOOTS)\s*->\s*\{", switch_body):
         opening = switch_body.find("{", case.start())
         closing = matching_java_delimiter(switch_body, opening, "{", "}")
-        assignments = re.findall(r"\bmodel\.(\w+)\.visible\s*=\s*(true|false)\s*;", switch_body[opening + 1 : closing])
+        case_body = switch_body[opening + 1 : closing]
+        visibility_assignment = r"\bmodel\.(\w+)\.visible\s*=\s*(true|false)\s*;"
+        assignments = re.findall(visibility_assignment, case_body)
+        if normalize_java(re.sub(visibility_assignment, "", case_body)):
+            raise AssertionError(f"showForType {case.group(1)} may contain only visibility assignments")
         if any(value != "true" for _, value in assignments):
             raise AssertionError(f"showForType {case.group(1)} may only reveal its required parts")
         parts = [part for part, _ in assignments]
@@ -412,6 +420,12 @@ def assert_custom_armor_model_contract(source: str, factory_call: str) -> None:
     copy_pose = normalize_java("((HumanoidModel) original).copyPropertiesTo((HumanoidModel) model);")
     show_slot = normalize_java("WornTruePathArmorModel.showForType(model, getType());")
     factory_call = normalize_java(factory_call)
+    factory_block = normalize_java(f"if (model == null) {{ {factory_call} }}")
+    if body.count(factory_block) != 1:
+        raise AssertionError("getHumanoidArmorModel must create its custom model only inside the null guard")
+    model_assignments = re.findall(r"(?<![\w.])(?:this\.)?model\s*=(?!=)[^;]+;", body)
+    if model_assignments != [factory_call]:
+        raise AssertionError("getHumanoidArmorModel may only assign model with its custom factory")
     required = (factory_call, copy_pose, show_slot, "return model;")
     positions = []
     for fragment in required:
@@ -526,6 +540,19 @@ class ContractHelperTests(unittest.TestCase):
         ):
             with self.subTest(decoy=decoy), self.assertRaisesRegex(AssertionError, "showForType"):
                 assert_show_for_type_contract(f"class Example {{ {decoy} {bad_method} }}")
+        mutations = (
+            valid_method.replace(
+                "            }\n        }",
+                "            }\n            model.setAllVisible(true);\n        }",
+            ),
+            valid_method.replace(
+                "case HELMET -> { model.head.visible = true;",
+                "case HELMET -> { model.setAllVisible(true); model.head.visible = true;",
+            ),
+        )
+        for mutation in mutations:
+            with self.subTest(mutation=mutation), self.assertRaisesRegex(AssertionError, "showForType"):
+                assert_show_for_type_contract(f"class Example {{ {mutation} }}")
 
     def test_custom_armor_model_contract_rejects_comment_dead_method_and_order_mutations(self):
         factory = "model = WornTruePathArmorModel.create(path, getType());"
@@ -553,6 +580,12 @@ class ContractHelperTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(AssertionError, "create, pose, select"):
             assert_custom_armor_model_contract(f"class Example {{ {reversed_pose} }}", factory)
+        reassigned_model = valid_method.replace(
+            "if (slot != getType().getSlot()) { return original; }",
+            "if (slot != getType().getSlot()) { return original; } model = (HumanoidModel) original;",
+        )
+        with self.assertRaisesRegex(AssertionError, "getHumanoidArmorModel"):
+            assert_custom_armor_model_contract(f"class Example {{ {reassigned_model} }}", factory)
 
 
 class ArmorItemModelContract(unittest.TestCase):
