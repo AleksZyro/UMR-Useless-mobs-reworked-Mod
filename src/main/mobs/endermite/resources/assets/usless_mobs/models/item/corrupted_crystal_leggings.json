@@ -1,5 +1,5 @@
 {
-  "parent": "usless_mobs:item/true_void_leggings",
+  "parent": "usless_mobs:item/template/armor_leggings_3d",
   "textures": {
     "main": "usless_mobs:item/corrupted_crystal_leggings",
     "particle": "usless_mobs:item/corrupted_crystal_leggings"

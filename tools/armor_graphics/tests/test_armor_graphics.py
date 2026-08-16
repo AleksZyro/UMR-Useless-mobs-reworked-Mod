@@ -109,6 +109,43 @@ def assert_finite_vector(test: unittest.TestCase, vector, length: int, label: st
     )
 
 
+def rotate_point(point: tuple[float, float, float], rotation: list[float]) -> tuple[float, float, float]:
+    x, y, z = point
+    for axis, degrees in enumerate(rotation):
+        angle = math.radians(degrees)
+        cosine = math.cos(angle)
+        sine = math.sin(angle)
+        if axis == 0:
+            y, z = y * cosine - z * sine, y * sine + z * cosine
+        elif axis == 1:
+            x, z = x * cosine + z * sine, -x * sine + z * cosine
+        else:
+            x, y = x * cosine - y * sine, x * sine + y * cosine
+    return x, y, z
+
+
+def gui_projected_bounds(model: dict) -> tuple[float, float, float, float]:
+    gui = model["display"]["gui"]
+    rotation = gui.get("rotation", [0.0, 0.0, 0.0])
+    translation = gui.get("translation", [0.0, 0.0, 0.0])
+    scale = gui.get("scale", [1.0, 1.0, 1.0])
+    projected = []
+    for element in model["elements"]:
+        for x in (element["from"][0], element["to"][0]):
+            for y in (element["from"][1], element["to"][1]):
+                for z in (element["from"][2], element["to"][2]):
+                    rotated = rotate_point((x - 8.0, y - 8.0, z - 8.0), rotation)
+                    projected.append(
+                        (
+                            rotated[0] * scale[0] + translation[0],
+                            rotated[1] * scale[1] + translation[1],
+                        )
+                    )
+    xs = [point[0] for point in projected]
+    ys = [point[1] for point in projected]
+    return min(xs), max(xs), min(ys), max(ys)
+
+
 def png_dimensions(path: Path) -> tuple[int, int]:
     try:
         with Image.open(path) as image:
@@ -311,6 +348,64 @@ class ArmorItemModelContract(unittest.TestCase):
                 scale = gui.get("scale", [1.0, 1.0, 1.0])
                 self.assertTrue(all(-4.0 <= value <= 4.0 for value in translation))
                 self.assertTrue(all(0.0 < value <= 1.2 for value in scale))
+
+    def test_inventory_geometry_is_compact_but_genuinely_three_dimensional(self):
+        for item_id in ITEMS:
+            with self.subTest(item=item_id):
+                elements = resolve_model(item_id)["elements"]
+                self.assertGreaterEqual(len(elements), 2, f"{item_id} cannot be an empty or single-cube icon")
+                self.assertLessEqual(len(elements), 8, f"{item_id} inventory geometry is visually too dense")
+                for index, element in enumerate(elements):
+                    dimensions = [element["to"][axis] - element["from"][axis] for axis in range(3)]
+                    self.assertTrue(
+                        all(dimension >= 0.4 for dimension in dimensions),
+                        f"{item_id} element {index} must retain visible 3D depth",
+                    )
+
+    def test_chestplates_have_a_wide_armour_body_around_a_narrow_central_detail(self):
+        for item_id in (f"{set_name}_chestplate" for set_name in SETS):
+            with self.subTest(item=item_id):
+                elements = resolve_model(item_id)["elements"]
+                left = min(element["from"][0] for element in elements)
+                right = max(element["to"][0] for element in elements)
+                front = min(element["from"][2] for element in elements)
+                central_details = [
+                    element
+                    for element in elements
+                    if element["from"][2] <= front + 0.1
+                    and element["to"][0] - element["from"][0] <= 4.0
+                    and element["from"][0] < 8.0 < element["to"][0]
+                ]
+                self.assertGreaterEqual(right - left, 10.0, f"{item_id} needs recognisable shoulder/body width")
+                self.assertTrue(central_details, f"{item_id} needs a visible central gem detail")
+                detail_width = max(element["to"][0] - element["from"][0] for element in central_details)
+                self.assertGreater(right - left, detail_width * 2.5)
+
+    def test_leggings_have_two_separated_lower_leg_extents(self):
+        for item_id in tuple(f"{set_name}_leggings" for set_name in SETS) + ("corrupted_crystal_leggings",):
+            with self.subTest(item=item_id):
+                lower_elements = [element for element in resolve_model(item_id)["elements"] if element["to"][1] <= 8.5]
+                left_legs = [element for element in lower_elements if element["to"][0] <= 7.5]
+                right_legs = [element for element in lower_elements if element["from"][0] >= 8.5]
+                self.assertTrue(left_legs, f"{item_id} needs a distinct left leg")
+                self.assertTrue(right_legs, f"{item_id} needs a distinct right leg")
+                gap = min(element["from"][0] for element in right_legs) - max(
+                    element["to"][0] for element in left_legs
+                )
+                self.assertGreaterEqual(gap, 1.0, f"{item_id} leg gap must remain visible in inventory")
+
+    def test_gui_projection_is_centred_and_fits_the_inventory_icon(self):
+        for item_id in ITEMS:
+            with self.subTest(item=item_id):
+                left, right, bottom, top = gui_projected_bounds(resolve_model(item_id))
+                self.assertGreaterEqual(left, -7.75)
+                self.assertLessEqual(right, 7.75)
+                self.assertGreaterEqual(bottom, -7.75)
+                self.assertLessEqual(top, 7.75)
+                self.assertLessEqual(abs((left + right) / 2.0), 0.75)
+                self.assertLessEqual(abs((bottom + top) / 2.0), 0.75)
+                self.assertGreaterEqual(right - left, 5.0)
+                self.assertGreaterEqual(top - bottom, 5.0)
 
 
 class WornArmorContract(unittest.TestCase):
