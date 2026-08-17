@@ -1283,6 +1283,13 @@ class WornArmorContract(unittest.TestCase):
             f"{NAMESPACE}:models/armor/true_void_chestplate_layer_1", "textures", ".png"
         )
         item_path = resource_path(f"{NAMESPACE}:item/true_void_chestplate", "textures", ".png")
+        generator_path = REPO_ROOT / "tools/armor_graphics/build_true_void_chestplate_assets.py"
+        spec = importlib.util.spec_from_file_location("true_void_chestplate_assets", generator_path)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
         with Image.open(worn_path) as worn, Image.open(item_path) as item:
             worn.load()
             item.load()
@@ -1301,13 +1308,32 @@ class WornArmorContract(unittest.TestCase):
             self.assertTrue(any(blue > 200 and red > 130 and alpha for red, _, blue, alpha in combined))
             centre = [item.getpixel((x, y)) for y in range(5, 10) for x in range(6, 11)]
             self.assertTrue(any(red > 190 and blue > 230 and alpha for red, _, blue, alpha in centre))
+            accent_colours = {
+                module.VOID_HIGHLIGHT,
+                module.VOID_MID,
+                module.VOID_GLOW,
+                module.VOID_CORE,
+            }
+            longest_horizontal_accent_run = 0
+            for y in range(worn.height):
+                run = 0
+                for x in range(worn.width):
+                    if worn.getpixel((x, y)) in accent_colours:
+                        run += 1
+                        longest_horizontal_accent_run = max(longest_horizontal_accent_run, run)
+                    else:
+                        run = 0
+            self.assertLessEqual(longest_horizontal_accent_run, 24)
 
-        generator_path = REPO_ROOT / "tools/armor_graphics/build_true_void_chestplate_assets.py"
-        spec = importlib.util.spec_from_file_location("true_void_chestplate_assets", generator_path)
-        self.assertIsNotNone(spec)
-        self.assertIsNotNone(spec.loader)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+            worn_pixels = tuple(worn.getdata())
+            glow_and_core_count = sum(
+                pixel in {module.VOID_GLOW, module.VOID_CORE} for pixel in worn_pixels
+            )
+            self.assertLess(glow_and_core_count, 360)
+            self.assertGreater(worn_pixels.count(module.VOID_CORE), 8)
+            self.assertEqual(module.VOID_CORE, item.getpixel((8, 7)))
+            self.assertEqual(module.VOID_CORE, item.getpixel((8, 8)))
+
         self.assertEqual(worn_path.read_bytes(), module.png_bytes(module.build_worn_texture()))
         self.assertEqual(item_path.read_bytes(), module.png_bytes(module.build_item_texture()))
 
