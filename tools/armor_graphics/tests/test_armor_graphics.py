@@ -584,6 +584,39 @@ def worn_method_geometry(source: str, method_name: str) -> dict[str, tuple]:
     return geometry
 
 
+def worn_box_uv_face_rectangles(uv: tuple[float, float], dimensions: tuple[float, float, float]) -> dict[str, tuple]:
+    u, v = uv
+    width, height, depth = dimensions
+    return {
+        "down": (u + depth, v, u + depth + width, v + depth),
+        "up": (u + depth + width, v, u + depth + 2.0 * width, v + depth),
+        "west": (u, v + depth, u + depth, v + depth + height),
+        "north": (u + depth, v + depth, u + depth + width, v + depth + height),
+        "east": (u + depth + width, v + depth, u + 2.0 * depth + width, v + depth + height),
+        "south": (
+            u + 2.0 * depth + width,
+            v + depth,
+            u + 2.0 * (depth + width),
+            v + depth + height,
+        ),
+    }
+
+
+def worn_box_uv_sampled_pixels(uv: tuple[float, float], dimensions: tuple[float, float, float]) -> set[tuple[int, int]]:
+    sampled = set()
+    for x0, y0, x1, y1 in worn_box_uv_face_rectangles(uv, dimensions).values():
+        for y in range(math.floor(y0), math.ceil(y1)):
+            for x in range(math.floor(x0), math.ceil(x1)):
+                if x0 <= x + 0.5 < x1 and y0 <= y + 0.5 < y1:
+                    sampled.add((x, y))
+    return sampled
+
+
+def worn_box_uv_palette_counts(image: Image.Image, uv, dimensions, colours) -> dict[tuple, int]:
+    sampled = worn_box_uv_sampled_pixels(uv, dimensions)
+    return {colour: sum(image.getpixel(point) == colour for point in sampled) for colour in colours}
+
+
 def assert_show_for_type_contract(source: str) -> None:
     body = java_method_body(source, "showForType")
     switch_match = re.search(r"\bswitch\s*\(\s*type\s*\)\s*\{", body)
@@ -709,6 +742,32 @@ def assert_void_crystal_knight_routing_contract(source: str) -> None:
 
 
 class ContractHelperTests(unittest.TestCase):
+    def test_worn_box_uv_palette_counts_ignore_off_island_decoys(self):
+        path = REPO_ROOT / "src/main/java/com/Momik/usless_mobs/client/WornTruePathArmorModel.java"
+        geometry = worn_method_geometry(path.read_text(encoding="utf-8"), "addVoidCrystalKnightDetails")
+        generator_path = REPO_ROOT / "tools/armor_graphics/build_true_void_chestplate_assets.py"
+        spec = importlib.util.spec_from_file_location("true_void_chestplate_assets_for_uv_test", generator_path)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        decoys = {
+            "true_void_chest_crystal": (87, 4),
+            "true_void_back_crystal": (121, 4),
+            "true_void_right_shoulder_crystal": (18, 19),
+            "true_void_left_shoulder_crystal": (42, 19),
+        }
+        for name, decoy in decoys.items():
+            with self.subTest(part=name, decoy=decoy):
+                uv, dimensions = geometry[name][1], geometry[name][3]
+                self.assertNotIn(decoy, worn_box_uv_sampled_pixels(uv, dimensions))
+                image = Image.new("RGBA", (128, 64), module.VOID_BLACK)
+                image.putpixel(decoy, module.VOID_CORE)
+                counts = worn_box_uv_palette_counts(
+                    image, uv, dimensions, {module.VOID_GLOW, module.VOID_CORE}
+                )
+                self.assertEqual({module.VOID_GLOW: 0, module.VOID_CORE: 0}, counts)
+
     def test_display_rotation_matches_forge_z_then_y_then_x_point_order(self):
         rotated = rotate_point((1.0, 0.0, 0.0), [90.0, 90.0, 0.0])
         for actual, expected in zip(rotated, (0.0, 1.0, 0.0)):
@@ -1289,6 +1348,8 @@ class WornArmorContract(unittest.TestCase):
         self.assertIsNotNone(spec.loader)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
+        java_path = REPO_ROOT / "src/main/java/com/Momik/usless_mobs/client/WornTruePathArmorModel.java"
+        geometry = worn_method_geometry(java_path.read_text(encoding="utf-8"), "addVoidCrystalKnightDetails")
 
         with Image.open(worn_path) as worn, Image.open(item_path) as item:
             worn.load()
@@ -1330,7 +1391,46 @@ class WornArmorContract(unittest.TestCase):
                 pixel in {module.VOID_GLOW, module.VOID_CORE} for pixel in worn_pixels
             )
             self.assertLess(glow_and_core_count, 360)
-            self.assertGreater(worn_pixels.count(module.VOID_CORE), 8)
+            sampled_crystal_pixels = set()
+            for name in (
+                "true_void_chest_crystal",
+                "true_void_back_crystal",
+                "true_void_right_shoulder_crystal",
+                "true_void_left_shoulder_crystal",
+            ):
+                with self.subTest(crystal=name):
+                    uv, dimensions = geometry[name][1], geometry[name][3]
+                    sampled_crystal_pixels.update(worn_box_uv_sampled_pixels(uv, dimensions))
+                    counts = worn_box_uv_palette_counts(
+                        worn, uv, dimensions, {module.VOID_GLOW, module.VOID_CORE}
+                    )
+                    self.assertGreater(counts[module.VOID_CORE], 0)
+                    self.assertGreater(counts[module.VOID_GLOW] + counts[module.VOID_CORE], 0)
+            bright_pixels = {
+                (x, y)
+                for y in range(worn.height)
+                for x in range(worn.width)
+                if worn.getpixel((x, y)) in {module.VOID_GLOW, module.VOID_CORE}
+            }
+            self.assertLessEqual(bright_pixels, sampled_crystal_pixels)
+
+            item_pixels = tuple(item.getdata())
+            self.assertLessEqual(
+                sum(pixel in {module.VOID_GLOW, module.VOID_CORE} for pixel in item_pixels),
+                18,
+            )
+            opaque = [
+                (x, y)
+                for y in range(item.height)
+                for x in range(item.width)
+                if item.getpixel((x, y))[3]
+            ]
+            self.assertEqual((2, 2, 13, 14), (
+                min(x for x, _ in opaque),
+                min(y for _, y in opaque),
+                max(x for x, _ in opaque),
+                max(y for _, y in opaque),
+            ))
             self.assertEqual(module.VOID_CORE, item.getpixel((8, 7)))
             self.assertEqual(module.VOID_CORE, item.getpixel((8, 8)))
 

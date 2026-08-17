@@ -65,10 +65,18 @@ def build_worn_texture() -> Image.Image:
     for point in ((24, 0), (48, 0), (68, 0), (24, 16), (48, 16)):
         draw.point(point, fill=VOID_METAL)
 
-    crystal(draw, 87, 4, 3)
-    crystal(draw, 121, 4, 2)
-    draw.point((18, 19), fill=VOID_CORE)
-    draw.point((42, 19), fill=VOID_CORE)
+    draw.point((84, 2), fill=VOID_CORE)
+    for point in ((84, 1), (83, 2), (85, 2)):
+        draw.point(point, fill=VOID_GLOW)
+
+    crystal(draw, 118, 1, 1)
+    for core, glow in (
+        ((18, 18), ((18, 17), (17, 18), (19, 18))),
+        ((42, 18), ((42, 17), (41, 18), (43, 18))),
+    ):
+        draw.point(core, fill=VOID_CORE)
+        for point in glow:
+            draw.point(point, fill=VOID_GLOW)
     return image
 
 
