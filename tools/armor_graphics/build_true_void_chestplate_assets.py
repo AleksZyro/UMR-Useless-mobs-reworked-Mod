@@ -59,10 +59,14 @@ def build_worn_texture() -> Image.Image:
         ((104, 0, 115, 13), False),
         ((0, 16, 15, 27), True),
         ((24, 16, 39, 27), True),
+        ((56, 32, 67, 43), True),
+        ((68, 32, 79, 43), True),
+        ((80, 32, 91, 43), True),
+        ((92, 32, 103, 43), True),
     ):
         panel(draw, box, seam)
 
-    for point in ((24, 0), (48, 0), (68, 0), (24, 16), (48, 16)):
+    for point in ((24, 0), (48, 0), (68, 0), (24, 16), (48, 16), (80, 32)):
         draw.point(point, fill=VOID_METAL)
 
     draw.point((84, 2), fill=VOID_CORE)

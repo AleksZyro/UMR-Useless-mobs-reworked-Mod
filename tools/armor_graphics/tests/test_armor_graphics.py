@@ -1300,29 +1300,41 @@ class WornArmorContract(unittest.TestCase):
             return owner, uv, origin, dimensions, deformation, pose_type, offset, rotation
 
         expected = {
-            "true_void_front_upper_left": geometry("body", (0.0, 0.0), (-2.175, -1.05, -0.36), (4.35, 2.10, 0.72), pose_type="offsetAndRotation", offset=(-2.175, 1.40, -2.82), rotation=(0.0, 0.0, -0.16)),
-            "true_void_front_upper_right": geometry("body", (12.0, 0.0), (-2.175, -1.05, -0.36), (4.35, 2.10, 0.72), pose_type="offsetAndRotation", offset=(2.175, 1.40, -2.82), rotation=(0.0, 0.0, 0.16)),
-            "true_void_front_middle_left": geometry("body", (24.0, 0.0), (-2.025, -0.825, -0.38), (4.05, 1.65, 0.76), pose_type="offsetAndRotation", offset=(-2.025, 3.475, -2.86), rotation=(0.0, 0.0, -0.12)),
-            "true_void_front_middle_right": geometry("body", (36.0, 0.0), (-2.025, -0.825, -0.38), (4.05, 1.65, 0.76), pose_type="offsetAndRotation", offset=(2.025, 3.475, -2.86), rotation=(0.0, 0.0, 0.12)),
-            "true_void_front_lower_left": geometry("body", (48.0, 0.0), (-1.775, -0.725, -0.36), (3.55, 1.45, 0.72), pose_type="offsetAndRotation", offset=(-1.775, 5.375, -2.84), rotation=(0.0, 0.0, -0.09)),
-            "true_void_front_lower_right": geometry("body", (58.0, 0.0), (-1.775, -0.725, -0.36), (3.55, 1.45, 0.72), pose_type="offsetAndRotation", offset=(1.775, 5.375, -2.84), rotation=(0.0, 0.0, 0.09)),
-            "true_void_front_tip": geometry("body", (68.0, 0.0), (-2.50, 6.45, -3.16), (5.0, 1.20, 0.68), pose_type="ZERO"),
+            "true_void_front_upper_left": geometry("body", (0.0, 0.0), (-2.175, -1.05, -0.36), (4.35, 2.10, 0.72), pose_type="offsetAndRotation", offset=(-2.175, 1.40, -2.82), rotation=(0.0, 0.0, -0.34)),
+            "true_void_front_upper_right": geometry("body", (12.0, 0.0), (-2.175, -1.05, -0.36), (4.35, 2.10, 0.72), pose_type="offsetAndRotation", offset=(2.175, 1.40, -2.82), rotation=(0.0, 0.0, 0.34)),
+            "true_void_front_middle_left": geometry("body", (24.0, 0.0), (-2.025, -0.825, -0.38), (4.05, 1.65, 0.76), pose_type="offsetAndRotation", offset=(-2.025, 3.475, -2.86), rotation=(0.0, 0.0, -0.30)),
+            "true_void_front_middle_right": geometry("body", (36.0, 0.0), (-2.025, -0.825, -0.38), (4.05, 1.65, 0.76), pose_type="offsetAndRotation", offset=(2.025, 3.475, -2.86), rotation=(0.0, 0.0, 0.30)),
+            "true_void_front_lower_left": geometry("body", (48.0, 0.0), (-1.775, -0.725, -0.36), (3.55, 1.45, 0.72), pose_type="offsetAndRotation", offset=(-1.775, 5.375, -2.84), rotation=(0.0, 0.0, -0.26)),
+            "true_void_front_lower_right": geometry("body", (58.0, 0.0), (-1.775, -0.725, -0.36), (3.55, 1.45, 0.72), pose_type="offsetAndRotation", offset=(1.775, 5.375, -2.84), rotation=(0.0, 0.0, 0.26)),
+            "true_void_front_tip": geometry("body", (68.0, 0.0), (-1.60, 6.55, -3.16), (3.20, 0.85, 0.68), pose_type="ZERO"),
             "true_void_chest_crystal": geometry(
                 "body", (82.0, 0.0), (-1.15, -1.15, -0.41), (2.30, 2.30, 0.82),
                 pose_type="offsetAndRotation", offset=(0.0, 2.50, -3.21), rotation=(0.0, 0.0, 0.7853982),
             ),
-            "true_void_back_left": geometry("body", (92.0, 0.0), (-2.10, -3.35, -0.35), (4.20, 6.70, 0.70), pose_type="offsetAndRotation", offset=(-2.10, 3.90, 2.75), rotation=(0.0, 0.0, -0.07)),
-            "true_void_back_right": geometry("body", (104.0, 0.0), (-2.10, -3.35, -0.35), (4.20, 6.70, 0.70), pose_type="offsetAndRotation", offset=(2.10, 3.90, 2.75), rotation=(0.0, 0.0, 0.07)),
+            "true_void_back_left": geometry("body", (92.0, 0.0), (-2.0, -1.0, -0.35), (4.0, 2.0, 0.70), pose_type="offsetAndRotation", offset=(-2.0, 1.50, 2.75), rotation=(0.0, 0.0, -0.34)),
+            "true_void_back_right": geometry("body", (104.0, 0.0), (-2.0, -1.0, -0.35), (4.0, 2.0, 0.70), pose_type="offsetAndRotation", offset=(2.0, 1.50, 2.75), rotation=(0.0, 0.0, 0.34)),
+            "true_void_back_middle_left": geometry("body", (56.0, 32.0), (-1.85, -0.775, -0.36), (3.70, 1.55, 0.72), pose_type="offsetAndRotation", offset=(-1.85, 3.55, 2.78), rotation=(0.0, 0.0, -0.28)),
+            "true_void_back_middle_right": geometry("body", (68.0, 32.0), (-1.85, -0.775, -0.36), (3.70, 1.55, 0.72), pose_type="offsetAndRotation", offset=(1.85, 3.55, 2.78), rotation=(0.0, 0.0, 0.28)),
+            "true_void_back_lower_left": geometry("body", (80.0, 32.0), (-1.60, -0.675, -0.35), (3.20, 1.35, 0.70), pose_type="offsetAndRotation", offset=(-1.60, 5.45, 2.75), rotation=(0.0, 0.0, -0.23)),
+            "true_void_back_lower_right": geometry("body", (92.0, 32.0), (-1.60, -0.675, -0.35), (3.20, 1.35, 0.70), pose_type="offsetAndRotation", offset=(1.60, 5.45, 2.75), rotation=(0.0, 0.0, 0.23)),
             "true_void_back_crystal": geometry(
                 "body", (116.0, 0.0), (-0.90, -0.90, -0.36), (1.80, 1.80, 0.72),
                 pose_type="offsetAndRotation", offset=(0.0, 3.00, 3.28), rotation=(0.0, 0.0, 0.7853982),
             ),
-            "true_void_right_shoulder_plate": geometry("right_arm", (0.0, 16.0), (-2.05, -0.775, -2.675), (4.10, 1.55, 5.35), 0.05, pose_type="offsetAndRotation", offset=(-2.05, -1.825, -0.005), rotation=(0.0, 0.0, -0.10)),
+            "true_void_right_shoulder_plate": geometry("right_arm", (0.0, 16.0), (-2.05, -0.625, -2.675), (4.10, 1.25, 5.35), 0.05, pose_type="offsetAndRotation", offset=(-2.05, -1.975, -0.005), rotation=(0.0, 0.0, -0.18)),
             "true_void_right_shoulder_crystal": geometry("right_arm", (16.0, 16.0), (-0.625, -0.80, -0.625), (1.25, 1.60, 1.25), pose_type="offsetAndRotation", offset=(-3.275, -2.35, 0.005), rotation=(0.0, 0.0, -0.32)),
-            "true_void_left_shoulder_plate": geometry("left_arm", (24.0, 16.0), (-2.05, -0.775, -2.675), (4.10, 1.55, 5.35), 0.05, pose_type="offsetAndRotation", offset=(2.05, -1.825, -0.005), rotation=(0.0, 0.0, 0.10)),
+            "true_void_left_shoulder_plate": geometry("left_arm", (24.0, 16.0), (-2.05, -0.625, -2.675), (4.10, 1.25, 5.35), 0.05, pose_type="offsetAndRotation", offset=(2.05, -1.975, -0.005), rotation=(0.0, 0.0, 0.18)),
             "true_void_left_shoulder_crystal": geometry("left_arm", (40.0, 16.0), (-0.625, -0.80, -0.625), (1.25, 1.60, 1.25), pose_type="offsetAndRotation", offset=(3.275, -2.35, 0.005), rotation=(0.0, 0.0, 0.32)),
         }
         actual = worn_method_geometry(source, "addVoidCrystalKnightDetails")
+        self.assertEqual(19, len(actual), "standalone True-Void chestplate geometry must have exactly 19 parts")
+        self.assertEqual(set(expected), set(actual), "standalone True-Void chestplate part names must be exact")
+        all_owners = worn_model_child_owners(source)
+        self.assertEqual(
+            {name: expected[name][0] for name in expected},
+            {name: all_owners[name] for name in expected},
+            "all standalone True-Void chestplate parts must retain their exact humanoid bone owners",
+        )
 
         for name, part in actual.items():
             if any(part[7]):
@@ -1344,11 +1356,15 @@ class WornArmorContract(unittest.TestCase):
             "true_void_front_middle_right": ((0.0, 2.65, -3.24), (4.05, 1.65, 0.76)),
             "true_void_front_lower_left": ((-3.55, 4.65, -3.20), (3.55, 1.45, 0.72)),
             "true_void_front_lower_right": ((0.0, 4.65, -3.20), (3.55, 1.45, 0.72)),
-            "true_void_back_left": ((-4.20, 0.55, 2.40), (4.20, 6.70, 0.70)),
-            "true_void_back_right": ((0.0, 0.55, 2.40), (4.20, 6.70, 0.70)),
-            "true_void_right_shoulder_plate": ((-4.10, -2.60, -2.68), (4.10, 1.55, 5.35)),
+            "true_void_back_left": ((-4.0, 0.50, 2.40), (4.0, 2.0, 0.70)),
+            "true_void_back_right": ((0.0, 0.50, 2.40), (4.0, 2.0, 0.70)),
+            "true_void_back_middle_left": ((-3.70, 2.775, 2.42), (3.70, 1.55, 0.72)),
+            "true_void_back_middle_right": ((0.0, 2.775, 2.42), (3.70, 1.55, 0.72)),
+            "true_void_back_lower_left": ((-3.20, 4.775, 2.40), (3.20, 1.35, 0.70)),
+            "true_void_back_lower_right": ((0.0, 4.775, 2.40), (3.20, 1.35, 0.70)),
+            "true_void_right_shoulder_plate": ((-4.10, -2.60, -2.68), (4.10, 1.25, 5.35)),
             "true_void_right_shoulder_crystal": ((-3.90, -3.15, -0.62), (1.25, 1.60, 1.25)),
-            "true_void_left_shoulder_plate": ((0.0, -2.60, -2.68), (4.10, 1.55, 5.35)),
+            "true_void_left_shoulder_plate": ((0.0, -2.60, -2.68), (4.10, 1.25, 5.35)),
             "true_void_left_shoulder_crystal": ((2.65, -3.15, -0.62), (1.25, 1.60, 1.25)),
         }
         for name, (planned_origin, planned_dimensions) in planned_unrotated.items():
@@ -1366,6 +1382,8 @@ class WornArmorContract(unittest.TestCase):
             ("true_void_front_middle_left", "true_void_front_middle_right"),
             ("true_void_front_lower_left", "true_void_front_lower_right"),
             ("true_void_back_left", "true_void_back_right"),
+            ("true_void_back_middle_left", "true_void_back_middle_right"),
+            ("true_void_back_lower_left", "true_void_back_lower_right"),
             ("true_void_right_shoulder_plate", "true_void_left_shoulder_plate"),
             ("true_void_right_shoulder_crystal", "true_void_left_shoulder_crystal"),
         )
@@ -1448,6 +1466,25 @@ class WornArmorContract(unittest.TestCase):
                     else:
                         run = 0
             self.assertLessEqual(longest_horizontal_accent_run, 24)
+
+            for region in (
+                (56, 32, 67, 43),
+                (68, 32, 79, 43),
+                (80, 32, 91, 43),
+                (92, 32, 103, 43),
+            ):
+                with self.subTest(back_panel_region=region):
+                    x0, y0, x1, y1 = region
+                    colours = {
+                        worn.getpixel((x, y))
+                        for y in range(y0, y1 + 1)
+                        for x in range(x0, x1 + 1)
+                    }
+                    self.assertIn(module.VOID_SHADOW, colours, "new back plates need dark panel fill")
+                    self.assertTrue(
+                        {module.VOID_HIGHLIGHT, module.VOID_MID, module.VOID_METAL} <= colours,
+                        "new back plates need highlight, inset seam, and lower-edge accents",
+                    )
 
             worn_pixels = tuple(worn.getdata())
             glow_and_core_count = sum(
