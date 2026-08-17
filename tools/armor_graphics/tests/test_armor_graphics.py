@@ -617,6 +617,15 @@ def worn_box_uv_palette_counts(image: Image.Image, uv, dimensions, colours) -> d
     return {colour: sum(image.getpixel(point) == colour for point in sampled) for colour in colours}
 
 
+def assert_worn_box_crystal_palette(image: Image.Image, uv, dimensions, glow, core) -> dict[tuple, int]:
+    counts = worn_box_uv_palette_counts(image, uv, dimensions, {glow, core})
+    if counts[core] <= 0:
+        raise AssertionError("crystal face island must sample VOID_CORE")
+    if counts[glow] <= 0:
+        raise AssertionError("crystal face island must sample VOID_GLOW")
+    return counts
+
+
 def assert_show_for_type_contract(source: str) -> None:
     body = java_method_body(source, "showForType")
     switch_match = re.search(r"\bswitch\s*\(\s*type\s*\)\s*\{", body)
@@ -742,6 +751,24 @@ def assert_void_crystal_knight_routing_contract(source: str) -> None:
 
 
 class ContractHelperTests(unittest.TestCase):
+    def test_worn_box_crystal_palette_rejects_all_core_island(self):
+        path = REPO_ROOT / "src/main/java/com/Momik/usless_mobs/client/WornTruePathArmorModel.java"
+        geometry = worn_method_geometry(path.read_text(encoding="utf-8"), "addVoidCrystalKnightDetails")
+        generator_path = REPO_ROOT / "tools/armor_graphics/build_true_void_chestplate_assets.py"
+        spec = importlib.util.spec_from_file_location("true_void_chestplate_assets_for_core_only_test", generator_path)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        uv, dimensions = geometry["true_void_chest_crystal"][1], geometry["true_void_chest_crystal"][3]
+        image = Image.new("RGBA", (128, 64), module.VOID_BLACK)
+        for point in worn_box_uv_sampled_pixels(uv, dimensions):
+            image.putpixel(point, module.VOID_CORE)
+        with self.assertRaisesRegex(AssertionError, "VOID_GLOW"):
+            assert_worn_box_crystal_palette(
+                image, uv, dimensions, module.VOID_GLOW, module.VOID_CORE
+            )
+
     def test_worn_box_uv_palette_counts_ignore_off_island_decoys(self):
         path = REPO_ROOT / "src/main/java/com/Momik/usless_mobs/client/WornTruePathArmorModel.java"
         geometry = worn_method_geometry(path.read_text(encoding="utf-8"), "addVoidCrystalKnightDetails")
@@ -1401,11 +1428,9 @@ class WornArmorContract(unittest.TestCase):
                 with self.subTest(crystal=name):
                     uv, dimensions = geometry[name][1], geometry[name][3]
                     sampled_crystal_pixels.update(worn_box_uv_sampled_pixels(uv, dimensions))
-                    counts = worn_box_uv_palette_counts(
-                        worn, uv, dimensions, {module.VOID_GLOW, module.VOID_CORE}
+                    assert_worn_box_crystal_palette(
+                        worn, uv, dimensions, module.VOID_GLOW, module.VOID_CORE
                     )
-                    self.assertGreater(counts[module.VOID_CORE], 0)
-                    self.assertGreater(counts[module.VOID_GLOW] + counts[module.VOID_CORE], 0)
             bright_pixels = {
                 (x, y)
                 for y in range(worn.height)
