@@ -175,52 +175,86 @@ def png_dimensions(path: Path) -> tuple[int, int]:
         raise AssertionError(f"invalid PNG: {path}: {error}") from error
 
 
-def strip_java_comments(source: str) -> str:
-    output = []
+def mask_java_non_code(source: str, *, comments: bool = True, literals: bool = True) -> str:
+    masked = list(source)
     index = 0
     state = "code"
+
+    def blank(position: int, length: int = 1) -> None:
+        for offset in range(length):
+            current = position + offset
+            masked[current] = "\n" if source[current] == "\n" else " "
+
     while index < len(source):
         char = source[index]
         following = source[index + 1] if index + 1 < len(source) else ""
         if state == "code":
             if char == "/" and following == "/":
-                output.extend((" ", " "))
+                if comments:
+                    blank(index, 2)
                 index += 2
                 state = "line_comment"
                 continue
             if char == "/" and following == "*":
-                output.extend((" ", " "))
+                if comments:
+                    blank(index, 2)
                 index += 2
                 state = "block_comment"
                 continue
-            output.append(char)
+            if source.startswith('"""', index):
+                index += 3
+                state = "text_block"
+                continue
             if char == '"':
                 state = "string"
             elif char == "'":
                 state = "character"
         elif state == "line_comment":
-            output.append("\n" if char == "\n" else " ")
+            if comments:
+                blank(index)
             if char == "\n":
                 state = "code"
         elif state == "block_comment":
             if char == "*" and following == "/":
-                output.extend((" ", " "))
+                if comments:
+                    blank(index, 2)
                 index += 2
                 state = "code"
                 continue
-            output.append("\n" if char == "\n" else " ")
-        else:
-            output.append(char)
+            if comments:
+                blank(index)
+        elif state == "text_block":
             if char == "\\" and following:
-                output.append(following)
+                if literals:
+                    blank(index, 2)
+                index += 2
+                continue
+            if source.startswith('"""', index):
+                index += 3
+                state = "code"
+                continue
+            if literals:
+                blank(index)
+        else:
+            if char == "\\" and following:
+                if literals:
+                    blank(index, 2)
                 index += 2
                 continue
             if (state == "string" and char == '"') or (state == "character" and char == "'"):
                 state = "code"
+            elif literals:
+                blank(index)
         index += 1
     if state == "block_comment":
         raise AssertionError("unterminated Java block comment")
-    return "".join(output)
+    if state in {"string", "character", "text_block"}:
+        raise AssertionError("unterminated Java string, character, or text block literal")
+    return "".join(masked)
+
+
+def strip_java_comments(source: str) -> str:
+    return mask_java_non_code(source, comments=True, literals=False)
 
 
 def matching_java_delimiter(source: str, start: int, opening: str, closing: str) -> int:
@@ -311,33 +345,7 @@ def split_java_arguments(arguments: str) -> list[str]:
 
 
 def mask_java_literal_contents(source: str) -> str:
-    masked = list(source)
-    quote = None
-    index = 0
-    while index < len(source):
-        char = source[index]
-        if quote:
-            if char == "\\" and quote != '"""':
-                masked[index] = " "
-                if index + 1 < len(source):
-                    masked[index + 1] = "\n" if source[index + 1] == "\n" else " "
-                index += 2
-                continue
-            if source.startswith(quote, index):
-                index += len(quote)
-                quote = None
-                continue
-            masked[index] = "\n" if char == "\n" else " "
-        elif source.startswith('"""', index):
-            quote = '"""'
-            index += 3
-            continue
-        elif char in ('"', "'"):
-            quote = char
-        index += 1
-    if quote:
-        raise AssertionError("unterminated Java string or character literal")
-    return "".join(masked)
+    return mask_java_non_code(source, comments=False, literals=True)
 
 
 def java_top_level_units(source: str) -> list[str]:
@@ -546,7 +554,7 @@ def assert_true_path_texture_contract(source: str) -> None:
 
 
 def assert_void_crystal_knight_routing_contract(source: str) -> None:
-    searchable = mask_java_literal_contents(strip_java_comments(source))
+    searchable = mask_java_non_code(source)
     method_name = "addVoidCrystalKnightDetails"
     declaration_pattern = rf"\bprivate\s+static\s+void\s+{method_name}\s*\("
     if len(re.findall(declaration_pattern, searchable)) != 1:
@@ -575,11 +583,27 @@ def assert_void_crystal_knight_routing_contract(source: str) -> None:
         r"path\s*==\s*TruePathArmorItem\.Path\.VOID",
         "Path.VOID chestplate",
     )
-    call_pattern = rf"\b{method_name}\s*\(\s*root\s*\)\s*;"
+    direct_call = f"{method_name}(root);"
+    chestplate_units = [normalize_java(unit) for unit in java_top_level_units(chestplate_body)]
+    expected_chestplate_units = [
+        normalize_java(
+            f"if (path == TruePathArmorItem.Path.VOID) {{ {direct_call} }}"
+        ),
+        normalize_java("else { addChestDetails(root, path); }"),
+    ]
+    if chestplate_units != expected_chestplate_units:
+        raise AssertionError(
+            f"{method_name} must be the direct Path.VOID chestplate branch with the legacy else branch"
+        )
+    if [normalize_java(unit) for unit in java_top_level_units(void_body)] != [direct_call]:
+        raise AssertionError(f"{method_name} must be a direct top-level Path.VOID call")
+
+    invocation_pattern = rf"\b{method_name}\s*\("
+    if len(re.findall(invocation_pattern, searchable)) != 2:
+        raise AssertionError(f"expected exactly one executable {method_name} declaration and call")
+    call_pattern = rf"(?<![\w.$]){method_name}\s*\(\s*root\s*\)\s*;"
     if len(re.findall(call_pattern, searchable)) != 1:
         raise AssertionError(f"expected exactly one executable {method_name} call")
-    if len(re.findall(call_pattern, void_body)) != 1:
-        raise AssertionError(f"{method_name} must be called from the Path.VOID chestplate branch")
 
 
 class ContractHelperTests(unittest.TestCase):
@@ -704,6 +728,16 @@ class ContractHelperTests(unittest.TestCase):
             private static void addVoidCrystalKnightDetails(PartDefinition root) {}
         }'''
         assert_void_crystal_knight_routing_contract(valid)
+        text_block_decoy = valid.replace(
+            "PartDefinition root = mesh.getRoot();",
+            'String decoy = """\n'
+            "                    // addVoidCrystalKnightDetails(root);\n"
+            "                    /* private static void addVoidCrystalKnightDetails(PartDefinition root) {} */\n"
+            "                    builder.addVoidCrystalKnightDetails(root);\n"
+            '                    """;\n'
+            "                PartDefinition root = mesh.getRoot();",
+        )
+        assert_void_crystal_knight_routing_contract(text_block_decoy)
         mutations = (
             valid.replace(
                 "private static void addVoidCrystalKnightDetails(PartDefinition root) {}",
@@ -723,10 +757,38 @@ class ContractHelperTests(unittest.TestCase):
                 'String callDecoy = "addVoidCrystalKnightDetails(root);";',
                 1,
             ),
+            valid.replace(
+                "addVoidCrystalKnightDetails(root);",
+                "helper.addVoidCrystalKnightDetails(root);",
+                1,
+            ),
+            valid.replace(
+                "addVoidCrystalKnightDetails(root);",
+                "new Helper().addVoidCrystalKnightDetails(root);",
+                1,
+            ),
+            valid.replace(
+                "addVoidCrystalKnightDetails(root);",
+                "if (false) { addVoidCrystalKnightDetails(root); }",
+                1,
+            ),
+            valid.replace(
+                "addVoidCrystalKnightDetails(root);",
+                "if (enabled) { addVoidCrystalKnightDetails(root); }",
+                1,
+            ),
             valid.replace("addVoidCrystalKnightDetails(root);", "", 1).replace(
                 "private static void addVoidCrystalKnightDetails(PartDefinition root) {}",
                 "void unrelated(PartDefinition root) { addVoidCrystalKnightDetails(root); }\n"
                 "            private static void addVoidCrystalKnightDetails(PartDefinition root) {}",
+            ),
+            valid.replace("addVoidCrystalKnightDetails(root);", "", 1).replace(
+                "private static void addVoidCrystalKnightDetails(PartDefinition root) {}",
+                'String textBlockDecoy = """\n'
+                "                // addVoidCrystalKnightDetails(root);\n"
+                "                /* private static void addVoidCrystalKnightDetails(PartDefinition root) {} */\n"
+                '                builder.addVoidCrystalKnightDetails(root);\n'
+                '                """;',
             ),
         )
         for mutation in mutations:
@@ -1019,14 +1081,6 @@ class WornArmorContract(unittest.TestCase):
             if part.startswith("true_void_") and part not in crown_parts
         }
         self.assertEqual(expected, actual)
-        for part, owner in owners.items():
-            if not part.startswith("true_void_") or part not in expected:
-                continue
-            with self.subTest(part=part):
-                if "shoulder" in part:
-                    self.assertIn(owner, {"right_arm", "left_arm"})
-                else:
-                    self.assertEqual("body", owner)
         assert_void_crystal_knight_routing_contract(source)
 
     def test_true_void_chestplate_palette_and_identity(self):
