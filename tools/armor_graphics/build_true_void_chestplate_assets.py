@@ -69,6 +69,15 @@ def build_worn_texture() -> Image.Image:
     for point in ((24, 0), (48, 0), (68, 0), (24, 16), (48, 16), (80, 32)):
         draw.point(point, fill=VOID_METAL)
 
+    for metal, mid in (
+        ((61, 33), (64, 33)),
+        ((73, 33), (76, 33)),
+        ((85, 33), (87, 33)),
+        ((97, 33), (99, 33)),
+    ):
+        draw.point(metal, fill=VOID_METAL)
+        draw.point(mid, fill=VOID_MID)
+
     draw.point((84, 2), fill=VOID_CORE)
     for point in ((84, 1), (83, 2), (85, 2)):
         draw.point(point, fill=VOID_GLOW)

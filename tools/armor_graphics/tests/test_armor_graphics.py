@@ -602,14 +602,53 @@ def worn_box_uv_face_rectangles(uv: tuple[float, float], dimensions: tuple[float
     }
 
 
+def worn_uv_rectangle_sampled_pixels(rectangle: tuple[float, float, float, float]) -> set[tuple[int, int]]:
+    x0, y0, x1, y1 = rectangle
+    return {
+        (x, y)
+        for y in range(math.floor(y0), math.ceil(y1))
+        for x in range(math.floor(x0), math.ceil(x1))
+        if x0 <= x + 0.5 < x1 and y0 <= y + 0.5 < y1
+    }
+
+
 def worn_box_uv_sampled_pixels(uv: tuple[float, float], dimensions: tuple[float, float, float]) -> set[tuple[int, int]]:
     sampled = set()
-    for x0, y0, x1, y1 in worn_box_uv_face_rectangles(uv, dimensions).values():
-        for y in range(math.floor(y0), math.ceil(y1)):
-            for x in range(math.floor(x0), math.ceil(x1)):
-                if x0 <= x + 0.5 < x1 and y0 <= y + 0.5 < y1:
-                    sampled.add((x, y))
+    for rectangle in worn_box_uv_face_rectangles(uv, dimensions).values():
+        sampled.update(worn_uv_rectangle_sampled_pixels(rectangle))
     return sampled
+
+
+def assert_torso_pairs_form_v_in_y_down_space(geometry: dict[str, tuple]) -> None:
+    pairs = (
+        ("true_void_front_upper_left", "true_void_front_upper_right"),
+        ("true_void_front_middle_left", "true_void_front_middle_right"),
+        ("true_void_front_lower_left", "true_void_front_lower_right"),
+        ("true_void_back_left", "true_void_back_right"),
+        ("true_void_back_middle_left", "true_void_back_middle_right"),
+        ("true_void_back_lower_left", "true_void_back_lower_right"),
+    )
+    for left_name, right_name in pairs:
+        for name, inner_direction in ((left_name, 1.0), (right_name, -1.0)):
+            part = geometry[name]
+            origin, dimensions, offset, rotation = part[2], part[3], part[6], part[7]
+            center_y = origin[1] + dimensions[1] / 2.0
+            half_width = dimensions[0] / 2.0
+            center_x = origin[0] + half_width
+            inner_x = center_x + inner_direction * half_width
+            outer_x = center_x - inner_direction * half_width
+            angle = rotation[2]
+
+            def transformed_y(local_x: float) -> float:
+                return offset[1] + local_x * math.sin(angle) + center_y * math.cos(angle)
+
+            inner_y = transformed_y(inner_x)
+            outer_y = transformed_y(outer_x)
+            if inner_y <= outer_y:
+                raise AssertionError(
+                    f"{name} must slope down toward the centre in Minecraft y-down space: "
+                    f"innerY={inner_y}, outerY={outer_y}"
+                )
 
 
 def worn_box_uv_palette_counts(image: Image.Image, uv, dimensions, colours) -> dict[tuple, int]:
@@ -1283,6 +1322,11 @@ class WornArmorContract(unittest.TestCase):
                 self.assertLessEqual(u + 2.0 * (width + depth), 128.0, f"{part} cuboid UV width exceeds the atlas")
                 self.assertLessEqual(v + depth + height, 64.0, f"{part} cuboid UV height exceeds the atlas")
 
+    def test_true_void_torso_pairs_form_nested_v_in_y_down_screen_space(self):
+        path = REPO_ROOT / "src/main/java/com/Momik/usless_mobs/client/WornTruePathArmorModel.java"
+        geometry = worn_method_geometry(path.read_text(encoding="utf-8"), "addVoidCrystalKnightDetails")
+        assert_torso_pairs_form_v_in_y_down_space(geometry)
+
     def test_true_void_chestplate_parts_have_exact_humanoid_bone_owners(self):
         path = REPO_ROOT / "src/main/java/com/Momik/usless_mobs/client/WornTruePathArmorModel.java"
         source = path.read_text(encoding="utf-8")
@@ -1300,23 +1344,23 @@ class WornArmorContract(unittest.TestCase):
             return owner, uv, origin, dimensions, deformation, pose_type, offset, rotation
 
         expected = {
-            "true_void_front_upper_left": geometry("body", (0.0, 0.0), (-2.175, -1.05, -0.36), (4.35, 2.10, 0.72), pose_type="offsetAndRotation", offset=(-2.175, 1.40, -2.82), rotation=(0.0, 0.0, -0.34)),
-            "true_void_front_upper_right": geometry("body", (12.0, 0.0), (-2.175, -1.05, -0.36), (4.35, 2.10, 0.72), pose_type="offsetAndRotation", offset=(2.175, 1.40, -2.82), rotation=(0.0, 0.0, 0.34)),
-            "true_void_front_middle_left": geometry("body", (24.0, 0.0), (-2.025, -0.825, -0.38), (4.05, 1.65, 0.76), pose_type="offsetAndRotation", offset=(-2.025, 3.475, -2.86), rotation=(0.0, 0.0, -0.30)),
-            "true_void_front_middle_right": geometry("body", (36.0, 0.0), (-2.025, -0.825, -0.38), (4.05, 1.65, 0.76), pose_type="offsetAndRotation", offset=(2.025, 3.475, -2.86), rotation=(0.0, 0.0, 0.30)),
-            "true_void_front_lower_left": geometry("body", (48.0, 0.0), (-1.775, -0.725, -0.36), (3.55, 1.45, 0.72), pose_type="offsetAndRotation", offset=(-1.775, 5.375, -2.84), rotation=(0.0, 0.0, -0.26)),
-            "true_void_front_lower_right": geometry("body", (58.0, 0.0), (-1.775, -0.725, -0.36), (3.55, 1.45, 0.72), pose_type="offsetAndRotation", offset=(1.775, 5.375, -2.84), rotation=(0.0, 0.0, 0.26)),
+            "true_void_front_upper_left": geometry("body", (0.0, 0.0), (-2.175, -1.05, -0.36), (4.35, 2.10, 0.72), pose_type="offsetAndRotation", offset=(-2.175, 1.40, -2.82), rotation=(0.0, 0.0, 0.34)),
+            "true_void_front_upper_right": geometry("body", (12.0, 0.0), (-2.175, -1.05, -0.36), (4.35, 2.10, 0.72), pose_type="offsetAndRotation", offset=(2.175, 1.40, -2.82), rotation=(0.0, 0.0, -0.34)),
+            "true_void_front_middle_left": geometry("body", (24.0, 0.0), (-2.025, -0.825, -0.38), (4.05, 1.65, 0.76), pose_type="offsetAndRotation", offset=(-2.025, 3.475, -2.86), rotation=(0.0, 0.0, 0.30)),
+            "true_void_front_middle_right": geometry("body", (36.0, 0.0), (-2.025, -0.825, -0.38), (4.05, 1.65, 0.76), pose_type="offsetAndRotation", offset=(2.025, 3.475, -2.86), rotation=(0.0, 0.0, -0.30)),
+            "true_void_front_lower_left": geometry("body", (48.0, 0.0), (-1.775, -0.725, -0.36), (3.55, 1.45, 0.72), pose_type="offsetAndRotation", offset=(-1.775, 5.375, -2.84), rotation=(0.0, 0.0, 0.26)),
+            "true_void_front_lower_right": geometry("body", (58.0, 0.0), (-1.775, -0.725, -0.36), (3.55, 1.45, 0.72), pose_type="offsetAndRotation", offset=(1.775, 5.375, -2.84), rotation=(0.0, 0.0, -0.26)),
             "true_void_front_tip": geometry("body", (68.0, 0.0), (-1.60, 6.55, -3.16), (3.20, 0.85, 0.68), pose_type="ZERO"),
             "true_void_chest_crystal": geometry(
                 "body", (82.0, 0.0), (-1.15, -1.15, -0.41), (2.30, 2.30, 0.82),
                 pose_type="offsetAndRotation", offset=(0.0, 2.50, -3.21), rotation=(0.0, 0.0, 0.7853982),
             ),
-            "true_void_back_left": geometry("body", (92.0, 0.0), (-2.0, -1.0, -0.35), (4.0, 2.0, 0.70), pose_type="offsetAndRotation", offset=(-2.0, 1.50, 2.75), rotation=(0.0, 0.0, -0.34)),
-            "true_void_back_right": geometry("body", (104.0, 0.0), (-2.0, -1.0, -0.35), (4.0, 2.0, 0.70), pose_type="offsetAndRotation", offset=(2.0, 1.50, 2.75), rotation=(0.0, 0.0, 0.34)),
-            "true_void_back_middle_left": geometry("body", (56.0, 32.0), (-1.85, -0.775, -0.36), (3.70, 1.55, 0.72), pose_type="offsetAndRotation", offset=(-1.85, 3.55, 2.78), rotation=(0.0, 0.0, -0.28)),
-            "true_void_back_middle_right": geometry("body", (68.0, 32.0), (-1.85, -0.775, -0.36), (3.70, 1.55, 0.72), pose_type="offsetAndRotation", offset=(1.85, 3.55, 2.78), rotation=(0.0, 0.0, 0.28)),
-            "true_void_back_lower_left": geometry("body", (80.0, 32.0), (-1.60, -0.675, -0.35), (3.20, 1.35, 0.70), pose_type="offsetAndRotation", offset=(-1.60, 5.45, 2.75), rotation=(0.0, 0.0, -0.23)),
-            "true_void_back_lower_right": geometry("body", (92.0, 32.0), (-1.60, -0.675, -0.35), (3.20, 1.35, 0.70), pose_type="offsetAndRotation", offset=(1.60, 5.45, 2.75), rotation=(0.0, 0.0, 0.23)),
+            "true_void_back_left": geometry("body", (92.0, 0.0), (-2.0, -1.0, -0.35), (4.0, 2.0, 0.70), pose_type="offsetAndRotation", offset=(-2.0, 1.50, 2.75), rotation=(0.0, 0.0, 0.34)),
+            "true_void_back_right": geometry("body", (104.0, 0.0), (-2.0, -1.0, -0.35), (4.0, 2.0, 0.70), pose_type="offsetAndRotation", offset=(2.0, 1.50, 2.75), rotation=(0.0, 0.0, -0.34)),
+            "true_void_back_middle_left": geometry("body", (56.0, 32.0), (-1.85, -0.775, -0.36), (3.70, 1.55, 0.72), pose_type="offsetAndRotation", offset=(-1.85, 3.55, 2.78), rotation=(0.0, 0.0, 0.28)),
+            "true_void_back_middle_right": geometry("body", (68.0, 32.0), (-1.85, -0.775, -0.36), (3.70, 1.55, 0.72), pose_type="offsetAndRotation", offset=(1.85, 3.55, 2.78), rotation=(0.0, 0.0, -0.28)),
+            "true_void_back_lower_left": geometry("body", (80.0, 32.0), (-1.60, -0.675, -0.35), (3.20, 1.35, 0.70), pose_type="offsetAndRotation", offset=(-1.60, 5.45, 2.75), rotation=(0.0, 0.0, 0.23)),
+            "true_void_back_lower_right": geometry("body", (92.0, 32.0), (-1.60, -0.675, -0.35), (3.20, 1.35, 0.70), pose_type="offsetAndRotation", offset=(1.60, 5.45, 2.75), rotation=(0.0, 0.0, -0.23)),
             "true_void_back_crystal": geometry(
                 "body", (116.0, 0.0), (-0.90, -0.90, -0.36), (1.80, 1.80, 0.72),
                 pose_type="offsetAndRotation", offset=(0.0, 3.00, 3.28), rotation=(0.0, 0.0, 0.7853982),
@@ -1467,23 +1511,22 @@ class WornArmorContract(unittest.TestCase):
                         run = 0
             self.assertLessEqual(longest_horizontal_accent_run, 24)
 
-            for region in (
-                (56, 32, 67, 43),
-                (68, 32, 79, 43),
-                (80, 32, 91, 43),
-                (92, 32, 103, 43),
+            for name in (
+                "true_void_back_middle_left",
+                "true_void_back_middle_right",
+                "true_void_back_lower_left",
+                "true_void_back_lower_right",
             ):
-                with self.subTest(back_panel_region=region):
-                    x0, y0, x1, y1 = region
-                    colours = {
-                        worn.getpixel((x, y))
-                        for y in range(y0, y1 + 1)
-                        for x in range(x0, x1 + 1)
-                    }
-                    self.assertIn(module.VOID_SHADOW, colours, "new back plates need dark panel fill")
+                with self.subTest(back_plate_south_face=name):
+                    uv, dimensions = geometry[name][1], geometry[name][3]
+                    south_rectangle = worn_box_uv_face_rectangles(uv, dimensions)["south"]
+                    sampled = worn_uv_rectangle_sampled_pixels(south_rectangle)
+                    self.assertTrue(sampled, "rear-facing SOUTH face must sample atlas pixels")
+                    colours = {worn.getpixel(point) for point in sampled}
                     self.assertTrue(
-                        {module.VOID_HIGHLIGHT, module.VOID_MID, module.VOID_METAL} <= colours,
-                        "new back plates need highlight, inset seam, and lower-edge accents",
+                        {module.VOID_SHADOW, module.VOID_MID, module.VOID_METAL} <= colours,
+                        f"{name} SOUTH face needs dark fill plus MID/METAL contrast; "
+                        f"rectangle={south_rectangle}, sampled={sorted(sampled)}, colours={colours}",
                     )
 
             worn_pixels = tuple(worn.getdata())
