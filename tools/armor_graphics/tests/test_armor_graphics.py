@@ -545,6 +545,43 @@ def assert_true_path_texture_contract(source: str) -> None:
         raise AssertionError("getArmorTexture must isolate the dedicated atlas to the True-Void chestplate")
 
 
+def assert_void_crystal_knight_routing_contract(source: str) -> None:
+    searchable = mask_java_literal_contents(strip_java_comments(source))
+    method_name = "addVoidCrystalKnightDetails"
+    declaration_pattern = rf"\bprivate\s+static\s+void\s+{method_name}\s*\("
+    if len(re.findall(declaration_pattern, searchable)) != 1:
+        raise AssertionError(f"expected exactly one executable {method_name} declaration")
+
+    create_declaration_pattern = r"\bpublic\s+static\s+[\w.<>?]+\s+create\s*\("
+    if len(re.findall(create_declaration_pattern, searchable)) != 1:
+        raise AssertionError("expected exactly one public static create method")
+    create_body = java_method_body(searchable, "create")
+
+    def unique_if_body(container: str, condition: str, label: str) -> str:
+        matches = list(re.finditer(rf"\bif\s*\(\s*{condition}\s*\)\s*\{{", container))
+        if len(matches) != 1:
+            raise AssertionError(f"expected one {label} branch in public static create")
+        opening = container.find("{", matches[0].start())
+        closing = matching_java_delimiter(container, opening, "{", "}")
+        return container[opening + 1 : closing]
+
+    chestplate_body = unique_if_body(
+        create_body,
+        r"type\s*==\s*ArmorItem\.Type\.CHESTPLATE",
+        "CHESTPLATE",
+    )
+    void_body = unique_if_body(
+        chestplate_body,
+        r"path\s*==\s*TruePathArmorItem\.Path\.VOID",
+        "Path.VOID chestplate",
+    )
+    call_pattern = rf"\b{method_name}\s*\(\s*root\s*\)\s*;"
+    if len(re.findall(call_pattern, searchable)) != 1:
+        raise AssertionError(f"expected exactly one executable {method_name} call")
+    if len(re.findall(call_pattern, void_body)) != 1:
+        raise AssertionError(f"{method_name} must be called from the Path.VOID chestplate branch")
+
+
 class ContractHelperTests(unittest.TestCase):
     def test_display_rotation_matches_forge_z_then_y_then_x_point_order(self):
         rotated = rotate_point((1.0, 0.0, 0.0), [90.0, 90.0, 0.0])
@@ -649,6 +686,54 @@ class ContractHelperTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(AssertionError, "duplicate worn child plate"):
             worn_model_child_owners(duplicate)
+
+    def test_void_crystal_knight_routing_rejects_comment_literal_and_unrelated_decoys(self):
+        valid = '''class Example {
+            public static Example create(Path path, ArmorItem.Type type) {
+                PartDefinition root = mesh.getRoot();
+                if (type == ArmorItem.Type.CHESTPLATE) {
+                    if (path == TruePathArmorItem.Path.VOID) {
+                        addVoidCrystalKnightDetails(root);
+                    } else {
+                        addChestDetails(root, path);
+                    }
+                }
+                return new Example();
+            }
+
+            private static void addVoidCrystalKnightDetails(PartDefinition root) {}
+        }'''
+        assert_void_crystal_knight_routing_contract(valid)
+        mutations = (
+            valid.replace(
+                "private static void addVoidCrystalKnightDetails(PartDefinition root) {}",
+                "// private static void addVoidCrystalKnightDetails(PartDefinition root) {}",
+            ),
+            valid.replace(
+                "addVoidCrystalKnightDetails(root);",
+                "// addVoidCrystalKnightDetails(root);",
+                1,
+            ),
+            valid.replace(
+                "private static void addVoidCrystalKnightDetails(PartDefinition root) {}",
+                'String declarationDecoy = "private static void addVoidCrystalKnightDetails(PartDefinition root) {}";',
+            ),
+            valid.replace(
+                "addVoidCrystalKnightDetails(root);",
+                'String callDecoy = "addVoidCrystalKnightDetails(root);";',
+                1,
+            ),
+            valid.replace("addVoidCrystalKnightDetails(root);", "", 1).replace(
+                "private static void addVoidCrystalKnightDetails(PartDefinition root) {}",
+                "void unrelated(PartDefinition root) { addVoidCrystalKnightDetails(root); }\n"
+                "            private static void addVoidCrystalKnightDetails(PartDefinition root) {}",
+            ),
+        )
+        for mutation in mutations:
+            with self.subTest(mutation=mutation), self.assertRaisesRegex(
+                AssertionError, "addVoidCrystalKnightDetails"
+            ):
+                assert_void_crystal_knight_routing_contract(mutation)
 
     def test_show_for_type_contract_ignores_comments_and_dead_methods(self):
         valid_method = '''static void showForType(HumanoidModel<?> model, ArmorItem.Type type) {
@@ -942,12 +1027,7 @@ class WornArmorContract(unittest.TestCase):
                     self.assertIn(owner, {"right_arm", "left_arm"})
                 else:
                     self.assertEqual("body", owner)
-        self.assertEqual(2, source.count("addVoidCrystalKnightDetails"))
-        self.assertRegex(source, r"private\s+static\s+void\s+addVoidCrystalKnightDetails\s*\(")
-        self.assertRegex(
-            source,
-            r"if\s*\(\s*path\s*==\s*TruePathArmorItem\.Path\.VOID\s*\)\s*\{\s*addVoidCrystalKnightDetails\s*\(\s*root\s*\)\s*;",
-        )
+        assert_void_crystal_knight_routing_contract(source)
 
     def test_true_void_chestplate_palette_and_identity(self):
         worn_path = resource_path(
