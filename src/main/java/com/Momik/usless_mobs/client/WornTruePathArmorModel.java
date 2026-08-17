@@ -247,6 +247,38 @@ public class WornTruePathArmorModel extends HumanoidModel<LivingEntity> {
                     CubeListBuilder.create().texOffs(108, 52)
                             .addBox(-4.0F, 5.6F, -3.12F, 8.0F, 1.0F, 0.8F, new CubeDeformation(0.06F)),
                     PartPose.rotation(0.0F, 0.0F, -0.20F));
+            root.getChild("body").addOrReplaceChild("true_void_chest_left",
+                    CubeListBuilder.create().texOffs(0, 0)
+                            .addBox(-5.05F, 0.15F, -3.35F, 4.55F, 5.05F, 1.05F, new CubeDeformation(0.06F)),
+                    PartPose.rotation(0.0F, 0.0F, -0.04F));
+            root.getChild("body").addOrReplaceChild("true_void_chest_right",
+                    CubeListBuilder.create().texOffs(14, 0)
+                            .addBox(0.50F, 0.15F, -3.35F, 4.55F, 5.05F, 1.05F, new CubeDeformation(0.06F)),
+                    PartPose.rotation(0.0F, 0.0F, 0.04F));
+            root.getChild("body").addOrReplaceChild("true_void_chest_keel",
+                    CubeListBuilder.create().texOffs(28, 0)
+                            .addBox(-0.70F, 1.40F, -3.60F, 1.40F, 6.80F, 1.30F, new CubeDeformation(0.05F)),
+                    PartPose.ZERO);
+            root.getChild("body").addOrReplaceChild("true_void_abdomen_upper",
+                    CubeListBuilder.create().texOffs(36, 0)
+                            .addBox(-4.20F, 5.10F, -3.32F, 8.40F, 2.10F, 1.05F, new CubeDeformation(0.05F)),
+                    PartPose.ZERO);
+            root.getChild("body").addOrReplaceChild("true_void_abdomen_lower",
+                    CubeListBuilder.create().texOffs(58, 0)
+                            .addBox(-3.60F, 7.20F, -3.28F, 7.20F, 2.00F, 1.00F, new CubeDeformation(0.05F)),
+                    PartPose.ZERO);
+            root.getChild("body").addOrReplaceChild("true_void_back_shell",
+                    CubeListBuilder.create().texOffs(78, 0)
+                            .addBox(-4.40F, 0.40F, 2.28F, 8.80F, 8.80F, 1.00F, new CubeDeformation(0.05F)),
+                    PartPose.ZERO);
+            root.getChild("right_arm").addOrReplaceChild("true_void_right_shoulder_cap",
+                    CubeListBuilder.create().texOffs(100, 0)
+                            .addBox(-4.15F, -3.40F, -3.15F, 4.35F, 2.20F, 6.30F, new CubeDeformation(0.08F)),
+                    PartPose.rotation(0.0F, 0.0F, -0.08F));
+            root.getChild("left_arm").addOrReplaceChild("true_void_left_shoulder_cap",
+                    CubeListBuilder.create().texOffs(0, 16)
+                            .addBox(-0.20F, -3.40F, -3.15F, 4.35F, 2.20F, 6.30F, new CubeDeformation(0.08F)),
+                    PartPose.rotation(0.0F, 0.0F, 0.08F));
         }
         if (path == TruePathArmorItem.Path.LIVING) {
             root.getChild("body").addOrReplaceChild("true_living_root_wrap",
