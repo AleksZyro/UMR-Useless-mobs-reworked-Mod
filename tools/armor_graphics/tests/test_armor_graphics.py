@@ -1302,9 +1302,9 @@ class WornArmorContract(unittest.TestCase):
                     self.assertEqual(1, len(block), f"source pixel ({source_x}, {source_y}) must remain one sharp 2x2 block")
                     downsampled.extend(next(iter(block)))
         self.assertEqual(
-            "340a3af52d5e547e9990a8ca765099e4035871053d27f59985e07010674d1c41",
+            "580fe3f986d445d3d9e57328103e49ae37013d9b28d8969a0d049f058c4dd8e0",
             hashlib.sha256(downsampled).hexdigest(),
-            "downsampled decoded pixels must exactly match the original 64x32 RGBA texture",
+            "downsampled decoded pixels must exactly match the generated detailed 64x32 RGBA texture",
         )
 
     def test_worn_java_cuboids_fit_the_declared_128_by_64_atlas(self):
@@ -1510,6 +1510,19 @@ class WornArmorContract(unittest.TestCase):
                     else:
                         run = 0
             self.assertLessEqual(longest_horizontal_accent_run, 24)
+
+            for name, part in geometry.items():
+                if "crystal" in name:
+                    continue
+                with self.subTest(detailed_material_face=name):
+                    uv, dimensions = part[1], part[3]
+                    sampled = worn_box_uv_sampled_pixels(uv, dimensions)
+                    colours = {worn.getpixel(point) for point in sampled}
+                    self.assertGreaterEqual(
+                        len(colours),
+                        4,
+                        f"{name} needs at least four sampled material tones, got {colours}",
+                    )
 
             for name in (
                 "true_void_back_middle_left",

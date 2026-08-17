@@ -17,6 +17,8 @@ VOID_SHADOW = (29, 22, 42, 255)
 VOID_METAL = (58, 44, 76, 255)
 VOID_HIGHLIGHT = (82, 62, 104, 255)
 VOID_MID = (101, 61, 143, 255)
+VOID_RIDGE = (45, 31, 61, 255)
+VOID_GLINT = (125, 87, 158, 255)
 VOID_GLOW = (177, 78, 255, 255)
 VOID_CORE = (225, 174, 255, 255)
 
@@ -26,6 +28,18 @@ def panel(draw, box, seam=False):
     draw.rectangle(box, fill=VOID_SHADOW)
     draw.line((x0, y0, x1, y0), fill=VOID_HIGHLIGHT)
     draw.line((x0, y1, x1, y1), fill=VOID_METAL)
+    for y in range(y0 + 1, y1):
+        for x in range(x0 + 1, x1):
+            pattern = ((x - x0) // 2 + (y - y0) // 2) % 4
+            if pattern == 0:
+                draw.point((x, y), fill=VOID_RIDGE)
+            elif pattern == 1 and (x + y) % 3 == 0:
+                draw.point((x, y), fill=VOID_METAL)
+            elif pattern == 3 and (x * 3 + y) % 5 == 0:
+                draw.point((x, y), fill=VOID_GLINT)
+    if y1 - y0 >= 3:
+        draw.point((x0 + 1, y0 + 1), fill=VOID_GLINT)
+        draw.point((x1 - 1, y1 - 1), fill=VOID_BLACK)
     if seam and x1 - x0 >= 4:
         draw.line((x0 + 2, y1 - 1, x1 - 2, y1 - 1), fill=VOID_MID)
 
@@ -44,6 +58,15 @@ def crystal(draw, center_x, center_y, radius):
 def build_worn_texture() -> Image.Image:
     image = Image.new("RGBA", (128, 64), VOID_BLACK)
     draw = ImageDraw.Draw(image)
+    for y in range(64):
+        for x in range(128):
+            block = ((x // 2) + (y // 2)) % 4
+            if block == 1:
+                draw.point((x, y), fill=VOID_SHADOW)
+            elif block == 2 and (x + y) % 3 == 0:
+                draw.point((x, y), fill=VOID_RIDGE)
+            elif block == 3 and (x * 5 + y * 3) % 17 == 0:
+                draw.point((x, y), fill=VOID_METAL)
     for box, seam in (
         ((16, 16, 39, 31), False),
         ((40, 16, 55, 31), False),
@@ -107,6 +130,10 @@ def build_item_texture() -> Image.Image:
 
     draw.line((3, 6, 8, 10, 13, 6), fill=VOID_METAL)
     draw.line((4, 8, 8, 11, 12, 8), fill=VOID_MID)
+    for point in ((4, 4), (11, 4), (5, 7), (11, 7), (6, 11), (10, 11)):
+        draw.point(point, fill=VOID_RIDGE)
+    for point in ((3, 3), (12, 3), (5, 6), (11, 6)):
+        draw.point(point, fill=VOID_GLINT)
     draw.line((6, 10, 8, 12, 10, 10), fill=VOID_GLOW)
     draw.polygon(((8, 5), (10, 7), (8, 9), (6, 7)), fill=VOID_GLOW)
     draw.line((8, 6, 8, 8), fill=VOID_CORE)
