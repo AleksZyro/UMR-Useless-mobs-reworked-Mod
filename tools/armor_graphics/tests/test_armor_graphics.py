@@ -908,18 +908,32 @@ class WornArmorContract(unittest.TestCase):
 
     def test_true_void_chestplate_parts_have_exact_humanoid_bone_owners(self):
         path = REPO_ROOT / "src/main/java/com/Momik/usless_mobs/client/WornTruePathArmorModel.java"
-        owners = worn_model_child_owners(path.read_text(encoding="utf-8"))
+        source = path.read_text(encoding="utf-8")
+        owners = worn_model_child_owners(source)
         expected = {
-            "true_void_chest_left": "body",
-            "true_void_chest_right": "body",
-            "true_void_chest_keel": "body",
-            "true_void_abdomen_upper": "body",
-            "true_void_abdomen_lower": "body",
-            "true_void_back_shell": "body",
-            "true_void_right_shoulder_cap": "right_arm",
-            "true_void_left_shoulder_cap": "left_arm",
+            "true_void_front_upper_left": "body",
+            "true_void_front_upper_right": "body",
+            "true_void_front_middle_left": "body",
+            "true_void_front_middle_right": "body",
+            "true_void_front_lower_left": "body",
+            "true_void_front_lower_right": "body",
+            "true_void_front_tip": "body",
+            "true_void_chest_crystal": "body",
+            "true_void_back_left": "body",
+            "true_void_back_right": "body",
+            "true_void_back_crystal": "body",
+            "true_void_right_shoulder_plate": "right_arm",
+            "true_void_right_shoulder_crystal": "right_arm",
+            "true_void_left_shoulder_plate": "left_arm",
+            "true_void_left_shoulder_crystal": "left_arm",
         }
-        self.assertEqual(expected, {part: owners.get(part) for part in expected})
+        crown_parts = {"true_void_left_horn", "true_void_right_horn"}
+        actual = {
+            part: owner
+            for part, owner in owners.items()
+            if part.startswith("true_void_") and part not in crown_parts
+        }
+        self.assertEqual(expected, actual)
         for part, owner in owners.items():
             if not part.startswith("true_void_") or part not in expected:
                 continue
@@ -928,6 +942,12 @@ class WornArmorContract(unittest.TestCase):
                     self.assertIn(owner, {"right_arm", "left_arm"})
                 else:
                     self.assertEqual("body", owner)
+        self.assertEqual(2, source.count("addVoidCrystalKnightDetails"))
+        self.assertRegex(source, r"private\s+static\s+void\s+addVoidCrystalKnightDetails\s*\(")
+        self.assertRegex(
+            source,
+            r"if\s*\(\s*path\s*==\s*TruePathArmorItem\.Path\.VOID\s*\)\s*\{\s*addVoidCrystalKnightDetails\s*\(\s*root\s*\)\s*;",
+        )
 
     def test_true_void_chestplate_palette_and_identity(self):
         worn_path = resource_path(
