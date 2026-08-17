@@ -442,6 +442,37 @@ def worn_model_cuboids(source: str) -> list[tuple[str, float, float, tuple[float
     return cuboids
 
 
+def worn_model_child_owners(source: str) -> dict[str, str]:
+    source = strip_java_comments(source)
+    searchable = mask_java_literal_contents(source)
+    owners = {}
+    for match in re.finditer(r"\broot\.getChild\s*\(", searchable):
+        bone_opening = searchable.find("(", match.start())
+        bone_closing = matching_java_delimiter(searchable, bone_opening, "(", ")")
+        bone_arguments = split_java_arguments(source[bone_opening + 1 : bone_closing])
+        if len(bone_arguments) != 1:
+            raise AssertionError("root.getChild must receive exactly one bone name")
+        bone_match = re.fullmatch(r'"([^"\\]+)"', bone_arguments[0])
+        if not bone_match:
+            continue
+        child_call = re.match(r"\s*\.addOrReplaceChild\s*\(", searchable[bone_closing + 1 :])
+        if not child_call:
+            continue
+        child_opening = bone_closing + 1 + child_call.end() - 1
+        child_closing = matching_java_delimiter(searchable, child_opening, "(", ")")
+        child_arguments = split_java_arguments(source[child_opening + 1 : child_closing])
+        if not child_arguments:
+            raise AssertionError(f"{bone_match.group(1)} addOrReplaceChild requires a child name")
+        child_match = re.fullmatch(r'"([^"\\]+)"', child_arguments[0])
+        if not child_match:
+            continue
+        child = child_match.group(1)
+        if child in owners:
+            raise AssertionError(f"duplicate worn child {child}")
+        owners[child] = bone_match.group(1)
+    return owners
+
+
 def assert_show_for_type_contract(source: str) -> None:
     body = java_method_body(source, "showForType")
     switch_match = re.search(r"\bswitch\s*\(\s*type\s*\)\s*\{", body)
@@ -586,6 +617,23 @@ class ContractHelperTests(unittest.TestCase):
         for mutation in mutations:
             with self.subTest(mutation=mutation), self.assertRaisesRegex(AssertionError, "named_part|parsed"):
                 worn_model_cuboids(mutation)
+
+    def test_worn_child_owner_parser_ignores_decoys_and_rejects_duplicates(self):
+        valid = '''class Example {
+            void build(PartDefinition root) {
+                // root.getChild("wrong").addOrReplaceChild("comment", factory(), PartPose.ZERO);
+                String decoy = "root.getChild(\\\"wrong\\\").addOrReplaceChild(\\\"literal\\\", x, y)";
+                root.getChild("body").addOrReplaceChild("plate", factory(), PartPose.ZERO);
+            }
+        }'''
+        self.assertEqual({"plate": "body"}, worn_model_child_owners(valid))
+        duplicate = valid.replace(
+            "root.getChild(\"body\").addOrReplaceChild(\"plate\", factory(), PartPose.ZERO);",
+            '''root.getChild("body").addOrReplaceChild("plate", factory(), PartPose.ZERO);
+                root.getChild("left_arm").addOrReplaceChild("plate", factory(), PartPose.ZERO);''',
+        )
+        with self.assertRaisesRegex(AssertionError, "duplicate worn child plate"):
+            worn_model_child_owners(duplicate)
 
     def test_show_for_type_contract_ignores_comments_and_dead_methods(self):
         valid_method = '''static void showForType(HumanoidModel<?> model, ArmorItem.Type type) {
@@ -825,6 +873,29 @@ class WornArmorContract(unittest.TestCase):
                 self.assertGreaterEqual(v, 0.0, f"{part} texture V")
                 self.assertLessEqual(u + 2.0 * (width + depth), 128.0, f"{part} cuboid UV width exceeds the atlas")
                 self.assertLessEqual(v + depth + height, 64.0, f"{part} cuboid UV height exceeds the atlas")
+
+    def test_true_void_chestplate_parts_have_exact_humanoid_bone_owners(self):
+        path = REPO_ROOT / "src/main/java/com/Momik/usless_mobs/client/WornTruePathArmorModel.java"
+        owners = worn_model_child_owners(path.read_text(encoding="utf-8"))
+        expected = {
+            "true_void_chest_left": "body",
+            "true_void_chest_right": "body",
+            "true_void_chest_keel": "body",
+            "true_void_abdomen_upper": "body",
+            "true_void_abdomen_lower": "body",
+            "true_void_back_shell": "body",
+            "true_void_right_shoulder_cap": "right_arm",
+            "true_void_left_shoulder_cap": "left_arm",
+        }
+        self.assertEqual(expected, {part: owners.get(part) for part in expected})
+        for part, owner in owners.items():
+            if not part.startswith("true_void_") or part not in expected:
+                continue
+            with self.subTest(part=part):
+                if "shoulder" in part:
+                    self.assertIn(owner, {"right_arm", "left_arm"})
+                else:
+                    self.assertEqual("body", owner)
 
     def test_worn_java_slot_visibility_mapping_is_exact(self):
         path = REPO_ROOT / "src/main/java/com/Momik/usless_mobs/client/WornTruePathArmorModel.java"
