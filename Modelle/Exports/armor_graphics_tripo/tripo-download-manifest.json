@@ -1,0 +1,23 @@
+{
+  "format": "glTF 2.0 GLB",
+  "mesh_validation": "one triangle mesh primitive per downloaded model",
+  "downloaded": 15,
+  "pending": ["true_void/helmet"],
+  "files": [
+    {"path": "armor_of_balance/boots/tripo_highpoly.glb", "bytes": 3004316, "sha256": "8869d6de94af31ba8330c2112ac6ab18f208483efee5acdac039b4857c702949"},
+    {"path": "armor_of_balance/chestplate/tripo_highpoly.glb", "bytes": 3496156, "sha256": "53c307a9206dbbfe3d9347a5256c2eaf0c92d542a07027e5c0f0b00ff72cc65e"},
+    {"path": "armor_of_balance/helmet/tripo_highpoly.glb", "bytes": 3094228, "sha256": "c83aafb01754fdc4c7830b17951bf6d5957aef60003eab9e95c345690fe4062f"},
+    {"path": "armor_of_balance/leggings/tripo_highpoly.glb", "bytes": 3410544, "sha256": "5a7d80cf5b4ff90a4cd7fda50f141025cb553a005eb16484765ab125deb902f6"},
+    {"path": "true_celestial/boots/tripo_highpoly.glb", "bytes": 3051556, "sha256": "aad56ba1d0998cee4dbae1a30441129b783ecf6b909bb9e1516de19b391d6f3a"},
+    {"path": "true_celestial/chestplate/tripo_highpoly.glb", "bytes": 3514092, "sha256": "60930a8a393356e84b505579a6f35eed1e1e17027106f85b94bdf7abb42596e8"},
+    {"path": "true_celestial/helmet/tripo_highpoly.glb", "bytes": 3004572, "sha256": "2d2a44cde0bbe7c511d34cb4e76278237ecf17079bd1a6595844c5423d4a0c0c"},
+    {"path": "true_celestial/leggings/tripo_highpoly.glb", "bytes": 3388156, "sha256": "5801735a894007617fbece904383d1cba1829727d06ac4bab60c92fdd2d0ea73"},
+    {"path": "true_living/boots/tripo_highpoly.glb", "bytes": 3393852, "sha256": "b79a222809e021e2ad807ae5b85a1f2888c67a6de2db5925fca8ac95ecd61009"},
+    {"path": "true_living/chestplate/tripo_highpoly.glb", "bytes": 3171712, "sha256": "6d83989d37d2d1a43a4e6decd39205834469034c208b87d0dedf345e6924ebac"},
+    {"path": "true_living/helmet/tripo_highpoly.glb", "bytes": 3222824, "sha256": "29d9b99a22916ed9b72843ada5749021d17b7b758877ef4ffda91bbbc238f1bf"},
+    {"path": "true_living/leggings/tripo_highpoly.glb", "bytes": 3351280, "sha256": "1a2c8ba2a77c63d812b92521b392bc5340a737bd6dc399bfd1a2daa767251f9f"},
+    {"path": "true_void/boots/tripo_highpoly.glb", "bytes": 3052872, "sha256": "e4e0a2aeee293e3b034b28bb54f38fac25f3625da6ad9d2ca1df3694b5462f07"},
+    {"path": "true_void/chestplate/tripo_highpoly.glb", "bytes": 3421400, "sha256": "88448c71a6415ad5f7e77cb20dff43aeffedb781aa2bbb226e829a496f20a68d"},
+    {"path": "true_void/leggings/tripo_highpoly.glb", "bytes": 3110144, "sha256": "2efad9d9cc05196117b0e93e054d09655d51860728108f14320b6cc607bb6708"}
+  ]
+}
