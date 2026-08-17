@@ -303,8 +303,8 @@ public class WornTruePathArmorModel extends HumanoidModel<LivingEntity> {
                 PartPose.ZERO);
         root.getChild("body").addOrReplaceChild("true_void_chest_crystal",
                 CubeListBuilder.create().texOffs(82, 0)
-                        .addBox(-1.15F, 1.35F, -3.62F, 2.30F, 2.30F, 0.82F, new CubeDeformation(0.04F)),
-                PartPose.rotation(0.0F, 0.0F, 0.7853982F));
+                        .addBox(-1.15F, -1.15F, -0.41F, 2.30F, 2.30F, 0.82F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 2.50F, -3.21F, 0.0F, 0.0F, 0.7853982F));
         root.getChild("body").addOrReplaceChild("true_void_back_left",
                 CubeListBuilder.create().texOffs(92, 0)
                         .addBox(-4.20F, 0.55F, 2.40F, 4.20F, 6.70F, 0.70F, new CubeDeformation(0.04F)),
@@ -315,8 +315,8 @@ public class WornTruePathArmorModel extends HumanoidModel<LivingEntity> {
                 PartPose.rotation(0.0F, 0.0F, 0.07F));
         root.getChild("body").addOrReplaceChild("true_void_back_crystal",
                 CubeListBuilder.create().texOffs(116, 0)
-                        .addBox(-0.90F, 2.10F, 2.92F, 1.80F, 1.80F, 0.72F, new CubeDeformation(0.04F)),
-                PartPose.rotation(0.0F, 0.0F, 0.7853982F));
+                        .addBox(-0.90F, -0.90F, -0.36F, 1.80F, 1.80F, 0.72F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 3.00F, 3.28F, 0.0F, 0.0F, 0.7853982F));
         root.getChild("right_arm").addOrReplaceChild("true_void_right_shoulder_plate",
                 CubeListBuilder.create().texOffs(0, 16)
                         .addBox(-4.10F, -2.60F, -2.68F, 4.10F, 1.55F, 5.35F, new CubeDeformation(0.05F)),

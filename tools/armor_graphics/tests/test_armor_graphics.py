@@ -482,6 +482,108 @@ def worn_model_child_owners(source: str) -> dict[str, str]:
     return owners
 
 
+def worn_method_geometry(source: str, method_name: str) -> dict[str, tuple]:
+    searchable_source = mask_java_non_code(source)
+    declaration = re.compile(
+        rf"\bprivate\s+static\s+void\s+{re.escape(method_name)}\s*\(\s*PartDefinition\s+root\s*\)\s*\{{"
+    )
+    declarations = list(declaration.finditer(searchable_source))
+    if len(declarations) != 1:
+        raise AssertionError(f"expected one executable {method_name} geometry method, found {len(declarations)}")
+    opening = searchable_source.find("{", declarations[0].start())
+    closing = matching_java_delimiter(searchable_source, opening, "{", "}")
+    executable_body = searchable_source[opening + 1 : closing]
+    source_body = strip_java_comments(source)[opening + 1 : closing]
+
+    geometry = {}
+    child_calls = list(re.finditer(r"\.addOrReplaceChild\s*\(", executable_body))
+    root_calls = list(re.finditer(r"\broot\.getChild\s*\(", executable_body))
+    if len(child_calls) != len(root_calls):
+        raise AssertionError(f"{method_name} geometry must attach every child through a literal root bone")
+
+    for root_call in root_calls:
+        bone_opening = executable_body.find("(", root_call.start())
+        bone_closing = matching_java_delimiter(executable_body, bone_opening, "(", ")")
+        bone_arguments = split_java_arguments(source_body[bone_opening + 1 : bone_closing])
+        if len(bone_arguments) != 1:
+            raise AssertionError(f"{method_name} root.getChild must receive one bone")
+        bone = re.fullmatch(r'"([^"\\]+)"', bone_arguments[0])
+        if not bone:
+            raise AssertionError(f"{method_name} geometry bone must be a string literal")
+
+        child_call = re.match(r"\s*\.addOrReplaceChild\s*\(", executable_body[bone_closing + 1 :])
+        if not child_call:
+            raise AssertionError(f"{method_name} root.getChild must immediately attach its child")
+        child_opening = bone_closing + 1 + child_call.end() - 1
+        child_closing = matching_java_delimiter(executable_body, child_opening, "(", ")")
+        child_arguments = split_java_arguments(source_body[child_opening + 1 : child_closing])
+        if len(child_arguments) != 3:
+            raise AssertionError(f"{method_name} addOrReplaceChild must have name, cube, and pose")
+        child = re.fullmatch(r'"([^"\\]+)"', child_arguments[0])
+        if not child:
+            raise AssertionError(f"{method_name} geometry child must be a string literal")
+        part = child.group(1)
+        if part in geometry:
+            raise AssertionError(f"duplicate {method_name} geometry child {part}")
+
+        builder = child_arguments[1]
+        searchable_builder = mask_java_non_code(builder)
+        calls = []
+        for call in re.finditer(r"\b(texOffs|addBox)\s*\(", searchable_builder):
+            call_opening = searchable_builder.find("(", call.start())
+            call_closing = matching_java_delimiter(searchable_builder, call_opening, "(", ")")
+            calls.append((call.group(1), call.start(), call_opening, call_closing))
+        if [call[0] for call in calls] != ["texOffs", "addBox"]:
+            raise AssertionError(f"{part} must contain exactly one texOffs/addBox pair")
+        tex_call, box_call = calls
+        if normalize_java(builder[: tex_call[1]]) != "CubeListBuilder.create().":
+            raise AssertionError(f"{part} must start with CubeListBuilder.create().texOffs")
+        if normalize_java(builder[tex_call[3] + 1 : box_call[1]]) != ".":
+            raise AssertionError(f"{part} texOffs must directly precede addBox")
+        if normalize_java(builder[box_call[3] + 1 :]):
+            raise AssertionError(f"{part} must end after its addBox")
+        tex_args = split_java_arguments(builder[tex_call[2] + 1 : tex_call[3]])
+        box_args = split_java_arguments(builder[box_call[2] + 1 : box_call[3]])
+        if len(tex_args) != 2 or len(box_args) != 7:
+            raise AssertionError(f"{part} has malformed texture or box arguments")
+        uv = tuple(java_number(value, f"{part} texture coordinate") for value in tex_args)
+        origin = tuple(java_number(value, f"{part} box origin") for value in box_args[:3])
+        dimensions = tuple(java_number(value, f"{part} box dimension") for value in box_args[3:6])
+        deformation_match = re.fullmatch(r"new\s+CubeDeformation\s*\((.*)\)", box_args[6], re.DOTALL)
+        if not deformation_match:
+            raise AssertionError(f"{part} must use one literal CubeDeformation")
+        deformation_args = split_java_arguments(deformation_match.group(1))
+        if len(deformation_args) != 1:
+            raise AssertionError(f"{part} CubeDeformation must have one argument")
+        deformation = java_number(deformation_args[0], f"{part} deformation")
+
+        pose = normalize_java(child_arguments[2])
+        if pose == "PartPose.ZERO":
+            pose_type = "ZERO"
+            offset = (0.0, 0.0, 0.0)
+            rotation = (0.0, 0.0, 0.0)
+        else:
+            pose_match = re.fullmatch(r"PartPose\.(rotation|offsetAndRotation)\s*\((.*)\)", child_arguments[2], re.DOTALL)
+            if not pose_match:
+                raise AssertionError(f"{part} has unsupported pose {pose!r}")
+            pose_values = tuple(
+                java_number(value, f"{part} pose value")
+                for value in split_java_arguments(pose_match.group(2))
+            )
+            pose_type = pose_match.group(1)
+            if pose_type == "rotation" and len(pose_values) == 3:
+                offset = (0.0, 0.0, 0.0)
+                rotation = pose_values
+            elif pose_type == "offsetAndRotation" and len(pose_values) == 6:
+                offset = pose_values[:3]
+                rotation = pose_values[3:]
+            else:
+                raise AssertionError(f"{part} has malformed {pose_type} pose")
+
+        geometry[part] = (bone.group(1), uv, origin, dimensions, deformation, pose_type, offset, rotation)
+    return geometry
+
+
 def assert_show_for_type_contract(source: str) -> None:
     body = java_method_body(source, "showForType")
     switch_match = re.search(r"\bswitch\s*\(\s*type\s*\)\s*\{", body)
@@ -710,6 +812,48 @@ class ContractHelperTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(AssertionError, "duplicate worn child plate"):
             worn_model_child_owners(duplicate)
+
+    def test_worn_method_geometry_parser_is_method_scoped_and_ignores_non_code_decoys(self):
+        valid = '''class Example {
+            // private static void build(PartDefinition root) { root.getChild("wrong").addOrReplaceChild("comment", x, y); }
+            String decoy = "private static void build(PartDefinition root) { root.getChild(\\\"wrong\\\").addOrReplaceChild(\\\"literal\\\", x, y); }";
+            private static void unrelated(PartDefinition root) {
+                root.getChild("wrong").addOrReplaceChild("legacy",
+                    CubeListBuilder.create().texOffs(99, 99)
+                        .addBox(9, 9, 9, 9, 9, 9, new CubeDeformation(9)),
+                    PartPose.ZERO);
+            }
+            private static void build(PartDefinition root) {
+                // root.getChild("wrong").addOrReplaceChild("comment_inside", x, y);
+                String inside = "root.getChild(\\\"wrong\\\").addOrReplaceChild(\\\"literal_inside\\\", x, y)";
+                root.getChild("body").addOrReplaceChild("plate",
+                    CubeListBuilder.create().texOffs(1, 2)
+                        .addBox(-1.0F, -2.0F, -3.0F, 4.0F, 5.0F, 6.0F, new CubeDeformation(0.04F)),
+                    PartPose.offsetAndRotation(7.0F, 8.0F, 9.0F, 0.1F, 0.2F, 0.3F));
+            }
+        }'''
+        expected = {
+            "plate": (
+                "body",
+                (1.0, 2.0),
+                (-1.0, -2.0, -3.0),
+                (4.0, 5.0, 6.0),
+                0.04,
+                "offsetAndRotation",
+                (7.0, 8.0, 9.0),
+                (0.1, 0.2, 0.3),
+            )
+        }
+        self.assertEqual(expected, worn_method_geometry(valid, "build"))
+
+        mutations = (
+            valid.replace('root.getChild("body")', 'body'),
+            valid.replace("PartPose.offsetAndRotation", "PartPose.offset"),
+            valid.replace("new CubeDeformation(0.04F)", "CubeDeformation.NONE"),
+        )
+        for mutation in mutations:
+            with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                worn_method_geometry(mutation, "build")
 
     def test_void_crystal_knight_routing_rejects_comment_literal_and_unrelated_decoys(self):
         valid = '''class Example {
@@ -1056,31 +1200,82 @@ class WornArmorContract(unittest.TestCase):
     def test_true_void_chestplate_parts_have_exact_humanoid_bone_owners(self):
         path = REPO_ROOT / "src/main/java/com/Momik/usless_mobs/client/WornTruePathArmorModel.java"
         source = path.read_text(encoding="utf-8")
-        owners = worn_model_child_owners(source)
+
+        def geometry(
+            owner,
+            uv,
+            origin,
+            dimensions,
+            deformation=0.04,
+            pose_type="rotation",
+            offset=(0.0, 0.0, 0.0),
+            rotation=(0.0, 0.0, 0.0),
+        ):
+            return owner, uv, origin, dimensions, deformation, pose_type, offset, rotation
+
         expected = {
-            "true_void_front_upper_left": "body",
-            "true_void_front_upper_right": "body",
-            "true_void_front_middle_left": "body",
-            "true_void_front_middle_right": "body",
-            "true_void_front_lower_left": "body",
-            "true_void_front_lower_right": "body",
-            "true_void_front_tip": "body",
-            "true_void_chest_crystal": "body",
-            "true_void_back_left": "body",
-            "true_void_back_right": "body",
-            "true_void_back_crystal": "body",
-            "true_void_right_shoulder_plate": "right_arm",
-            "true_void_right_shoulder_crystal": "right_arm",
-            "true_void_left_shoulder_plate": "left_arm",
-            "true_void_left_shoulder_crystal": "left_arm",
+            "true_void_front_upper_left": geometry("body", (0.0, 0.0), (-4.35, 0.35, -3.18), (4.35, 2.10, 0.72), rotation=(0.0, 0.0, -0.16)),
+            "true_void_front_upper_right": geometry("body", (12.0, 0.0), (0.0, 0.35, -3.18), (4.35, 2.10, 0.72), rotation=(0.0, 0.0, 0.16)),
+            "true_void_front_middle_left": geometry("body", (24.0, 0.0), (-4.05, 2.65, -3.24), (4.05, 1.65, 0.76), rotation=(0.0, 0.0, -0.12)),
+            "true_void_front_middle_right": geometry("body", (36.0, 0.0), (0.0, 2.65, -3.24), (4.05, 1.65, 0.76), rotation=(0.0, 0.0, 0.12)),
+            "true_void_front_lower_left": geometry("body", (48.0, 0.0), (-3.55, 4.65, -3.20), (3.55, 1.45, 0.72), rotation=(0.0, 0.0, -0.09)),
+            "true_void_front_lower_right": geometry("body", (58.0, 0.0), (0.0, 4.65, -3.20), (3.55, 1.45, 0.72), rotation=(0.0, 0.0, 0.09)),
+            "true_void_front_tip": geometry("body", (68.0, 0.0), (-2.50, 6.45, -3.16), (5.0, 1.20, 0.68), pose_type="ZERO"),
+            "true_void_chest_crystal": geometry(
+                "body", (82.0, 0.0), (-1.15, -1.15, -0.41), (2.30, 2.30, 0.82),
+                pose_type="offsetAndRotation", offset=(0.0, 2.50, -3.21), rotation=(0.0, 0.0, 0.7853982),
+            ),
+            "true_void_back_left": geometry("body", (92.0, 0.0), (-4.20, 0.55, 2.40), (4.20, 6.70, 0.70), rotation=(0.0, 0.0, -0.07)),
+            "true_void_back_right": geometry("body", (104.0, 0.0), (0.0, 0.55, 2.40), (4.20, 6.70, 0.70), rotation=(0.0, 0.0, 0.07)),
+            "true_void_back_crystal": geometry(
+                "body", (116.0, 0.0), (-0.90, -0.90, -0.36), (1.80, 1.80, 0.72),
+                pose_type="offsetAndRotation", offset=(0.0, 3.00, 3.28), rotation=(0.0, 0.0, 0.7853982),
+            ),
+            "true_void_right_shoulder_plate": geometry("right_arm", (0.0, 16.0), (-4.10, -2.60, -2.68), (4.10, 1.55, 5.35), 0.05, rotation=(0.0, 0.0, -0.10)),
+            "true_void_right_shoulder_crystal": geometry("right_arm", (16.0, 16.0), (-3.90, -3.15, -0.62), (1.25, 1.60, 1.25), rotation=(0.0, 0.0, -0.32)),
+            "true_void_left_shoulder_plate": geometry("left_arm", (24.0, 16.0), (0.0, -2.60, -2.68), (4.10, 1.55, 5.35), 0.05, rotation=(0.0, 0.0, 0.10)),
+            "true_void_left_shoulder_crystal": geometry("left_arm", (40.0, 16.0), (2.65, -3.15, -0.62), (1.25, 1.60, 1.25), rotation=(0.0, 0.0, 0.32)),
         }
-        crown_parts = {"true_void_left_horn", "true_void_right_horn"}
-        actual = {
-            part: owner
-            for part, owner in owners.items()
-            if part.startswith("true_void_") and part not in crown_parts
-        }
+        actual = worn_method_geometry(source, "addVoidCrystalKnightDetails")
         self.assertEqual(expected, actual)
+
+        mirrored_pairs = (
+            ("true_void_front_upper_left", "true_void_front_upper_right"),
+            ("true_void_front_middle_left", "true_void_front_middle_right"),
+            ("true_void_front_lower_left", "true_void_front_lower_right"),
+            ("true_void_back_left", "true_void_back_right"),
+            ("true_void_right_shoulder_plate", "true_void_left_shoulder_plate"),
+            ("true_void_right_shoulder_crystal", "true_void_left_shoulder_crystal"),
+        )
+        for negative_name, positive_name in mirrored_pairs:
+            with self.subTest(mirrored_pair=(negative_name, positive_name)):
+                negative = actual[negative_name]
+                positive = actual[positive_name]
+                self.assertAlmostEqual(-negative[2][0] - negative[3][0], positive[2][0])
+                self.assertEqual(negative[2][1:], positive[2][1:])
+                self.assertEqual(negative[3:5], positive[3:5])
+                self.assertEqual(negative[5], positive[5])
+                self.assertAlmostEqual(-negative[6][0], positive[6][0])
+                self.assertEqual(negative[6][1:], positive[6][1:])
+                self.assertEqual(negative[7][:2], positive[7][:2])
+                self.assertAlmostEqual(-negative[7][2], positive[7][2])
+
+        pre_change_void = {
+            "true_void_rib": geometry("body", (108.0, 52.0), (-4.0, 5.6, -3.12), (8.0, 1.0, 0.8), 0.06, rotation=(0.0, 0.0, -0.20)),
+            "true_void_chest_left": geometry("body", (0.0, 0.0), (-5.05, 0.15, -3.35), (4.55, 5.05, 1.05), 0.06, rotation=(0.0, 0.0, -0.04)),
+            "true_void_chest_right": geometry("body", (14.0, 0.0), (0.50, 0.15, -3.35), (4.55, 5.05, 1.05), 0.06, rotation=(0.0, 0.0, 0.04)),
+            "true_void_chest_keel": geometry("body", (28.0, 0.0), (-0.70, 1.40, -3.60), (1.40, 6.80, 1.30), 0.05, pose_type="ZERO"),
+            "true_void_abdomen_upper": geometry("body", (36.0, 0.0), (-4.20, 5.10, -3.32), (8.40, 2.10, 1.05), 0.05, pose_type="ZERO"),
+            "true_void_abdomen_lower": geometry("body", (58.0, 0.0), (-3.60, 7.20, -3.28), (7.20, 2.00, 1.00), 0.05, pose_type="ZERO"),
+            "true_void_back_shell": geometry("body", (78.0, 0.0), (-4.40, 0.40, 2.28), (8.80, 8.80, 1.00), 0.05, pose_type="ZERO"),
+            "true_void_right_shoulder_cap": geometry("right_arm", (100.0, 0.0), (-4.15, -3.40, -3.15), (4.35, 2.20, 6.30), 0.08, rotation=(0.0, 0.0, -0.08)),
+            "true_void_left_shoulder_cap": geometry("left_arm", (0.0, 16.0), (-0.20, -3.40, -3.15), (4.35, 2.20, 6.30), 0.08, rotation=(0.0, 0.0, 0.08)),
+        }
+        legacy_as_pre_change = {
+            name.replace("balance_void_", "true_void_", 1): value
+            for name, value in worn_method_geometry(source, "addLegacyBalanceVoidDetails").items()
+        }
+        self.assertEqual(pre_change_void, legacy_as_pre_change)
         assert_void_crystal_knight_routing_contract(source)
 
     def test_true_void_chestplate_palette_and_identity(self):
