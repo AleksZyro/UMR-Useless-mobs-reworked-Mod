@@ -157,6 +157,9 @@ public class TruePathArmorItem extends ArmorItem {
     @Override
     public @Nullable String getArmorTexture(ItemStack stack, Entity entity, EquipmentSlot slot, String type) {
         String layer = getType() == Type.LEGGINGS ? "_layer_2.png" : "_layer_1.png";
+        if (path == Path.VOID && getType() == Type.CHESTPLATE) {
+            return Usless_mobs.MODID + ":textures/models/armor/true_void_chestplate_layer_1.png";
+        }
         return Usless_mobs.MODID + ":textures/models/armor/" + path.key + layer;
     }
 

@@ -1,4 +1,5 @@
 import hashlib
+import importlib.util
 import json
 import math
 import re
@@ -530,6 +531,20 @@ def assert_custom_armor_model_contract(source: str, factory_call: str) -> None:
         )
 
 
+def assert_true_path_texture_contract(source: str) -> None:
+    body = java_method_body(source, "getArmorTexture")
+    expected_flow = [
+        normalize_java('String layer = getType() == Type.LEGGINGS ? "_layer_2.png" : "_layer_1.png";'),
+        normalize_java('''if (path == Path.VOID && getType() == Type.CHESTPLATE) {
+            return Usless_mobs.MODID + ":textures/models/armor/true_void_chestplate_layer_1.png";
+        }'''),
+        normalize_java('return Usless_mobs.MODID + ":textures/models/armor/" + path.key + layer;'),
+    ]
+    actual_flow = [normalize_java(unit) for unit in java_top_level_units(body)]
+    if actual_flow != expected_flow:
+        raise AssertionError("getArmorTexture must isolate the dedicated atlas to the True-Void chestplate")
+
+
 class ContractHelperTests(unittest.TestCase):
     def test_display_rotation_matches_forge_z_then_y_then_x_point_order(self):
         rotated = rotate_point((1.0, 0.0, 0.0), [90.0, 90.0, 0.0])
@@ -709,6 +724,23 @@ class ContractHelperTests(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, "getHumanoidArmorModel"):
             assert_custom_armor_model_contract(f"class Example {{ {unreachable_pose} }}", factory)
 
+    def test_true_path_texture_contract_rejects_overbroad_routing(self):
+        valid_method = '''String getArmorTexture() {
+            String layer = getType() == Type.LEGGINGS ? "_layer_2.png" : "_layer_1.png";
+            if (path == Path.VOID && getType() == Type.CHESTPLATE) {
+                return Usless_mobs.MODID + ":textures/models/armor/true_void_chestplate_layer_1.png";
+            }
+            return Usless_mobs.MODID + ":textures/models/armor/" + path.key + layer;
+        }'''
+        assert_true_path_texture_contract(f"class Example {{ {valid_method} }}")
+        for mutation in (
+            valid_method.replace("path == Path.VOID && getType() == Type.CHESTPLATE", "path == Path.VOID"),
+            valid_method.replace("true_void_chestplate_layer_1.png", "true_void_layer_1.png"),
+            valid_method.replace("path.key + layer", '"true_void_chestplate_layer_1.png"'),
+        ):
+            with self.subTest(mutation=mutation), self.assertRaisesRegex(AssertionError, "dedicated atlas"):
+                assert_true_path_texture_contract(f"class Example {{ {mutation} }}")
+
 
 class ArmorItemModelContract(unittest.TestCase):
     def test_all_expected_item_models_resolve(self):
@@ -828,7 +860,7 @@ class WornArmorContract(unittest.TestCase):
         f"{set_name}_layer_{layer}"
         for set_name in ("true_void", "true_celestial", "true_living", "true_balance")
         for layer in (1, 2)
-    ) + ("corrupted_crystal_layer_2",)
+    ) + ("corrupted_crystal_layer_2", "true_void_chestplate_layer_1")
 
     def test_worn_textures_are_png_128_by_64(self):
         for layer in self.LAYERS:
@@ -897,6 +929,39 @@ class WornArmorContract(unittest.TestCase):
                 else:
                     self.assertEqual("body", owner)
 
+    def test_true_void_chestplate_palette_and_identity(self):
+        worn_path = resource_path(
+            f"{NAMESPACE}:models/armor/true_void_chestplate_layer_1", "textures", ".png"
+        )
+        item_path = resource_path(f"{NAMESPACE}:item/true_void_chestplate", "textures", ".png")
+        with Image.open(worn_path) as worn, Image.open(item_path) as item:
+            worn.load()
+            item.load()
+            self.assertEqual((128, 64), worn.size)
+            self.assertEqual((16, 16), item.size)
+            self.assertEqual("RGBA", worn.mode)
+            self.assertEqual("RGBA", item.mode)
+            self.assertTrue(any(pixel[3] == 0 for pixel in item.getdata()), "item background must be transparent")
+            combined = tuple(worn.getdata()) + tuple(item.getdata())
+            self.assertFalse(
+                any(green > 180 and red < 80 and blue < 120 and alpha for red, green, blue, alpha in combined),
+                "generated concept background colours must never leak into runtime textures",
+            )
+            self.assertTrue(any(red < 25 and blue < 35 and alpha for red, _, blue, alpha in combined))
+            self.assertTrue(any(60 <= blue <= 150 and red < 120 and alpha for red, _, blue, alpha in combined))
+            self.assertTrue(any(blue > 200 and red > 130 and alpha for red, _, blue, alpha in combined))
+            centre = [item.getpixel((x, y)) for y in range(5, 10) for x in range(6, 11)]
+            self.assertTrue(any(red > 190 and blue > 230 and alpha for red, _, blue, alpha in centre))
+
+        generator_path = REPO_ROOT / "tools/armor_graphics/build_true_void_chestplate_assets.py"
+        spec = importlib.util.spec_from_file_location("true_void_chestplate_assets", generator_path)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self.assertEqual(worn_path.read_bytes(), module.png_bytes(module.build_worn_texture()))
+        self.assertEqual(item_path.read_bytes(), module.png_bytes(module.build_item_texture()))
+
     def test_worn_java_slot_visibility_mapping_is_exact(self):
         path = REPO_ROOT / "src/main/java/com/Momik/usless_mobs/client/WornTruePathArmorModel.java"
         assert_show_for_type_contract(path.read_text(encoding="utf-8"))
@@ -916,12 +981,7 @@ class WornArmorContract(unittest.TestCase):
         balance = (REPO_ROOT / "src/main/java/com/Momik/usless_mobs/item/ArmorOfBalanceItem.java").read_text(encoding="utf-8")
         corrupted = (REPO_ROOT / "src/main/mobs/endermite/java/net/mysith/silverfish/CorruptedCrystalLeggingsItem.java").read_text(encoding="utf-8")
         leggings_only = 'getType() == Type.LEGGINGS ? "_layer_2.png" : "_layer_1.png"'
-        assert_java_method_contains(
-            true_path,
-            "getArmorTexture",
-            leggings_only,
-            'return Usless_mobs.MODID + ":textures/models/armor/" + path.key + layer;',
-        )
+        assert_true_path_texture_contract(true_path)
         assert_java_method_contains(
             balance,
             "getArmorTexture",
