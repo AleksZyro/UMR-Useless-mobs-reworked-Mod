@@ -1300,29 +1300,65 @@ class WornArmorContract(unittest.TestCase):
             return owner, uv, origin, dimensions, deformation, pose_type, offset, rotation
 
         expected = {
-            "true_void_front_upper_left": geometry("body", (0.0, 0.0), (-4.35, 0.35, -3.18), (4.35, 2.10, 0.72), rotation=(0.0, 0.0, -0.16)),
-            "true_void_front_upper_right": geometry("body", (12.0, 0.0), (0.0, 0.35, -3.18), (4.35, 2.10, 0.72), rotation=(0.0, 0.0, 0.16)),
-            "true_void_front_middle_left": geometry("body", (24.0, 0.0), (-4.05, 2.65, -3.24), (4.05, 1.65, 0.76), rotation=(0.0, 0.0, -0.12)),
-            "true_void_front_middle_right": geometry("body", (36.0, 0.0), (0.0, 2.65, -3.24), (4.05, 1.65, 0.76), rotation=(0.0, 0.0, 0.12)),
-            "true_void_front_lower_left": geometry("body", (48.0, 0.0), (-3.55, 4.65, -3.20), (3.55, 1.45, 0.72), rotation=(0.0, 0.0, -0.09)),
-            "true_void_front_lower_right": geometry("body", (58.0, 0.0), (0.0, 4.65, -3.20), (3.55, 1.45, 0.72), rotation=(0.0, 0.0, 0.09)),
+            "true_void_front_upper_left": geometry("body", (0.0, 0.0), (-2.175, -1.05, -0.36), (4.35, 2.10, 0.72), pose_type="offsetAndRotation", offset=(-2.175, 1.40, -2.82), rotation=(0.0, 0.0, -0.16)),
+            "true_void_front_upper_right": geometry("body", (12.0, 0.0), (-2.175, -1.05, -0.36), (4.35, 2.10, 0.72), pose_type="offsetAndRotation", offset=(2.175, 1.40, -2.82), rotation=(0.0, 0.0, 0.16)),
+            "true_void_front_middle_left": geometry("body", (24.0, 0.0), (-2.025, -0.825, -0.38), (4.05, 1.65, 0.76), pose_type="offsetAndRotation", offset=(-2.025, 3.475, -2.86), rotation=(0.0, 0.0, -0.12)),
+            "true_void_front_middle_right": geometry("body", (36.0, 0.0), (-2.025, -0.825, -0.38), (4.05, 1.65, 0.76), pose_type="offsetAndRotation", offset=(2.025, 3.475, -2.86), rotation=(0.0, 0.0, 0.12)),
+            "true_void_front_lower_left": geometry("body", (48.0, 0.0), (-1.775, -0.725, -0.36), (3.55, 1.45, 0.72), pose_type="offsetAndRotation", offset=(-1.775, 5.375, -2.84), rotation=(0.0, 0.0, -0.09)),
+            "true_void_front_lower_right": geometry("body", (58.0, 0.0), (-1.775, -0.725, -0.36), (3.55, 1.45, 0.72), pose_type="offsetAndRotation", offset=(1.775, 5.375, -2.84), rotation=(0.0, 0.0, 0.09)),
             "true_void_front_tip": geometry("body", (68.0, 0.0), (-2.50, 6.45, -3.16), (5.0, 1.20, 0.68), pose_type="ZERO"),
             "true_void_chest_crystal": geometry(
                 "body", (82.0, 0.0), (-1.15, -1.15, -0.41), (2.30, 2.30, 0.82),
                 pose_type="offsetAndRotation", offset=(0.0, 2.50, -3.21), rotation=(0.0, 0.0, 0.7853982),
             ),
-            "true_void_back_left": geometry("body", (92.0, 0.0), (-4.20, 0.55, 2.40), (4.20, 6.70, 0.70), rotation=(0.0, 0.0, -0.07)),
-            "true_void_back_right": geometry("body", (104.0, 0.0), (0.0, 0.55, 2.40), (4.20, 6.70, 0.70), rotation=(0.0, 0.0, 0.07)),
+            "true_void_back_left": geometry("body", (92.0, 0.0), (-2.10, -3.35, -0.35), (4.20, 6.70, 0.70), pose_type="offsetAndRotation", offset=(-2.10, 3.90, 2.75), rotation=(0.0, 0.0, -0.07)),
+            "true_void_back_right": geometry("body", (104.0, 0.0), (-2.10, -3.35, -0.35), (4.20, 6.70, 0.70), pose_type="offsetAndRotation", offset=(2.10, 3.90, 2.75), rotation=(0.0, 0.0, 0.07)),
             "true_void_back_crystal": geometry(
                 "body", (116.0, 0.0), (-0.90, -0.90, -0.36), (1.80, 1.80, 0.72),
                 pose_type="offsetAndRotation", offset=(0.0, 3.00, 3.28), rotation=(0.0, 0.0, 0.7853982),
             ),
-            "true_void_right_shoulder_plate": geometry("right_arm", (0.0, 16.0), (-4.10, -2.60, -2.68), (4.10, 1.55, 5.35), 0.05, rotation=(0.0, 0.0, -0.10)),
-            "true_void_right_shoulder_crystal": geometry("right_arm", (16.0, 16.0), (-3.90, -3.15, -0.62), (1.25, 1.60, 1.25), rotation=(0.0, 0.0, -0.32)),
-            "true_void_left_shoulder_plate": geometry("left_arm", (24.0, 16.0), (0.0, -2.60, -2.68), (4.10, 1.55, 5.35), 0.05, rotation=(0.0, 0.0, 0.10)),
-            "true_void_left_shoulder_crystal": geometry("left_arm", (40.0, 16.0), (2.65, -3.15, -0.62), (1.25, 1.60, 1.25), rotation=(0.0, 0.0, 0.32)),
+            "true_void_right_shoulder_plate": geometry("right_arm", (0.0, 16.0), (-2.05, -0.775, -2.675), (4.10, 1.55, 5.35), 0.05, pose_type="offsetAndRotation", offset=(-2.05, -1.825, -0.005), rotation=(0.0, 0.0, -0.10)),
+            "true_void_right_shoulder_crystal": geometry("right_arm", (16.0, 16.0), (-0.625, -0.80, -0.625), (1.25, 1.60, 1.25), pose_type="offsetAndRotation", offset=(-3.275, -2.35, 0.005), rotation=(0.0, 0.0, -0.32)),
+            "true_void_left_shoulder_plate": geometry("left_arm", (24.0, 16.0), (-2.05, -0.775, -2.675), (4.10, 1.55, 5.35), 0.05, pose_type="offsetAndRotation", offset=(2.05, -1.825, -0.005), rotation=(0.0, 0.0, 0.10)),
+            "true_void_left_shoulder_crystal": geometry("left_arm", (40.0, 16.0), (-0.625, -0.80, -0.625), (1.25, 1.60, 1.25), pose_type="offsetAndRotation", offset=(3.275, -2.35, 0.005), rotation=(0.0, 0.0, 0.32)),
         }
         actual = worn_method_geometry(source, "addVoidCrystalKnightDetails")
+
+        for name, part in actual.items():
+            if any(part[7]):
+                with self.subTest(centred_rotated_part=name):
+                    self.assertEqual(
+                        "offsetAndRotation", part[5],
+                        f"{name} must place its centred local cube with an offsetAndRotation pivot",
+                    )
+                    for origin, dimension in zip(part[2], part[3]):
+                        self.assertAlmostEqual(
+                            0.0, origin + dimension / 2.0,
+                            msg=f"{name} rotated local box must be centred at the origin",
+                        )
+
+        planned_unrotated = {
+            "true_void_front_upper_left": ((-4.35, 0.35, -3.18), (4.35, 2.10, 0.72)),
+            "true_void_front_upper_right": ((0.0, 0.35, -3.18), (4.35, 2.10, 0.72)),
+            "true_void_front_middle_left": ((-4.05, 2.65, -3.24), (4.05, 1.65, 0.76)),
+            "true_void_front_middle_right": ((0.0, 2.65, -3.24), (4.05, 1.65, 0.76)),
+            "true_void_front_lower_left": ((-3.55, 4.65, -3.20), (3.55, 1.45, 0.72)),
+            "true_void_front_lower_right": ((0.0, 4.65, -3.20), (3.55, 1.45, 0.72)),
+            "true_void_back_left": ((-4.20, 0.55, 2.40), (4.20, 6.70, 0.70)),
+            "true_void_back_right": ((0.0, 0.55, 2.40), (4.20, 6.70, 0.70)),
+            "true_void_right_shoulder_plate": ((-4.10, -2.60, -2.68), (4.10, 1.55, 5.35)),
+            "true_void_right_shoulder_crystal": ((-3.90, -3.15, -0.62), (1.25, 1.60, 1.25)),
+            "true_void_left_shoulder_plate": ((0.0, -2.60, -2.68), (4.10, 1.55, 5.35)),
+            "true_void_left_shoulder_crystal": ((2.65, -3.15, -0.62), (1.25, 1.60, 1.25)),
+        }
+        for name, (planned_origin, planned_dimensions) in planned_unrotated.items():
+            with self.subTest(reconstructed_unrotated_bounds=name):
+                part = actual[name]
+                reconstructed_origin = tuple(local + offset for local, offset in zip(part[2], part[6]))
+                for reconstructed, planned in zip(reconstructed_origin, planned_origin):
+                    self.assertAlmostEqual(planned, reconstructed)
+                self.assertEqual(planned_dimensions, part[3])
+
         self.assertEqual(expected, actual)
 
         mirrored_pairs = (
