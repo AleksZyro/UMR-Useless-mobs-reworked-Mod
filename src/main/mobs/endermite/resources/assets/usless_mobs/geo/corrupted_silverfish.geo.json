@@ -35,54 +35,54 @@
         {
           "name": "leg_front_left",
           "pivot": [
-            -5.993965,
-            4.54338,
-            6.319190000000001
+            -5.0,
+            4.4,
+            6.0
           ],
           "parent": "body"
         },
         {
           "name": "leg_front_right",
           "pivot": [
-            6.68143,
-            4.57393,
-            4.0977
+            5.0,
+            4.4,
+            6.0
           ],
           "parent": "body"
         },
         {
           "name": "leg_middle_left",
           "pivot": [
-            -6.79073,
-            4.55872,
-            0.87094
+            -5.0,
+            4.4,
+            0.0
           ],
           "parent": "body"
         },
         {
           "name": "leg_middle_right",
           "pivot": [
-            6.8295,
-            4.58683,
-            -0.50662
+            5.0,
+            4.4,
+            0.0
           ],
           "parent": "body"
         },
         {
           "name": "leg_rear_left",
           "pivot": [
-            -6.80387,
-            4.58069,
-            -4.01226
+            -5.0,
+            4.4,
+            -6.0
           ],
           "parent": "body"
         },
         {
           "name": "leg_rear_right",
           "pivot": [
-            6.67454,
-            4.58512,
-            -6.260249999999999
+            5.0,
+            4.4,
+            -6.0
           ],
           "parent": "body"
         }

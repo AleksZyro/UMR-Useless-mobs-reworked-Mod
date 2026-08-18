@@ -181,14 +181,11 @@ def _region_origin(
     points = list(element["vertices"].values()) if element is not None else []
     if region.startswith("leg_"):
         station = 6.0 if "front" in region else (0.0 if "middle" in region else -6.0)
-        fallback_x = -4.0 if region.endswith("left") else 4.0
-        if not points:
-            return [fallback_x, 4.4, station]
-        return [
-            float(median(point[0] for point in points)),
-            float(max(point[1] for point in points)),
-            float(median(point[2] for point in points)),
-        ]
+        # A data-derived median made mirrored legs rotate around unrelated points
+        # on the irregular Tripo surface. Fixed anatomical roots keep the broad
+        # body/leg attachment closed and make all three pairs move symmetrically.
+        attachment_x = -5.0 if region.endswith("left") else 5.0
+        return [attachment_x, 4.4, station]
     region_y = float(median(point[1] for point in points)) if points else fallback_y
     return [0.0, region_y, 0.0]
 

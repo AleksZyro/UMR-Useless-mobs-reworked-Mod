@@ -86,7 +86,7 @@ class AnimatedRigContractTests(unittest.TestCase):
                 for keyframes in by_channel.values():
                     self.assertEqual(keyframes[0]["data_points"], keyframes[-1]["data_points"])
 
-    def test_walk_has_exact_stronger_smooth_opposite_tripod_motion(self):
+    def test_walk_has_strong_natural_alternating_tripod_motion(self):
         walk = ANIMATION_SPECS["animation.corrupted_silverfish.walk"]["bones"]
         first_tripod = ("leg_front_left", "leg_middle_right", "leg_rear_left")
         opposite_tripod = ("leg_front_right", "leg_middle_left", "leg_rear_right")
@@ -102,26 +102,30 @@ class AnimatedRigContractTests(unittest.TestCase):
             rotations = walk[bone]["rotation"]
             self.assertEqual(tuple(time for time, _ in rotations), expected_times)
             self.assertEqual(len(rotations), 17)
-            self.assertEqual(max(abs(vector[1]) for _, vector in rotations), 16.64)
-            self.assertEqual(max(abs(vector[2]) for _, vector in rotations), 6.4)
-            self.assertLessEqual(max(abs(vector[1]) for _, vector in rotations), 17)
-            self.assertLessEqual(max(abs(vector[2]) for _, vector in rotations), 6.5)
+            self.assertEqual(max(abs(vector[1]) for _, vector in rotations), 24.0)
+            self.assertEqual(max(abs(vector[2]) for _, vector in rotations), 12.0)
             self.assertTrue(all(vector[0] == 0 for _, vector in rotations))
-            leg_y = [vector[1] for _, vector in rotations]
-            # 6.4 is the ceil-bound for the exact 60%-scaled cosine samples;
-            # GeckoLib linearly interpolates between these ordered keyframes.
-            self.assertLessEqual(
-                max(abs(right - left) for left, right in zip(leg_y, leg_y[1:])),
-                6.4,
-            )
+            lift_values = [vector[2] for _, vector in rotations]
+            if bone.endswith("left"):
+                self.assertTrue(all(value <= 0 for value in lift_values))
+            else:
+                self.assertTrue(all(value >= 0 for value in lift_values))
 
         for bone in first_tripod:
-            self.assertEqual(walk[bone]["rotation"], reference)
+            for (_, first), (_, candidate) in zip(reference, walk[bone]["rotation"]):
+                self.assertEqual(first[1], candidate[1])
+                self.assertEqual(abs(first[2]), abs(candidate[2]))
+        # At each quarter-cycle one tripod clears the ground while the other stays planted.
+        for index in (4, 12):
+            lifted_first = any(abs(walk[bone]["rotation"][index][1][2]) == 12 for bone in first_tripod)
+            lifted_second = any(abs(walk[bone]["rotation"][index][1][2]) == 12 for bone in opposite_tripod)
+            self.assertNotEqual(lifted_first, lifted_second)
+
         for bone in opposite_tripod:
             opposite = walk[bone]["rotation"]
             for (first_time, first), (opposite_time, second) in zip(reference, opposite):
                 self.assertEqual(opposite_time, first_time)
-                self.assertEqual(first, [-value for value in second])
+                self.assertEqual(first[1], -second[1])
 
     def test_non_walk_specs_remain_at_the_independent_literal_contract(self):
         expected = {

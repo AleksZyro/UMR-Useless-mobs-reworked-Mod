@@ -10,6 +10,7 @@ from tools.corrupted_silverfish_v5.rig_mesh import (
     build_rig_document,
     canonical_faces,
     classify_centroid,
+    _region_origin,
     rig_bytes,
     texture_signature,
     write_rig_files,
@@ -215,6 +216,25 @@ class BoneHierarchyTests(unittest.TestCase):
             self.assertEqual(len(group["origin"]), 3)
             self.assertTrue(all(math.isfinite(value) for value in group["origin"]))
         self.assertEqual(rigged["animations"], [])
+
+    def test_leg_pivots_are_mirrored_anatomical_attachment_points(self):
+        deliberately_asymmetric = {
+            name: {"vertices": {"a": [-9.0, 1.0, 9.0], "b": [8.0, 7.0, -8.0]}}
+            for name in self.EXPECTED_PARENTS
+            if name.startswith("leg_")
+        }
+        expected = {
+            "leg_front_left": [-5.0, 4.4, 6.0],
+            "leg_front_right": [5.0, 4.4, 6.0],
+            "leg_middle_left": [-5.0, 4.4, 0.0],
+            "leg_middle_right": [5.0, 4.4, 0.0],
+            "leg_rear_left": [-5.0, 4.4, -6.0],
+            "leg_rear_right": [5.0, 4.4, -6.0],
+        }
+        self.assertEqual(
+            {name: _region_origin(name, deliberately_asymmetric, 0.0) for name in expected},
+            expected,
+        )
 
 
 class SafeRigWriterTests(unittest.TestCase):

@@ -44,13 +44,13 @@ def _animation_specs() -> Dict[str, JsonObject]:
     }
 
     walk_times = tuple(index * 0.05 for index in range(17))
-    stride = tuple(round(16.64 * math.cos(2 * math.pi * time / 0.8), 6) for time in walk_times)
-    lift = tuple(round(6.4 * math.cos(2 * math.pi * time / 0.8), 6) for time in walk_times)
+    phase_angles = tuple(2 * math.pi * time / 0.8 for time in walk_times)
+    stride = tuple(round(24.0 * math.cos(angle), 6) for angle in phase_angles)
     bob = tuple(
-        round(0.02 + 0.10 * (0.5 - 0.5 * math.cos(4 * math.pi * time / 0.8)), 6)
-        for time in walk_times
+        round(0.18 * math.sin(angle) ** 2, 6)
+        for angle in phase_angles
     )
-    sway = tuple(round(math.cos(2 * math.pi * time / 0.8), 6) for time in walk_times)
+    sway = tuple(round(math.cos(angle), 6) for angle in phase_angles)
     walk: Dict[str, JsonObject] = {
         "body": {
             "position": _channel(walk_times, ((0, value, 0) for value in bob)),
@@ -66,10 +66,15 @@ def _animation_specs() -> Dict[str, JsonObject]:
         "leg_middle_right", "leg_rear_left", "leg_rear_right",
     ):
         phase = 1 if bone in first_tripod else -1
+        lift_sign = -1 if bone.endswith("left") else 1
+        lift = tuple(
+            round(lift_sign * 12.0 * max(0.0, phase * math.sin(angle)), 6)
+            for angle in phase_angles
+        )
         walk[bone] = {
             "rotation": _channel(
                 walk_times,
-                ((0, phase * y, phase * z) for y, z in zip(stride, lift)),
+                ((0, phase * y, z) for y, z in zip(stride, lift)),
             )
         }
 
