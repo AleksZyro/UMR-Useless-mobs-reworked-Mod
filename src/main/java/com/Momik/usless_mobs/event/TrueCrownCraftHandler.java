@@ -28,7 +28,13 @@ public class TrueCrownCraftHandler {
     @SubscribeEvent
     public static void onCraft(PlayerEvent.ItemCraftedEvent event) {
         ItemStack crafted = event.getCrafting();
-        if (!crafted.is(com.Momik.usless_mobs.registry.ModItems.TRUE_CROWN.get()) || !(event.getEntity() instanceof ServerPlayer player)) {
+        if (!crafted.is(com.Momik.usless_mobs.registry.ModItems.TRUE_CROWN.get())) {
+            return;
+        }
+        if (isBalanceCrownConversion(crafted, event.getInventory())) {
+            return;
+        }
+        if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
 
@@ -48,6 +54,18 @@ public class TrueCrownCraftHandler {
 
         tracker.markCrafted(player.getUUID(), player.getGameProfile().getName());
         spawnAllegianceAltars(player);
+    }
+
+    static boolean isBalanceCrownConversion(ItemStack crafted, Container inventory) {
+        if (!crafted.is(com.Momik.usless_mobs.registry.ModItems.TRUE_CROWN.get())) {
+            return false;
+        }
+        for (int i = 0; i < inventory.getContainerSize(); i++) {
+            if (inventory.getItem(i).is(com.Momik.usless_mobs.registry.ModItems.ROYAL_BALANCE_CROWN.get())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void spawnAllegianceAltars(ServerPlayer player) {
@@ -123,6 +141,7 @@ public class TrueCrownCraftHandler {
     }
 
     private static boolean isCrown(ItemStack stack) {
-        return stack.is(com.Momik.usless_mobs.registry.ModItems.TRUE_CROWN.get());
+        return stack.is(com.Momik.usless_mobs.registry.ModItems.TRUE_CROWN.get())
+                || stack.is(com.Momik.usless_mobs.registry.ModItems.ROYAL_BALANCE_CROWN.get());
     }
 }

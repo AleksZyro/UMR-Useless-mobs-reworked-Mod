@@ -17,6 +17,10 @@ ROOT = Path(__file__).resolve().parents[3]
 MOD_ITEMS = ROOT / "src/main/java/com/Momik/usless_mobs/registry/ModItems.java"
 PATH_CROWN_ITEM = ROOT / "src/main/java/com/Momik/usless_mobs/item/PathCrownItem.java"
 TRUE_CROWN_ITEM = ROOT / "src/main/java/com/Momik/usless_mobs/item/TrueCrownItem.java"
+CROWN_FORM = ROOT / "src/main/java/com/Momik/usless_mobs/item/CrownForm.java"
+TRUE_CROWN_CRAFT_HANDLER = (
+    ROOT / "src/main/java/com/Momik/usless_mobs/event/TrueCrownCraftHandler.java"
+)
 RECIPES = ROOT / "src/main/resources/data/usless_mobs/recipes"
 MODELS = ROOT / "src/main/resources/assets/usless_mobs/models/item"
 TEXTURES = ROOT / "src/main/resources/assets/usless_mobs/textures/item"
@@ -28,6 +32,16 @@ ROYAL_IDS = {
     "royal_celestial_crown": "god_king",
     "royal_living_crown": "living_king",
     "royal_balance_crown": "true_crown",
+}
+REGISTRATION_CONTRACT = {
+    "true_crown": ("TrueCrownItem", "TrueCrownItem.Path.BALANCED", "CrownForm.COMBAT"),
+    "void_reaper_king": ("PathCrownItem", "PathCrownItem.Path.VOID", "CrownForm.COMBAT"),
+    "god_king": ("PathCrownItem", "PathCrownItem.Path.CELESTIAL", "CrownForm.COMBAT"),
+    "living_king": ("PathCrownItem", "PathCrownItem.Path.LIVING", "CrownForm.COMBAT"),
+    "royal_void_crown": ("PathCrownItem", "PathCrownItem.Path.VOID", "CrownForm.ROYAL"),
+    "royal_celestial_crown": ("PathCrownItem", "PathCrownItem.Path.CELESTIAL", "CrownForm.ROYAL"),
+    "royal_living_crown": ("PathCrownItem", "PathCrownItem.Path.LIVING", "CrownForm.ROYAL"),
+    "royal_balance_crown": ("TrueCrownItem", "TrueCrownItem.Path.BALANCED", "CrownForm.ROYAL"),
 }
 ALL_IDS = set(ROYAL_IDS) | set(ROYAL_IDS.values())
 VALID_FACE_DIRECTIONS = {"down", "up", "north", "south", "west", "east"}
@@ -155,6 +169,99 @@ def legacy_constructor_delegates_to_combat(source: str, class_name: str) -> bool
         tokens[index : index + len(expected)] == expected
         for index in range(len(tokens) - len(expected) + 1)
     )
+
+
+def contains_token_sequence(tokens, expected) -> bool:
+    return any(
+        tokens[index : index + len(expected)] == expected
+        for index in range(len(tokens) - len(expected) + 1)
+    )
+
+
+def token_sequence_index(tokens, expected) -> int:
+    for index in range(len(tokens) - len(expected) + 1):
+        if tokens[index : index + len(expected)] == expected:
+            return index
+    return -1
+
+
+def java_expression_tokens(expression: str):
+    return list(java_tokens(expression))
+
+
+def method_body_tokens(source: str, method_name: str):
+    """Return the first named Java method body using comment/string-aware tokens."""
+    tokens = list(java_tokens(source))
+    for name_index, token in enumerate(tokens):
+        if token != ("identifier", method_name):
+            continue
+        if name_index + 1 >= len(tokens) or tokens[name_index + 1] != ("punctuation", "("):
+            continue
+        paren_depth = 0
+        body_start = None
+        for index in range(name_index + 1, len(tokens)):
+            if tokens[index] == ("punctuation", "("):
+                paren_depth += 1
+            elif tokens[index] == ("punctuation", ")"):
+                paren_depth -= 1
+            elif tokens[index] == ("punctuation", "{") and paren_depth == 0:
+                body_start = index
+                break
+            elif tokens[index] == ("punctuation", ";") and paren_depth == 0:
+                break
+        if body_start is None:
+            continue
+        brace_depth = 1
+        for index in range(body_start + 1, len(tokens)):
+            if tokens[index] == ("punctuation", "{"):
+                brace_depth += 1
+            elif tokens[index] == ("punctuation", "}"):
+                brace_depth -= 1
+                if brace_depth == 0:
+                    return tokens[body_start + 1 : index]
+    return []
+
+
+def registration_tokens_by_id(source: str) -> dict[str, list[tuple[str, str]]]:
+    """Return each canonical item field initializer, ignoring comments and strings."""
+    tokens = list(java_tokens(source))
+    registrations = {}
+    for index in range(len(tokens) - 14):
+        window = tokens[index : index + 14]
+        if not (
+            window[:7]
+            == [
+                ("identifier", "public"),
+                ("identifier", "static"),
+                ("identifier", "final"),
+                ("identifier", "RegistryObject"),
+                ("punctuation", "<"),
+                ("identifier", "Item"),
+                ("punctuation", ">"),
+            ]
+            and window[7][0] == "identifier"
+            and window[8:] == [
+                ("punctuation", "="),
+                ("identifier", "ITEMS"),
+                ("punctuation", "."),
+                ("identifier", "register"),
+                ("punctuation", "("),
+                window[13],
+            ]
+            and window[13][0] == "string"
+            and window[7][1] == window[13][1].upper()
+        ):
+            continue
+        depth = 0
+        for end in range(index, len(tokens)):
+            if tokens[end] in (("punctuation", "("), ("punctuation", "{"), ("punctuation", "[")):
+                depth += 1
+            elif tokens[end] in (("punctuation", ")"), ("punctuation", "}"), ("punctuation", "]")):
+                depth -= 1
+            elif tokens[end] == ("punctuation", ";") and depth == 0:
+                registrations[window[13][1]] = tokens[index : end + 1]
+                break
+    return registrations
 
 
 def registered_item_ids(source: str) -> list[str]:
@@ -694,6 +801,98 @@ class CurioCrownContract(unittest.TestCase):
                     "to CrownForm.COMBAT",
                 )
 
+        true_crown_source = TRUE_CROWN_ITEM.read_text(encoding="utf-8")
+        self.assertTrue(
+            contains_token_sequence(
+                list(java_tokens(true_crown_source)),
+                java_expression_tokens(
+                    "public TrueCrownItem(Properties properties) "
+                    "{ this(Path.BALANCED, properties); }"
+                ),
+            ),
+            "TrueCrownItem(Properties) must remain public and preserve its balanced combat behavior",
+        )
+
+        registrations = registration_tokens_by_id(source)
+        self.assertEqual(set(REGISTRATION_CONTRACT), set(registrations) & set(ALL_IDS))
+        for item_id, (class_name, path, form) in REGISTRATION_CONTRACT.items():
+            with self.subTest(item_id=item_id):
+                expected = java_expression_tokens(
+                    f"new {class_name}({path}, {form}, crownProperties())"
+                )
+                self.assertTrue(
+                    contains_token_sequence(registrations.get(item_id, []), expected),
+                    f"{item_id} must use exactly {class_name}, {path}, {form}, and crownProperties()",
+                )
+
+    def test_crown_form_is_metadata_not_an_effect_switch(self):
+        enum_tokens = list(java_tokens(CROWN_FORM.read_text(encoding="utf-8")))
+        self.assertTrue(
+            contains_token_sequence(
+                enum_tokens,
+                java_expression_tokens("enum CrownForm { COMBAT, ROYAL }"),
+            )
+        )
+        source = TRUE_CROWN_ITEM.read_text(encoding="utf-8")
+        for method_name in ("inventoryTick", "applyPathAura", "applyPathGuard", "sendAuraParticles"):
+            with self.subTest(method_name=method_name):
+                body = method_body_tokens(source, method_name)
+                self.assertTrue(body, f"missing TrueCrownItem.{method_name}")
+                self.assertNotIn(("identifier", "form"), body)
+                self.assertNotIn(("identifier", "CrownForm"), body)
+
+    def test_balance_reversion_returns_before_progression_and_cap_logic(self):
+        source = TRUE_CROWN_CRAFT_HANDLER.read_text(encoding="utf-8")
+        body = method_body_tokens(source, "onCraft")
+        ordered_contract = [
+            "event.getCrafting()",
+            "crafted.is(com.Momik.usless_mobs.registry.ModItems.TRUE_CROWN.get())",
+            "isBalanceCrownConversion(crafted, event.getInventory())",
+            "event.getEntity() instanceof ServerPlayer player",
+            "player.getServer()",
+            "TrueCrownTracker.get(server)",
+            "countTrueCrowns(server)",
+            "crafted.shrink(crafted.getCount())",
+            "tracker.markCrafted(player.getUUID(), player.getGameProfile().getName())",
+            "spawnAllegianceAltars(player)",
+        ]
+        positions = [
+            token_sequence_index(body, java_expression_tokens(expression))
+            for expression in ordered_contract
+        ]
+        self.assertNotIn(-1, positions, f"missing handler contract expression: {positions}")
+        self.assertEqual(sorted(positions), positions)
+
+        conversion_call = java_expression_tokens(
+            "if (isBalanceCrownConversion(crafted, event.getInventory())) { return; }"
+        )
+        self.assertTrue(
+            contains_token_sequence(body, conversion_call),
+            "Royal Balance reversion must return immediately before server/tracker/cap side effects",
+        )
+
+    def test_balance_reversion_is_identified_from_output_and_crafting_input(self):
+        source = TRUE_CROWN_CRAFT_HANDLER.read_text(encoding="utf-8")
+        body = method_body_tokens(source, "isBalanceCrownConversion")
+        for expression in (
+            "crafted.is(com.Momik.usless_mobs.registry.ModItems.TRUE_CROWN.get())",
+            "inventory.getContainerSize()",
+            "inventory.getItem(i).is(com.Momik.usless_mobs.registry.ModItems.ROYAL_BALANCE_CROWN.get())",
+        ):
+            self.assertTrue(
+                contains_token_sequence(body, java_expression_tokens(expression)),
+                f"conversion helper must check {expression}",
+            )
+
+    def test_crown_limit_counts_combat_and_royal_balance_forms(self):
+        source = TRUE_CROWN_CRAFT_HANDLER.read_text(encoding="utf-8")
+        body = method_body_tokens(source, "isCrown")
+        expected = java_expression_tokens(
+            "return stack.is(com.Momik.usless_mobs.registry.ModItems.TRUE_CROWN.get()) "
+            "|| stack.is(com.Momik.usless_mobs.registry.ModItems.ROYAL_BALANCE_CROWN.get());"
+        )
+        self.assertTrue(contains_token_sequence(body, expected))
+
     def test_upgrade_recipes_use_exact_nine_slot_pattern(self):
         problems = []
         for royal, combat in ROYAL_IDS.items():
@@ -839,8 +1038,12 @@ class CurioCrownContract(unittest.TestCase):
             translations = load_json_object(path, problems)
             if translations is None:
                 continue
-            for item_id in sorted(ALL_IDS):
-                key = f"item.usless_mobs.{item_id}"
+            required_keys = {
+                *(f"item.usless_mobs.{item_id}" for item_id in ALL_IDS),
+                "item.usless_mobs.crown.form.combat",
+                "item.usless_mobs.crown.form.royal",
+            }
+            for key in sorted(required_keys):
                 value = translations.get(key)
                 if not isinstance(value, str) or not value.strip():
                     problems.append(
