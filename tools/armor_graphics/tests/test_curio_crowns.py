@@ -159,6 +159,7 @@ def registered_item_ids(source: str) -> list[str]:
 
 RESOURCE_LOCATION = re.compile(r"[a-z0-9_.-]+:[a-z0-9_.\-/]+")
 TEXTURE_ALIAS = re.compile(r"[a-z0-9_.-]+")
+ALLOWED_BUILTIN_FACE_TEXTURES = frozenset()
 
 
 def resource_location_parts(value: str) -> tuple[str, str] | None:
@@ -176,6 +177,20 @@ def display_path(path: Path) -> str:
         return str(path.relative_to(ROOT))
     except ValueError:
         return str(path)
+
+
+def exact_asset_file(assets_root: Path, parts: tuple[str, ...]) -> Path | None:
+    current = assets_root
+    for index, part in enumerate(parts):
+        if not current.is_dir():
+            return None
+        matches = [path for path in current.iterdir() if path.name == part]
+        if len(matches) != 1:
+            return None
+        current = matches[0]
+        if index < len(parts) - 1 and not current.is_dir():
+            return None
+    return current if current.is_file() else None
 
 
 def item_model_problems(model_path: Path, item_id: str) -> list[str]:
@@ -352,6 +367,44 @@ def item_model_problems(model_path: Path, item_id: str) -> list[str]:
             f"effective faces must reference own texture {expected_texture!r}; "
             f"resolved {sorted(set(resolved_faces))!r}"
         )
+    for texture_resource in sorted(set(resolved_faces)):
+        parts = resource_location_parts(texture_resource)
+        if parts is None:
+            continue
+        namespace, texture_path = parts
+        local_texture = exact_asset_file(
+            assets_root,
+            (
+                namespace,
+                "textures",
+                *texture_path.split("/")[:-1],
+                f"{texture_path.split('/')[-1]}.png",
+            ),
+        )
+        if local_texture is None:
+            if (
+                namespace == "minecraft"
+                and texture_resource in ALLOWED_BUILTIN_FACE_TEXTURES
+            ):
+                continue
+            report(
+                f"active face texture {texture_resource!r} must resolve to an exactly "
+                "lowercase repo-local PNG"
+            )
+            continue
+        try:
+            with Image.open(local_texture) as image:
+                image.load()
+                if image.format != "PNG":
+                    report(
+                        f"active face texture {display_path(local_texture)} must be PNG, "
+                        f"got {image.format!r}"
+                    )
+        except (OSError, UnidentifiedImageError) as error:
+            report(
+                f"active face texture {display_path(local_texture)} is not a decodable PNG: "
+                f"{error}"
+            )
     return problems
 
 
@@ -553,7 +606,12 @@ class CurioCrownContract(unittest.TestCase):
 
 
 class CrownContractParserRegression(unittest.TestCase):
-    def validate_fixture(self, model: dict, parents: dict[str, dict] | None = None):
+    def validate_fixture(
+        self,
+        model: dict,
+        parents: dict[str, dict] | None = None,
+        texture_payloads: dict[str, bytes] | None = None,
+    ):
         with tempfile.TemporaryDirectory() as directory:
             assets = Path(directory) / "assets"
             model_path = assets / "usless_mobs/models/item/test_crown.json"
@@ -564,6 +622,14 @@ class CrownContractParserRegression(unittest.TestCase):
                 parent_path = assets / namespace / "models" / f"{resource_path}.json"
                 parent_path.parent.mkdir(parents=True, exist_ok=True)
                 parent_path.write_text(json.dumps(document), encoding="utf-8")
+            own_texture = assets / "usless_mobs/textures/item/test_crown.png"
+            own_texture.parent.mkdir(parents=True, exist_ok=True)
+            Image.new("RGBA", (2, 2), (255, 255, 255, 255)).save(own_texture)
+            for resource, payload in (texture_payloads or {}).items():
+                namespace, resource_path = resource.split(":", 1)
+                texture_path = assets / namespace / "textures" / f"{resource_path}.png"
+                texture_path.parent.mkdir(parents=True, exist_ok=True)
+                texture_path.write_bytes(payload)
             return item_model_problems(model_path, "test_crown")
 
     def test_registry_parser_rejects_method_local_and_unassigned_decoys(self):
@@ -632,6 +698,52 @@ class CrownContractParserRegression(unittest.TestCase):
                         }
                     ],
                 }
+            )
+        )
+
+    def test_model_validator_rejects_missing_secondary_face_texture(self):
+        self.assertTrue(
+            self.validate_fixture(
+                {
+                    "textures": {
+                        "main": "usless_mobs:item/test_crown",
+                        "missing": "usless_mobs:item/does_not_exist",
+                    },
+                    "elements": [
+                        {
+                            "from": [1, 2, 3],
+                            "to": [4, 5, 6],
+                            "faces": {
+                                "north": {"texture": "#main"},
+                                "south": {"texture": "#missing"},
+                            },
+                        }
+                    ],
+                }
+            )
+        )
+
+    def test_model_validator_rejects_undecodable_active_texture(self):
+        model = {
+            "textures": {
+                "main": "usless_mobs:item/test_crown",
+                "corrupt": "usless_mobs:item/corrupt",
+            },
+            "elements": [
+                {
+                    "from": [1, 2, 3],
+                    "to": [4, 5, 6],
+                    "faces": {
+                        "north": {"texture": "#main"},
+                        "south": {"texture": "#corrupt"},
+                    },
+                }
+            ],
+        }
+        self.assertTrue(
+            self.validate_fixture(
+                model,
+                texture_payloads={"usless_mobs:item/corrupt": b"not a png"},
             )
         )
 
