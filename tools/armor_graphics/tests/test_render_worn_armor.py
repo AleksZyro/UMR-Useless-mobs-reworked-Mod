@@ -82,6 +82,23 @@ class WornArmorOfflineRenderContract(unittest.TestCase):
         self.assertEqual("RGBA", sheet.mode)
         self.assertIsNotNone(sheet.getbbox())
 
+    def test_complete_set_uses_one_depth_sorted_texture_atlas(self):
+        cubes, atlas = render_worn_armor._combined_set_inputs(ROOT, "void")
+        expected_count = sum(
+            len(render_worn_armor._render_inputs(ROOT, "void", slot))
+            for slot in render_worn_armor.SLOTS
+        )
+        self.assertEqual(expected_count, len(cubes))
+        self.assertEqual((128, 64 * len(render_worn_armor.SLOTS)), atlas.size)
+        for slot_index, slot in enumerate(render_worn_armor.SLOTS):
+            names = {cube["name"] for cube, _matrix in render_worn_armor._render_inputs(ROOT, "void", slot)}
+            slot_cubes = [cube for cube, _matrix in cubes if cube["name"] in names]
+            self.assertTrue(slot_cubes)
+            for cube in slot_cubes:
+                for face in cube["uv"].values():
+                    self.assertGreaterEqual(face["uv"][1], slot_index * 64)
+                    self.assertLessEqual(face["uv"][1] + face["uv_size"][1], (slot_index + 1) * 64)
+
 
 if __name__ == "__main__":
     unittest.main()

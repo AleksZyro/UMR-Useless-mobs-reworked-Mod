@@ -141,6 +141,30 @@ def _render_inputs(repo_root: Path, family: str, slot: str):
     return result
 
 
+def _combined_set_inputs(repo_root: Path, family: str):
+    """Combine the four slot atlases so the whole suit shares one depth pass."""
+    atlas = Image.new("RGBA", (128, 64 * len(SLOTS)), (0, 0, 0, 0))
+    combined = []
+    for slot_index, slot in enumerate(SLOTS):
+        with Image.open(_texture_path(repo_root, family, slot)) as source:
+            texture = source.convert("RGBA")
+        if texture.size != (128, 64):
+            raise ValueError(f"expected 128x64 armour texture, got {texture.size}")
+        atlas_offset = slot_index * 64
+        atlas.paste(texture, (0, atlas_offset))
+        for cube, matrix in _render_inputs(repo_root, family, slot):
+            shifted_cube = dict(cube)
+            shifted_cube["uv"] = {
+                face_name: {
+                    "uv": [face["uv"][0], face["uv"][1] + atlas_offset],
+                    "uv_size": list(face["uv_size"]),
+                }
+                for face_name, face in cube["uv"].items()
+            }
+            combined.append((shifted_cube, matrix))
+    return combined, atlas
+
+
 def _mannequin_inputs(slot: str):
     definitions = {
         "head": ((-4.0, -8.0, -4.0), (8.0, 8.0, 8.0)),
@@ -206,22 +230,13 @@ def render_set(repo_root: Path, family: str, view: str) -> Image.Image:
     """Render one complete family from the same four runtime item layers."""
     _validate_choice(family, FAMILIES, "family")
     _validate_choice(view, VIEWS, "view")
-    per_slot = {slot: _render_inputs(repo_root, family, slot) for slot in SLOTS}
-    all_cubes = [entry for slot in SLOTS for entry in per_slot[slot]]
+    all_cubes, atlas = _combined_set_inputs(repo_root, family)
     camera = cube_renderer.camera_for(view)
     scale, center = _framing(all_cubes, camera)
     image = cube_renderer.render_cubes(
-        _mannequin_inputs("set"), Image.new("RGBA", (1, 1), (50, 46, 58, 255)), camera,
-        canvas_size=(512, 512), pixels_per_unit=scale, center_world=center,
+        all_cubes, atlas, camera, canvas_size=(512, 512),
+        pixels_per_unit=scale, center_world=center,
     )
-    for slot in SLOTS:
-        with Image.open(_texture_path(repo_root, family, slot)) as source:
-            texture = source.convert("RGBA")
-        layer = cube_renderer.render_cubes(
-            per_slot[slot], texture, camera, canvas_size=(512, 512),
-            pixels_per_unit=scale, center_world=center,
-        )
-        image.alpha_composite(layer)
     return image
 
 
