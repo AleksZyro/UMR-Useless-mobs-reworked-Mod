@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import math
 import re
+import sys
 import tempfile
 import unittest
 import warnings
@@ -26,6 +28,8 @@ MODELS = ROOT / "src/main/resources/assets/usless_mobs/models/item"
 TEXTURES = ROOT / "src/main/resources/assets/usless_mobs/textures/item"
 LANG = ROOT / "src/main/resources/assets/usless_mobs/lang"
 CROWN_TAG = ROOT / "src/main/resources/data/curios/tags/items/crown.json"
+CROWN_GENERATOR = ROOT / "tools/armor_graphics/build_curio_crowns.py"
+CROWN_CONTACT = ROOT / "Modelle/Exports/armor_crowns/review/crown_forms_contact.png"
 
 ROYAL_IDS = {
     "royal_void_crown": "void_reaper_king",
@@ -44,6 +48,16 @@ REGISTRATION_CONTRACT = {
     "royal_balance_crown": ("TrueCrownItem", "TrueCrownItem.Path.BALANCED", "CrownForm.ROYAL"),
 }
 ALL_IDS = set(ROYAL_IDS) | set(ROYAL_IDS.values())
+CROWN_ASSET_CONTRACT = {
+    "void_reaper_king": ("void", "combat"),
+    "god_king": ("celestial", "combat"),
+    "living_king": ("living", "combat"),
+    "true_crown": ("balance", "combat"),
+    "royal_void_crown": ("void", "royal"),
+    "royal_celestial_crown": ("celestial", "royal"),
+    "royal_living_crown": ("living", "royal"),
+    "royal_balance_crown": ("balance", "royal"),
+}
 VALID_FACE_DIRECTIONS = {"down", "up", "north", "south", "west", "east"}
 BUILTIN_ITEM_PARENTS = {"minecraft:item/generated", "minecraft:item/handheld"}
 BUILTIN_ITEM_ELEMENTS = [
@@ -60,6 +74,48 @@ BASELINE_CROWN_TAG_VALUES = {
     "usless_mobs:god_king",
     "usless_mobs:living_king",
 }
+
+
+def load_crown_generator():
+    if not CROWN_GENERATOR.is_file():
+        raise AssertionError(
+            f"missing deterministic crown generator: {CROWN_GENERATOR.relative_to(ROOT)}"
+        )
+    module_name = "tools.armor_graphics.build_curio_crowns"
+    spec = importlib.util.spec_from_file_location(module_name, CROWN_GENERATOR)
+    if spec is None or spec.loader is None:
+        raise AssertionError("cannot load deterministic crown generator")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def boxes_touch(left: dict, right: dict, tolerance: float = 1e-6) -> bool:
+    return all(
+        min(left["to"][axis], right["to"][axis])
+        - max(left["from"][axis], right["from"][axis])
+        > 0.05 - tolerance
+        for axis in range(3)
+    )
+
+
+def detached_element_names(elements: list[dict]) -> set[str]:
+    if not elements:
+        return set()
+    visited = {0}
+    pending = [0]
+    while pending:
+        current = pending.pop()
+        for index, element in enumerate(elements):
+            if index not in visited and boxes_touch(elements[current], element):
+                visited.add(index)
+                pending.append(index)
+    return {
+        elements[index].get("name", f"elements[{index}]")
+        for index in range(len(elements))
+        if index not in visited
+    }
 
 
 def load_json_object(path: Path, problems: list[str]) -> dict | None:
@@ -1050,6 +1106,161 @@ class CurioCrownContract(unittest.TestCase):
                         f"{path.relative_to(ROOT)}: missing non-empty translation for {key}"
                     )
         self.assert_no_problems(problems)
+
+
+class CrownAssetGeneratorContract(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.generator = load_crown_generator()
+
+    def test_models_have_connected_closed_ring_and_form_silhouette(self):
+        geometry_signatures = set()
+        for item_id, (family, form) in CROWN_ASSET_CONTRACT.items():
+            with self.subTest(item_id=item_id):
+                model = json.loads((MODELS / f"{item_id}.json").read_text(encoding="utf-8"))
+                elements = model["elements"]
+                minimum = 7 if form == "combat" else 11
+                self.assertGreaterEqual(len(elements), minimum)
+                self.assertEqual(len(elements), len({element["name"] for element in elements}))
+                ring = {element["name"] for element in elements if element["name"].startswith("ring_")}
+                self.assertTrue(
+                    {"ring_front", "ring_back", "ring_left", "ring_right"}.issubset(ring)
+                )
+                self.assertGreaterEqual(len(ring), 8)
+                ring_elements = [element for element in elements if element["name"].startswith("ring_")]
+                self.assertFalse(
+                    any(
+                        element["from"][0] < 8 < element["to"][0]
+                        and element["from"][2] < 8 < element["to"][2]
+                        for element in ring_elements
+                    ),
+                    "closed band must retain a wearable centre opening",
+                )
+                self.assertEqual(set(), detached_element_names(elements))
+                peaks = [element for element in elements if element["name"].startswith("peak_")]
+                self.assertEqual(3 if form == "combat" else 5, len(peaks))
+                self.assertTrue(any(element["name"] == "gem_central" for element in elements))
+                self.assertTrue(any(element["name"].startswith(f"ornament_{family}") for element in elements))
+                geometry_signatures.add(
+                    tuple(
+                        (element["name"], tuple(element["from"]), tuple(element["to"]))
+                        for element in elements
+                    )
+                )
+        self.assertEqual(8, len(geometry_signatures))
+
+    def test_every_face_is_visible_uv_bounded_and_uses_own_texture(self):
+        for item_id in sorted(CROWN_ASSET_CONTRACT):
+            with self.subTest(item_id=item_id):
+                model = json.loads((MODELS / f"{item_id}.json").read_text(encoding="utf-8"))
+                self.assertEqual(
+                    f"usless_mobs:item/{item_id}", model["textures"]["main"]
+                )
+                for element in model["elements"]:
+                    dimensions = [
+                        element["to"][axis] - element["from"][axis]
+                        for axis in range(3)
+                    ]
+                    self.assertTrue(
+                        all(dimension >= 0.4 for dimension in dimensions),
+                        f"{element['name']} is too thin to render reliably: {dimensions}",
+                    )
+                    self.assertEqual(VALID_FACE_DIRECTIONS, set(element["faces"]))
+                    for face in element["faces"].values():
+                        self.assertEqual("#main", face["texture"])
+                        u0, v0, u1, v1 = face["uv"]
+                        self.assertTrue(0 <= u0 < u1 <= 16)
+                        self.assertTrue(0 <= v0 < v1 <= 16)
+
+    def test_rotations_use_supported_angles_and_local_centre_pivots(self):
+        for item_id in sorted(CROWN_ASSET_CONTRACT):
+            model = json.loads((MODELS / f"{item_id}.json").read_text(encoding="utf-8"))
+            rotated = [element for element in model["elements"] if "rotation" in element]
+            self.assertTrue(rotated, item_id)
+            for element in rotated:
+                rotation = element["rotation"]
+                centre = [
+                    round((element["from"][axis] + element["to"][axis]) / 2, 6)
+                    for axis in range(3)
+                ]
+                self.assertEqual(centre, rotation["origin"])
+                self.assertIn(rotation["axis"], {"x", "y", "z"})
+                self.assertIn(rotation["angle"], {-45, -22.5, 22.5, 45})
+
+    def test_textures_have_transparency_material_depth_seams_and_core_pixels(self):
+        payloads = []
+        for item_id, (family, _form) in CROWN_ASSET_CONTRACT.items():
+            with self.subTest(item_id=item_id):
+                path = TEXTURES / f"{item_id}.png"
+                payloads.append(path.read_bytes())
+                with Image.open(path) as image:
+                    image.load()
+                    colours = Counter(image.getdata())
+                self.assertIn((0, 0, 0, 0), colours)
+                opaque = {colour for colour in colours if colour[3] == 255}
+                self.assertGreaterEqual(len(opaque), 8)
+                palette = self.generator.FAMILY_SPECS[family]["palette"]
+                for role in ("shadow", "base", "mid", "edge", "seam"):
+                    self.assertIn(tuple(palette[role]), opaque)
+                self.assertGreaterEqual(colours[tuple(palette["core"])], 3)
+        self.assertEqual(len(payloads), len(set(payloads)))
+
+    def test_two_fresh_generations_are_byte_identical(self):
+        with tempfile.TemporaryDirectory() as first_dir, tempfile.TemporaryDirectory() as second_dir:
+            first = Path(first_dir)
+            second = Path(second_dir)
+            self.generator.write_assets(first)
+            self.generator.write_assets(second)
+            relative_paths = sorted(self.generator.build_payloads())
+            self.assertEqual(16, len(relative_paths))
+            for relative in relative_paths:
+                self.assertEqual((first / relative).read_bytes(), (second / relative).read_bytes())
+
+    def test_candidate_and_publish_failure_restore_all_original_bytes(self):
+        payloads = self.generator.build_payloads()
+        for failure in ("candidate:8", "publish:8"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                originals = {}
+                for relative in payloads:
+                    target = root / relative
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    original = f"original::{relative}".encode("utf-8")
+                    target.write_bytes(original)
+                    originals[relative] = original
+                with self.assertRaises(self.generator.InjectedFailure):
+                    self.generator.publish_payloads(root, payloads, failure=failure)
+                for relative, original in originals.items():
+                    self.assertEqual(original, (root / relative).read_bytes())
+                leftovers = [
+                    path for path in root.rglob("*")
+                    if path.is_file() and (".candidate" in path.name or ".backup" in path.name)
+                ]
+                self.assertEqual([], leftovers)
+
+    def test_cleanup_failures_are_aggregated_instead_of_hidden(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(self.generator.PublicationError) as caught:
+                self.generator.publish_payloads(
+                    Path(directory),
+                    self.generator.build_payloads(),
+                    failure="cleanup:1,cleanup:2",
+                )
+            self.assertIn("cleanup:1", str(caught.exception))
+            self.assertIn("cleanup:2", str(caught.exception))
+
+    def test_contact_sheet_is_a_real_render_of_all_eight_models(self):
+        self.assertTrue(CROWN_CONTACT.is_file())
+        self.assertEqual(
+            self.generator.png_bytes(self.generator.build_contact_sheet()),
+            CROWN_CONTACT.read_bytes(),
+        )
+        with Image.open(CROWN_CONTACT) as image:
+            image.load()
+            self.assertEqual("RGBA", image.mode)
+            self.assertGreaterEqual(image.width, 1200)
+            self.assertGreaterEqual(image.height, 600)
+            self.assertGreater(len(set(image.getdata())), 32)
 
 
 class CrownContractParserRegression(unittest.TestCase):
