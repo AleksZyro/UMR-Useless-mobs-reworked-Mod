@@ -15,6 +15,8 @@ from PIL import Image, UnidentifiedImageError
 
 ROOT = Path(__file__).resolve().parents[3]
 MOD_ITEMS = ROOT / "src/main/java/com/Momik/usless_mobs/registry/ModItems.java"
+PATH_CROWN_ITEM = ROOT / "src/main/java/com/Momik/usless_mobs/item/PathCrownItem.java"
+TRUE_CROWN_ITEM = ROOT / "src/main/java/com/Momik/usless_mobs/item/TrueCrownItem.java"
 RECIPES = ROOT / "src/main/resources/data/usless_mobs/recipes"
 MODELS = ROOT / "src/main/resources/assets/usless_mobs/models/item"
 TEXTURES = ROOT / "src/main/resources/assets/usless_mobs/textures/item"
@@ -120,6 +122,39 @@ def java_tokens(source: str):
             continue
         yield ("punctuation", char)
         index += 1
+
+
+def legacy_constructor_delegates_to_combat(source: str, class_name: str) -> bool:
+    """Return whether the public legacy constructor delegates to the combat form."""
+    expected = [
+        ("identifier", "public"),
+        ("identifier", class_name),
+        ("punctuation", "("),
+        ("identifier", "Path"),
+        ("identifier", "path"),
+        ("punctuation", ","),
+        ("identifier", "Properties"),
+        ("identifier", "properties"),
+        ("punctuation", ")"),
+        ("punctuation", "{"),
+        ("identifier", "this"),
+        ("punctuation", "("),
+        ("identifier", "path"),
+        ("punctuation", ","),
+        ("identifier", "CrownForm"),
+        ("punctuation", "."),
+        ("identifier", "COMBAT"),
+        ("punctuation", ","),
+        ("identifier", "properties"),
+        ("punctuation", ")"),
+        ("punctuation", ";"),
+        ("punctuation", "}"),
+    ]
+    tokens = list(java_tokens(source))
+    return any(
+        tokens[index : index + len(expected)] == expected
+        for index in range(len(tokens) - len(expected) + 1)
+    )
 
 
 def registered_item_ids(source: str) -> list[str]:
@@ -637,12 +672,27 @@ class CurioCrownContract(unittest.TestCase):
     def assert_no_problems(self, problems: list[str]) -> None:
         self.assertFalse(problems, "\n- " + "\n- ".join(problems))
 
-    def test_mod_items_registers_exactly_the_four_royal_ids(self):
+    def test_java_crown_contracts(self):
         try:
             source = MOD_ITEMS.read_text(encoding="utf-8")
         except (OSError, UnicodeError) as error:
             self.fail(f"cannot read {MOD_ITEMS.relative_to(ROOT)}: {error}")
         self.assert_no_problems(royal_registration_problems(source))
+        for path, class_name in (
+            (PATH_CROWN_ITEM, "PathCrownItem"),
+            (TRUE_CROWN_ITEM, "TrueCrownItem"),
+        ):
+            with self.subTest(class_name=class_name):
+                try:
+                    crown_source = path.read_text(encoding="utf-8")
+                except (OSError, UnicodeError) as error:
+                    self.fail(f"cannot read {path.relative_to(ROOT)}: {error}")
+                self.assertTrue(
+                    legacy_constructor_delegates_to_combat(crown_source, class_name),
+                    f"{path.relative_to(ROOT)} must preserve the public "
+                    f"{class_name}(Path, Properties) constructor and delegate it "
+                    "to CrownForm.COMBAT",
+                )
 
     def test_upgrade_recipes_use_exact_nine_slot_pattern(self):
         problems = []

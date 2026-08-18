@@ -44,7 +44,11 @@ public class TrueCrownItem extends ArmorItem {
     }
 
     public TrueCrownItem(Properties properties) {
-        this(Path.BALANCED, CrownForm.COMBAT, properties);
+        this(Path.BALANCED, properties);
+    }
+
+    public TrueCrownItem(Path path, Properties properties) {
+        this(path, CrownForm.COMBAT, properties);
     }
 
     public TrueCrownItem(Path path, CrownForm form, Properties properties) {

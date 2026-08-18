@@ -35,6 +35,10 @@ public class PathCrownItem extends Item {
     private final Path path;
     private final CrownForm form;
 
+    public PathCrownItem(Path path, Properties properties) {
+        this(path, CrownForm.COMBAT, properties);
+    }
+
     public PathCrownItem(Path path, CrownForm form, Properties properties) {
         super(properties);
         this.path = path;
