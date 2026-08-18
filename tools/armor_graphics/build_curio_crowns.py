@@ -4,8 +4,13 @@ import io
 import json
 import math
 import os
+import stat
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
+from pathlib import PurePosixPath, PureWindowsPath
+from types import MappingProxyType
+from typing import Mapping
 
 from PIL import Image, ImageDraw
 
@@ -33,7 +38,7 @@ FORMS = {
         "minimum_elements": 7,
     },
     "royal": {
-        "peaks": (3.5, 5.0, 6.0, 5.0, 3.5),
+        "peaks": (3.5, 5.0, 6.5, 5.0, 3.5),
         "peak_x": (2.2, 5.1, 8.0, 10.9, 13.8),
         "ring_height": 2.5,
         "minimum_elements": 11,
@@ -87,17 +92,42 @@ FAMILY_SPECS = {
         "palette": {
             "shadow": (17, 13, 25, 255),
             "base": (62, 52, 67, 255),
-            "mid": (163, 145, 126, 255),
-            "edge": (241, 220, 168, 255),
+            "mid": (54, 111, 42, 255),
+            "edge": (218, 167, 47, 255),
             "seam": (38, 29, 43, 255),
             "gem": (162, 83, 213, 255),
-            "core": (248, 230, 255, 255),
-            "accent": (63, 178, 202, 255),
+            "core": (213, 255, 112, 255),
+            "accent": (44, 189, 219, 255),
         },
         "peak_bias": (0.0, 0.35, 0.0),
         "gem_width": 2.7,
     },
 }
+
+
+def _deep_freeze(value):
+    if isinstance(value, dict):
+        return MappingProxyType({key: _deep_freeze(item) for key, item in value.items()})
+    if isinstance(value, list):
+        return tuple(_deep_freeze(item) for item in value)
+    if isinstance(value, tuple):
+        return tuple(_deep_freeze(item) for item in value)
+    return value
+
+
+FORMS = _deep_freeze(FORMS)
+FAMILY_SPECS = _deep_freeze(FAMILY_SPECS)
+
+EXPECTED_TARGETS = frozenset(
+    path
+    for item_id in CROWNS
+    for path in (
+        f"{MODEL_DIRECTORY}/{item_id}.json",
+        f"{TEXTURE_DIRECTORY}/{item_id}.png",
+    )
+)
+EXPECTED_DIRECTORIES = (MODEL_DIRECTORY, TEXTURE_DIRECTORY)
+PUBLICATION_LOCK = ".crown-assets-publication.lock"
 
 
 class InjectedFailure(RuntimeError):
@@ -109,6 +139,10 @@ class PublicationError(RuntimeError):
         self.errors = errors
         details = "; ".join(str(error) for error in errors)
         super().__init__(f"{message}: {details}")
+
+
+class PublicationBusyError(RuntimeError):
+    pass
 
 
 def png_bytes(image: Image.Image) -> bytes:
@@ -157,7 +191,7 @@ def _peak_biases(family: str, count: int) -> tuple[float, ...]:
     base = FAMILY_SPECS[family]["peak_bias"]
     if count == 3:
         return base
-    return (base[0], base[1], base[1], base[1], base[2])
+    return (0.0,) * count
 
 
 def build_model(item_id: str, family: str, form: str) -> dict:
@@ -181,7 +215,7 @@ def build_model(item_id: str, family: str, form: str) -> dict:
     for index, (x, height, bias) in enumerate(
         zip(form_spec["peak_x"], form_spec["peaks"], biases), start=1
     ):
-        top = min(15.25, ring_top + height + bias)
+        top = ring_top + height + bias
         angle = -22.5 if index < (len(form_spec["peaks"]) + 1) / 2 else 22.5
         if index == (len(form_spec["peaks"]) + 1) // 2:
             angle = 22.5 if family in {"void", "balance"} else -22.5
@@ -198,7 +232,7 @@ def build_model(item_id: str, family: str, form: str) -> dict:
             _cube(
                 f"finial_{index:02d}",
                 (x - peak_width * 0.27, top - 0.12, 1.4),
-                (x + peak_width * 0.27, min(16.0, top + 0.62), 2.6),
+                (x + peak_width * 0.27, top + 0.62, 2.6),
                 (9, 1, 13, 5),
                 rotation=("z", angle),
             )
@@ -407,12 +441,116 @@ def _failure_indexes(failure: str | None, phase: str) -> set[int]:
     return indexes
 
 
+def _is_reparse_point(path: Path) -> bool:
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return False
+    attributes = getattr(metadata, "st_file_attributes", 0)
+    reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+    return path.is_symlink() or bool(attributes & reparse_flag)
+
+
+def _is_within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
+
+
+def _validated_targets(repo_root: Path, payloads: Mapping[str, bytes]) -> tuple[Path, list[tuple[str, bytes]]]:
+    if not repo_root.exists() or not repo_root.is_dir():
+        raise ValueError("repository root must be an existing directory")
+    if _is_reparse_point(repo_root):
+        raise ValueError("repository root cannot be a symlink or reparse point")
+    root = repo_root.resolve(strict=True)
+
+    keys: list[str] = []
+    folded: set[str] = set()
+    for relative in payloads:
+        if type(relative) is not str or not relative:
+            raise ValueError("crown target keys must be non-empty strings")
+        posix = PurePosixPath(relative)
+        windows = PureWindowsPath(relative)
+        if (
+            "\\" in relative
+            or posix.is_absolute()
+            or windows.is_absolute()
+            or windows.drive
+            or any(part in {"", ".", ".."} for part in posix.parts)
+            or posix.as_posix() != relative
+        ):
+            raise ValueError(f"unsafe crown target: {relative!r}")
+        case_key = relative.casefold()
+        if case_key in folded:
+            raise ValueError(f"duplicate or case-colliding crown target: {relative!r}")
+        folded.add(case_key)
+        keys.append(relative)
+
+    if len(keys) != 16 or frozenset(keys) != EXPECTED_TARGETS:
+        raise ValueError("crown publication requires the canonical sixteen targets")
+
+    allowed_roots = {
+        directory: (root / PurePosixPath(directory)).resolve(strict=False)
+        for directory in EXPECTED_DIRECTORIES
+    }
+    for relative in keys:
+        relative_path = PurePosixPath(relative)
+        target = root.joinpath(*relative_path.parts)
+        expected_directory = next(
+            directory
+            for directory in EXPECTED_DIRECTORIES
+            if relative == directory or relative.startswith(directory + "/")
+        )
+        allowed_root = allowed_roots[expected_directory]
+        resolved_target = target.resolve(strict=False)
+        if not _is_within(resolved_target, root) or not _is_within(resolved_target, allowed_root):
+            raise ValueError(f"crown target escapes its asset directory: {relative!r}")
+        cursor = root
+        for part in relative_path.parts:
+            cursor = cursor / part
+            if _is_reparse_point(cursor):
+                raise ValueError(f"crown target crosses a symlink or reparse point: {relative!r}")
+    return root, sorted(payloads.items())
+
+
+@contextmanager
+def _publication_lock(repo_root: Path):
+    lock_path = repo_root / PUBLICATION_LOCK
+    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+    if hasattr(os, "O_BINARY"):
+        flags |= os.O_BINARY
+    try:
+        descriptor = os.open(lock_path, flags, 0o600)
+    except FileExistsError as error:
+        raise PublicationBusyError(
+            f"another crown publication is active ({PUBLICATION_LOCK})"
+        ) from error
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(f"pid={os.getpid()}\n".encode("ascii"))
+            stream.flush()
+            os.fsync(stream.fileno())
+        yield
+    finally:
+        lock_path.unlink(missing_ok=True)
+
+
 def publish_payloads(
-    repo_root: Path, payloads: dict[str, bytes], *, failure: str | None = None
+    repo_root: Path, payloads: Mapping[str, bytes], *, failure: str | None = None
 ) -> None:
-    if len(payloads) != 16 or len(set(payloads)) != 16:
-        raise ValueError("crown publication requires exactly sixteen unique targets")
-    ordered = sorted(payloads.items())
+    if not repo_root.exists() or not repo_root.is_dir() or _is_reparse_point(repo_root):
+        raise ValueError("repository root must be an existing non-reparse directory")
+    root = repo_root.resolve(strict=True)
+    with _publication_lock(root):
+        _publish_payloads_locked(root, payloads, failure=failure)
+
+
+def _publish_payloads_locked(
+    repo_root: Path, payloads: Mapping[str, bytes], *, failure: str | None = None
+) -> None:
+    repo_root, ordered = _validated_targets(repo_root, payloads)
     candidates: dict[str, Path] = {}
     backups: dict[str, Path | None] = {}
     published: list[str] = []

@@ -3,9 +3,13 @@ from __future__ import annotations
 import json
 import importlib.util
 import math
+import os
+import operator
 import re
+import subprocess
 import sys
 import tempfile
+import time
 import unittest
 import warnings
 from collections import Counter
@@ -1149,6 +1153,76 @@ class CrownAssetGeneratorContract(unittest.TestCase):
                 )
         self.assertEqual(8, len(geometry_signatures))
 
+    def test_royal_models_have_exact_unclipped_five_step_peak_extents(self):
+        expected_tops = (14.0, 15.5, 17.0, 15.5, 14.0)
+        for item_id, (family, form) in CROWN_ASSET_CONTRACT.items():
+            if form != "royal":
+                continue
+            with self.subTest(item_id=item_id):
+                model = self.generator.build_model(item_id, family, form)
+                peaks = sorted(
+                    (element for element in model["elements"] if element["name"].startswith("peak_")),
+                    key=lambda element: element["name"],
+                )
+                tops = tuple(element["to"][1] for element in peaks)
+                self.assertEqual(expected_tops, tops)
+                self.assertEqual(1, tops.count(max(tops)))
+                self.assertGreater(tops[2], tops[1])
+                self.assertGreater(tops[1], tops[0])
+
+    def test_balance_assets_independently_combine_three_paths_symmetrically(self):
+        expected_colours = {
+            "void_purple": (162, 83, 213, 255),
+            "celestial_cyan": (44, 189, 219, 255),
+            "celestial_gold": (218, 167, 47, 255),
+            "living_moss": (54, 111, 42, 255),
+            "living_lime": (213, 255, 112, 255),
+        }
+        texture = self.generator.build_texture("balance", "royal")
+        colours = Counter(texture.getdata())
+        for role, colour in expected_colours.items():
+            self.assertGreater(colours[colour], 0, role)
+
+        model = self.generator.build_model("royal_balance_crown", "balance", "royal")
+        by_name = {element["name"]: element for element in model["elements"]}
+        semantic_pairs = (
+            ("ornament_balance_left", "ornament_balance_right"),
+            ("ornament_balance_left_prism", "ornament_balance_right_prism"),
+        )
+        for left_name, right_name in semantic_pairs:
+            left, right = by_name[left_name], by_name[right_name]
+            self.assertEqual(left["from"][1:], right["from"][1:])
+            self.assertEqual(left["to"][1:], right["to"][1:])
+            self.assertAlmostEqual(16.0 - left["to"][0], right["from"][0])
+            self.assertAlmostEqual(16.0 - left["from"][0], right["to"][0])
+
+        preview_colours = set(self.generator.render_model(model, "balance", "royal").getdata())
+        expected_rendered_colours = {
+            (123, 63, 162, 255),
+            (37, 159, 184, 255),
+            (183, 140, 39, 255),
+            (45, 93, 35, 255),
+            (179, 214, 94, 255),
+        }
+        self.assertTrue(expected_rendered_colours.issubset(preview_colours))
+
+    def test_generator_specs_are_recursively_immutable(self):
+        mutations = (
+            lambda generator: operator.setitem(generator.FORMS, "royal", {}),
+            lambda generator: operator.setitem(generator.FORMS["royal"], "ring_height", 99),
+            lambda generator: operator.setitem(generator.FAMILY_SPECS, "balance", {}),
+            lambda generator: operator.setitem(
+                generator.FAMILY_SPECS["balance"]["palette"], "core", (0, 0, 0, 0)
+            ),
+        )
+        for mutate in mutations:
+            generator = load_crown_generator()
+            before = generator.build_payloads()
+            with self.subTest(mutate=mutate):
+                with self.assertRaises(TypeError):
+                    mutate(generator)
+                self.assertEqual(before, generator.build_payloads())
+
     def test_every_face_is_visible_uv_bounded_and_uses_own_texture(self):
         for item_id in sorted(CROWN_ASSET_CONTRACT):
             with self.subTest(item_id=item_id):
@@ -1216,9 +1290,9 @@ class CrownAssetGeneratorContract(unittest.TestCase):
             for relative in relative_paths:
                 self.assertEqual((first / relative).read_bytes(), (second / relative).read_bytes())
 
-    def test_candidate_and_publish_failure_restore_all_original_bytes(self):
+    def test_candidate_publish_and_verify_failure_restore_all_original_bytes(self):
         payloads = self.generator.build_payloads()
-        for failure in ("candidate:8", "publish:8"):
+        for failure in ("candidate:8", "publish:8", "verify:8"):
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 originals = {}
@@ -1237,6 +1311,107 @@ class CrownAssetGeneratorContract(unittest.TestCase):
                     if path.is_file() and (".candidate" in path.name or ".backup" in path.name)
                 ]
                 self.assertEqual([], leftovers)
+
+    def test_publication_rejects_noncanonical_and_escaping_targets(self):
+        valid = self.generator.build_payloads()
+        legitimate = next(iter(valid))
+        attacks = (
+            "../" + legitimate,
+            "/tmp/royal_void_crown.json",
+            "C:/outside/royal_void_crown.json",
+            legitimate.replace("/", "\\"),
+            legitimate.upper(),
+        )
+        for attack in attacks:
+            with self.subTest(attack=attack), tempfile.TemporaryDirectory() as directory:
+                payloads = dict(valid)
+                payloads.pop(legitimate)
+                payloads[attack] = b"attack"
+                with self.assertRaises(ValueError):
+                    self.generator.publish_payloads(Path(directory), payloads)
+                self.assertFalse(any(Path(directory).rglob("*.candidate")))
+
+    def test_publication_rejects_reparse_parent_escape(self):
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside_dir:
+            root = Path(directory)
+            assets = root / "src/main/resources/assets/usless_mobs"
+            assets.parent.mkdir(parents=True)
+            try:
+                assets.symlink_to(Path(outside_dir), target_is_directory=True)
+            except OSError as error:
+                if os.name != "nt":
+                    self.skipTest(f"directory symlinks unavailable: {error}")
+                junction = subprocess.run(
+                    ["cmd", "/c", "mklink", "/J", str(assets), outside_dir],
+                    capture_output=True,
+                    text=True,
+                )
+                if junction.returncode:
+                    self.skipTest(f"directory reparse points unavailable: {junction.stderr}")
+            with self.assertRaises(ValueError):
+                self.generator.publish_payloads(root, self.generator.build_payloads())
+            self.assertEqual([], list(Path(outside_dir).rglob("*")))
+
+    def test_cross_process_lock_prevents_stale_failure_rollback_over_success(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payloads = self.generator.build_payloads()
+            for relative in payloads:
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(b"original")
+            ready = root / "publisher.ready"
+            release = root / "publisher.release"
+            script = r'''
+import importlib.util
+import os
+import sys
+import time
+from pathlib import Path
+
+generator_path, root_text, ready_text, release_text = sys.argv[1:]
+spec = importlib.util.spec_from_file_location("concurrent_crown_generator", generator_path)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+original_stage = module._stage_payload
+staged = 0
+def gated_stage(target, payload, suffix):
+    global staged
+    result = original_stage(target, payload, suffix)
+    staged += 1
+    if staged == 1:
+        Path(ready_text).write_text("ready", encoding="utf-8")
+        while not Path(release_text).exists():
+            time.sleep(0.01)
+    return result
+module._stage_payload = gated_stage
+try:
+    module.publish_payloads(Path(root_text), module.build_payloads(), failure="publish:8")
+except module.InjectedFailure:
+    sys.exit(0)
+sys.exit(3)
+'''
+            process = subprocess.Popen(
+                [sys.executable, "-c", script, str(CROWN_GENERATOR), str(root), str(ready), str(release)],
+                cwd=ROOT,
+            )
+            try:
+                deadline = time.monotonic() + 10
+                while not ready.exists() and process.poll() is None and time.monotonic() < deadline:
+                    time.sleep(0.02)
+                self.assertTrue(ready.exists(), "failing publisher never acquired transaction lock")
+                with self.assertRaises(self.generator.PublicationBusyError):
+                    self.generator.publish_payloads(root, payloads)
+                self.assertTrue(all((root / relative).read_bytes() == b"original" for relative in payloads))
+                release.write_text("release", encoding="utf-8")
+                self.assertEqual(0, process.wait(timeout=10))
+                self.generator.publish_payloads(root, payloads)
+                self.assertTrue(all((root / relative).read_bytes() == expected for relative, expected in payloads.items()))
+            finally:
+                release.touch(exist_ok=True)
+                if process.poll() is None:
+                    process.kill()
+                    process.wait()
 
     def test_cleanup_failures_are_aggregated_instead_of_hidden(self):
         with tempfile.TemporaryDirectory() as directory:
