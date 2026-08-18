@@ -5,6 +5,7 @@ import com.Momik.usless_mobs.item.AwakenedBearclawNecklaceItem;
 import com.Momik.usless_mobs.item.BearclawNecklaceItem;
 import com.Momik.usless_mobs.item.CrystalToolTier;
 import com.Momik.usless_mobs.item.CrystalUpgradeTemplateItem;
+import com.Momik.usless_mobs.item.CrownForm;
 import com.Momik.usless_mobs.item.GlowbaitFishingRodItem;
 import com.Momik.usless_mobs.item.GlowFlareItem;
 import com.Momik.usless_mobs.item.GoldenSlimeSpawnEggItem;
@@ -200,17 +201,22 @@ public final class ModItems {
             () -> new LivingRootBootsItem(new Item.Properties().stacksTo(1).fireResistant().rarity(Rarity.EPIC)));
 
     public static final RegistryObject<Item> TRUE_CROWN = ITEMS.register("true_crown",
-            () -> new TrueCrownItem(new Item.Properties().stacksTo(1).fireResistant().rarity(Rarity.EPIC)));
+            () -> new TrueCrownItem(TrueCrownItem.Path.BALANCED, CrownForm.COMBAT, crownProperties()));
 
     public static final RegistryObject<Item> VOID_REAPER_KING = ITEMS.register("void_reaper_king",
-            () -> new PathCrownItem(PathCrownItem.Path.VOID,
-                    new Item.Properties().stacksTo(1).fireResistant().rarity(Rarity.EPIC)));
+            () -> new PathCrownItem(PathCrownItem.Path.VOID, CrownForm.COMBAT, crownProperties()));
     public static final RegistryObject<Item> GOD_KING = ITEMS.register("god_king",
-            () -> new PathCrownItem(PathCrownItem.Path.CELESTIAL,
-                    new Item.Properties().stacksTo(1).fireResistant().rarity(Rarity.EPIC)));
+            () -> new PathCrownItem(PathCrownItem.Path.CELESTIAL, CrownForm.COMBAT, crownProperties()));
     public static final RegistryObject<Item> LIVING_KING = ITEMS.register("living_king",
-            () -> new PathCrownItem(PathCrownItem.Path.LIVING,
-                    new Item.Properties().stacksTo(1).fireResistant().rarity(Rarity.EPIC)));
+            () -> new PathCrownItem(PathCrownItem.Path.LIVING, CrownForm.COMBAT, crownProperties()));
+    public static final RegistryObject<Item> ROYAL_VOID_CROWN = ITEMS.register("royal_void_crown",
+            () -> new PathCrownItem(PathCrownItem.Path.VOID, CrownForm.ROYAL, crownProperties()));
+    public static final RegistryObject<Item> ROYAL_CELESTIAL_CROWN = ITEMS.register("royal_celestial_crown",
+            () -> new PathCrownItem(PathCrownItem.Path.CELESTIAL, CrownForm.ROYAL, crownProperties()));
+    public static final RegistryObject<Item> ROYAL_LIVING_CROWN = ITEMS.register("royal_living_crown",
+            () -> new PathCrownItem(PathCrownItem.Path.LIVING, CrownForm.ROYAL, crownProperties()));
+    public static final RegistryObject<Item> ROYAL_BALANCE_CROWN = ITEMS.register("royal_balance_crown",
+            () -> new TrueCrownItem(TrueCrownItem.Path.BALANCED, CrownForm.ROYAL, crownProperties()));
 
     public static final RegistryObject<Item> VOID_VITALITY_TEMPLATE = ITEMS.register("void_vitality_template",
             () -> new CrystalUpgradeTemplateItem("item.usless_mobs.void_vitality_template.tooltip",
@@ -559,6 +565,10 @@ public final class ModItems {
     }
 
     private static Item.Properties crystalToolProperties() {
+        return new Item.Properties().stacksTo(1).fireResistant().rarity(Rarity.EPIC);
+    }
+
+    private static Item.Properties crownProperties() {
         return new Item.Properties().stacksTo(1).fireResistant().rarity(Rarity.EPIC);
     }
 

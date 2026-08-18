@@ -27,6 +27,7 @@ import org.jetbrains.annotations.Nullable;
 public class TrueCrownItem extends ArmorItem {
     private static final String NEXT_GUARD_KEY = "UslessMobs_TrueCrown_NextGuard";
     private final Path path;
+    private final CrownForm form;
 
     public enum Path {
         BALANCED("item.usless_mobs.true_crown.tooltip.path", "item.usless_mobs.true_crown.tooltip.guard", ChatFormatting.LIGHT_PURPLE);
@@ -43,12 +44,17 @@ public class TrueCrownItem extends ArmorItem {
     }
 
     public TrueCrownItem(Properties properties) {
-        this(Path.BALANCED, properties);
+        this(Path.BALANCED, CrownForm.COMBAT, properties);
     }
 
-    public TrueCrownItem(Path path, Properties properties) {
+    public TrueCrownItem(Path path, CrownForm form, Properties properties) {
         super(ArmorMaterials.NETHERITE, Type.HELMET, properties);
         this.path = path;
+        this.form = form;
+    }
+
+    public CrownForm getForm() {
+        return form;
     }
 
     @Override

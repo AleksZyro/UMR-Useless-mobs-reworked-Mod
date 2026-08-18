@@ -33,14 +33,20 @@ public class PathCrownItem extends Item {
     }
 
     private final Path path;
+    private final CrownForm form;
 
-    public PathCrownItem(Path path, Properties properties) {
+    public PathCrownItem(Path path, CrownForm form, Properties properties) {
         super(properties);
         this.path = path;
+        this.form = form;
     }
 
     public Path getPath() {
         return path;
+    }
+
+    public CrownForm getForm() {
+        return form;
     }
 
     @Override

@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["DDD", "DCD", "DND"],
+  "key": {
+    "D": {"item": "minecraft:diamond"},
+    "C": {"item": "usless_mobs:true_crown"},
+    "N": {"item": "minecraft:netherite_ingot"}
+  },
+  "result": {"item": "usless_mobs:royal_balance_crown", "count": 1}
+}
