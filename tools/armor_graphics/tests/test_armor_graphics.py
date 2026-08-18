@@ -486,7 +486,7 @@ def worn_method_geometry(source: str, method_name: str) -> dict[str, tuple]:
     searchable_source = mask_java_non_code(source)
     declaration = re.compile(
         rf"\bprivate\s+static\s+void\s+{re.escape(method_name)}\s*\(\s*PartDefinition\s+root"
-        rf"(?:\s*,\s*TruePathArmorItem\.Path\s+path)?\s*\)\s*\{{"
+        rf"(?:\s*,\s*(?:TruePathArmorItem\.Path\s+path|ArmorItem\.Type\s+type))?\s*\)\s*\{{"
     )
     declarations = list(declaration.finditer(searchable_source))
     if len(declarations) != 1:
