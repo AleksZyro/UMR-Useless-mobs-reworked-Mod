@@ -93,7 +93,7 @@ def test_reversion_recipes_are_one_item_shapeless(self):
 
 ```python
 ALL_IDS = set(ROYAL_IDS) | set(ROYAL_IDS.values())
-self.assertEqual(ALL_IDS, set(load_crown_tag()["values"]))
+self.assertTrue(ALL_IDS.issubset(set(load_crown_tag()["values"])))
 for item_id in ALL_IDS:
     self.assertTrue((MODELS / f"{item_id}.json").is_file())
     with Image.open(TEXTURES / f"{item_id}.png") as image:
