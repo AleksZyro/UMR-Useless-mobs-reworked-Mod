@@ -773,11 +773,14 @@ def assert_void_crystal_knight_routing_contract(source: str) -> None:
         normalize_java(
             f"if (path == TruePathArmorItem.Path.VOID) {{ {direct_call} }}"
         ),
-        normalize_java("else { addChestDetails(root, path); }"),
+        normalize_java(
+            "else if (path == TruePathArmorItem.Path.CELESTIAL) { addCelestialChestDetails(root); }"
+        ),
+        normalize_java("else { addLivingChestDetails(root); }"),
     ]
     if chestplate_units != expected_chestplate_units:
         raise AssertionError(
-            f"{method_name} must be the direct Path.VOID chestplate branch with the legacy else branch"
+            f"{method_name} must be the direct Path.VOID chestplate branch before the explicit family branches"
         )
     if [normalize_java(unit) for unit in java_top_level_units(void_body)] != [direct_call]:
         raise AssertionError(f"{method_name} must be a direct top-level Path.VOID call")
@@ -1029,8 +1032,10 @@ class ContractHelperTests(unittest.TestCase):
                 if (type == ArmorItem.Type.CHESTPLATE) {
                     if (path == TruePathArmorItem.Path.VOID) {
                         addVoidCrystalKnightDetails(root);
+                    } else if (path == TruePathArmorItem.Path.CELESTIAL) {
+                        addCelestialChestDetails(root);
                     } else {
-                        addChestDetails(root, path);
+                        addLivingChestDetails(root);
                     }
                 }
                 return new Example();
@@ -1680,6 +1685,74 @@ class VisualBaselineContract(unittest.TestCase):
                 self.assertGreaterEqual(height, 480)
                 dimensions.append((width, height))
         self.assertEqual(1, len(set(dimensions)), "all baseline captures must use one window size")
+
+
+class TripoWornArmorContract(unittest.TestCase):
+    DETAIL_METHODS = {
+        "addVoidHelmetDetails": ("head", 6),
+        "addCelestialHelmetDetails": ("head", 6),
+        "addLivingHelmetDetails": ("head", 6),
+        "addVoidLegDetails": ("right_leg", 6),
+        "addCelestialLegDetails": ("right_leg", 6),
+        "addLivingLegDetails": ("right_leg", 6),
+        "addVoidBootDetails": ("right_leg", 6),
+        "addCelestialBootDetails": ("right_leg", 6),
+        "addLivingBootDetails": ("right_leg", 6),
+        "addCelestialChestDetails": ("body", 8),
+        "addLivingChestDetails": ("body", 8),
+    }
+
+    def test_all_sixteen_tripo_design_sources_are_hash_locked(self):
+        manifest_path = REPO_ROOT / "Modelle/Exports/armor_graphics_tripo/tripo-source-baseline.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        expected = {f"{family}/{slot}" for family in SETS for slot in SLOTS}
+        self.assertEqual(expected, set(manifest["sources"]))
+        source_root = manifest_path.parent / "models"
+        for identity, entry in manifest["sources"].items():
+            with self.subTest(source=identity):
+                path = source_root / entry["path"]
+                self.assertTrue(path.is_file(), f"missing immutable Tripo source {path}")
+                payload = path.read_bytes()
+                self.assertEqual(entry["bytes"], len(payload), f"size drift for {identity}")
+                self.assertEqual(entry["sha256"], hashlib.sha256(payload).hexdigest(), f"hash drift for {identity}")
+
+    def test_every_path_slot_has_nontrivial_bone_owned_detail_geometry(self):
+        source_path = REPO_ROOT / "src/main/java/com/Momik/usless_mobs/client/WornTruePathArmorModel.java"
+        source = source_path.read_text(encoding="utf-8")
+        for method, (primary_owner, minimum) in self.DETAIL_METHODS.items():
+            with self.subTest(method=method):
+                geometry = worn_method_geometry(source, method)
+                self.assertGreaterEqual(len(geometry), minimum, f"{method} needs Tripo-level detail")
+                owners = {entry[0] for entry in geometry.values()}
+                if "Chest" in method:
+                    self.assertTrue(owners <= {"body", "right_arm", "left_arm"})
+                    self.assertIn(primary_owner, owners)
+                    self.assertTrue({"right_arm", "left_arm"} <= owners)
+                elif "Helmet" in method:
+                    self.assertEqual({"head"}, owners)
+                else:
+                    self.assertEqual({"right_leg", "left_leg"}, owners)
+
+    def test_runtime_routes_each_family_and_slot_to_its_detail_method(self):
+        source = (REPO_ROOT / "src/main/java/com/Momik/usless_mobs/client/WornTruePathArmorModel.java").read_text(
+            encoding="utf-8"
+        )
+        required_calls = (
+            "addVoidHelmetDetails(root);",
+            "addCelestialHelmetDetails(root);",
+            "addLivingHelmetDetails(root);",
+            "addVoidCrystalKnightDetails(root);",
+            "addCelestialChestDetails(root);",
+            "addLivingChestDetails(root);",
+            "addVoidLegDetails(root);",
+            "addCelestialLegDetails(root);",
+            "addLivingLegDetails(root);",
+            "addVoidBootDetails(root);",
+            "addCelestialBootDetails(root);",
+            "addLivingBootDetails(root);",
+        )
+        for call in required_calls:
+            self.assertEqual(1, mask_java_non_code(source).count(call), f"missing or duplicate route {call}")
 
 
 if __name__ == "__main__":

@@ -24,19 +24,42 @@ public class WornTruePathArmorModel extends HumanoidModel<LivingEntity> {
         addBaseVolume(root, type);
         if (type == ArmorItem.Type.HELMET) {
             addPathCrown(root, path);
+            if (path == TruePathArmorItem.Path.VOID) {
+                addVoidHelmetDetails(root);
+            } else if (path == TruePathArmorItem.Path.CELESTIAL) {
+                addCelestialHelmetDetails(root);
+            } else {
+                addLivingHelmetDetails(root);
+            }
         }
         if (type == ArmorItem.Type.CHESTPLATE) {
             if (path == TruePathArmorItem.Path.VOID) {
                 addVoidCrystalKnightDetails(root);
+            } else if (path == TruePathArmorItem.Path.CELESTIAL) {
+                addCelestialChestDetails(root);
             } else {
-                addChestDetails(root, path);
+                addLivingChestDetails(root);
             }
         }
         if (type == ArmorItem.Type.LEGGINGS) {
             addLegDetails(root, path);
+            if (path == TruePathArmorItem.Path.VOID) {
+                addVoidLegDetails(root);
+            } else if (path == TruePathArmorItem.Path.CELESTIAL) {
+                addCelestialLegDetails(root);
+            } else {
+                addLivingLegDetails(root);
+            }
         }
         if (type == ArmorItem.Type.BOOTS) {
             addBootDetails(root, path);
+            if (path == TruePathArmorItem.Path.VOID) {
+                addVoidBootDetails(root);
+            } else if (path == TruePathArmorItem.Path.CELESTIAL) {
+                addCelestialBootDetails(root);
+            } else {
+                addLivingBootDetails(root);
+            }
         }
 
         return new WornTruePathArmorModel(LayerDefinition.create(mesh, 128, 64).bakeRoot());
@@ -230,6 +253,319 @@ public class WornTruePathArmorModel extends HumanoidModel<LivingEntity> {
                             .addBox(-1.0F, -0.6F, -0.6F, 2.0F, 1.2F, 1.2F, new CubeDeformation(0.05F)),
                     PartPose.offsetAndRotation(2.0F, -10.6F, -4.7F, 0.0F, 0.0F, 0.42F));
         }
+    }
+
+    private static void addVoidHelmetDetails(PartDefinition root) {
+        root.getChild("head").addOrReplaceChild("tripo_void_brow_left",
+                CubeListBuilder.create().texOffs(0, 0)
+                        .addBox(-1.8F, -0.5F, -0.45F, 3.6F, 1.0F, 0.9F, new CubeDeformation(0.05F)),
+                PartPose.offsetAndRotation(-2.0F, -5.9F, -4.85F, 0.0F, 0.0F, 0.22F));
+        root.getChild("head").addOrReplaceChild("tripo_void_brow_right",
+                CubeListBuilder.create().texOffs(10, 0)
+                        .addBox(-1.8F, -0.5F, -0.45F, 3.6F, 1.0F, 0.9F, new CubeDeformation(0.05F)),
+                PartPose.offsetAndRotation(2.0F, -5.9F, -4.85F, 0.0F, 0.0F, -0.22F));
+        root.getChild("head").addOrReplaceChild("tripo_void_cheek_left",
+                CubeListBuilder.create().texOffs(20, 0)
+                        .addBox(-0.55F, -1.7F, -0.5F, 1.1F, 3.4F, 1.0F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(-4.45F, -3.4F, -4.35F, 0.0F, 0.0F, -0.14F));
+        root.getChild("head").addOrReplaceChild("tripo_void_cheek_right",
+                CubeListBuilder.create().texOffs(26, 0)
+                        .addBox(-0.55F, -1.7F, -0.5F, 1.1F, 3.4F, 1.0F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(4.45F, -3.4F, -4.35F, 0.0F, 0.0F, 0.14F));
+        root.getChild("head").addOrReplaceChild("tripo_void_rear_crest",
+                CubeListBuilder.create().texOffs(32, 0)
+                        .addBox(-1.0F, -2.0F, -0.55F, 2.0F, 4.0F, 1.1F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, -9.4F, 4.55F, -0.18F, 0.0F, 0.0F));
+        root.getChild("head").addOrReplaceChild("tripo_void_face_crystal",
+                CubeListBuilder.create().texOffs(40, 0)
+                        .addBox(-0.8F, -0.8F, -0.4F, 1.6F, 1.6F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, -4.8F, -5.18F, 0.0F, 0.0F, 0.7853982F));
+    }
+
+    private static void addCelestialHelmetDetails(PartDefinition root) {
+        root.getChild("head").addOrReplaceChild("tripo_celestial_halo_front",
+                CubeListBuilder.create().texOffs(48, 0)
+                        .addBox(-3.8F, -0.4F, -0.45F, 7.6F, 0.8F, 0.9F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, -9.5F, -4.7F, 0.0F, 0.0F, 0.0F));
+        root.getChild("head").addOrReplaceChild("tripo_celestial_wing_left",
+                CubeListBuilder.create().texOffs(66, 0)
+                        .addBox(-1.8F, -0.55F, -0.45F, 3.6F, 1.1F, 0.9F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(-4.7F, -7.5F, -4.25F, 0.0F, 0.0F, -0.52F));
+        root.getChild("head").addOrReplaceChild("tripo_celestial_wing_right",
+                CubeListBuilder.create().texOffs(76, 0)
+                        .addBox(-1.8F, -0.55F, -0.45F, 3.6F, 1.1F, 0.9F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(4.7F, -7.5F, -4.25F, 0.0F, 0.0F, 0.52F));
+        root.getChild("head").addOrReplaceChild("tripo_celestial_ray_left",
+                CubeListBuilder.create().texOffs(86, 0)
+                        .addBox(-0.6F, -1.8F, -0.5F, 1.2F, 3.6F, 1.0F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(-3.1F, -10.5F, -0.2F, 0.0F, 0.0F, -0.25F));
+        root.getChild("head").addOrReplaceChild("tripo_celestial_ray_right",
+                CubeListBuilder.create().texOffs(92, 0)
+                        .addBox(-0.6F, -1.8F, -0.5F, 1.2F, 3.6F, 1.0F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(3.1F, -10.5F, -0.2F, 0.0F, 0.0F, 0.25F));
+        root.getChild("head").addOrReplaceChild("tripo_celestial_forehead_gem",
+                CubeListBuilder.create().texOffs(98, 0)
+                        .addBox(-0.75F, -0.75F, -0.4F, 1.5F, 1.5F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, -5.3F, -5.15F, 0.0F, 0.0F, 0.7853982F));
+    }
+
+    private static void addLivingHelmetDetails(PartDefinition root) {
+        root.getChild("head").addOrReplaceChild("tripo_living_bark_brow_left",
+                CubeListBuilder.create().texOffs(106, 0)
+                        .addBox(-1.9F, -0.55F, -0.5F, 3.8F, 1.1F, 1.0F, new CubeDeformation(0.05F)),
+                PartPose.offsetAndRotation(-2.0F, -5.8F, -4.8F, 0.0F, 0.0F, 0.18F));
+        root.getChild("head").addOrReplaceChild("tripo_living_bark_brow_right",
+                CubeListBuilder.create().texOffs(118, 0)
+                        .addBox(-1.9F, -0.55F, -0.5F, 3.8F, 1.1F, 1.0F, new CubeDeformation(0.05F)),
+                PartPose.offsetAndRotation(2.0F, -5.8F, -4.8F, 0.0F, 0.0F, -0.18F));
+        root.getChild("head").addOrReplaceChild("tripo_living_antler_left",
+                CubeListBuilder.create().texOffs(0, 8)
+                        .addBox(-0.65F, -2.1F, -0.6F, 1.3F, 4.2F, 1.2F, new CubeDeformation(0.05F)),
+                PartPose.offsetAndRotation(-3.0F, -10.2F, 0.0F, 0.0F, 0.0F, -0.28F));
+        root.getChild("head").addOrReplaceChild("tripo_living_antler_right",
+                CubeListBuilder.create().texOffs(8, 8)
+                        .addBox(-0.65F, -2.1F, -0.6F, 1.3F, 4.2F, 1.2F, new CubeDeformation(0.05F)),
+                PartPose.offsetAndRotation(3.0F, -10.2F, 0.0F, 0.0F, 0.0F, 0.28F));
+        root.getChild("head").addOrReplaceChild("tripo_living_leaf_crest",
+                CubeListBuilder.create().texOffs(16, 8)
+                        .addBox(-1.5F, -0.55F, -0.45F, 3.0F, 1.1F, 0.9F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, -10.7F, -4.4F, 0.0F, 0.0F, 0.52F));
+        root.getChild("head").addOrReplaceChild("tripo_living_forehead_seed",
+                CubeListBuilder.create().texOffs(26, 8)
+                        .addBox(-0.75F, -0.75F, -0.4F, 1.5F, 1.5F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, -5.0F, -5.15F, 0.0F, 0.0F, 0.7853982F));
+    }
+
+    private static void addCelestialChestDetails(PartDefinition root) {
+        root.getChild("body").addOrReplaceChild("tripo_celestial_breast_left",
+                CubeListBuilder.create().texOffs(34, 8)
+                        .addBox(-1.9F, -1.0F, -0.45F, 3.8F, 2.0F, 0.9F, new CubeDeformation(0.05F)),
+                PartPose.offsetAndRotation(-2.0F, 2.2F, -3.2F, 0.0F, 0.0F, 0.28F));
+        root.getChild("body").addOrReplaceChild("tripo_celestial_breast_right",
+                CubeListBuilder.create().texOffs(46, 8)
+                        .addBox(-1.9F, -1.0F, -0.45F, 3.8F, 2.0F, 0.9F, new CubeDeformation(0.05F)),
+                PartPose.offsetAndRotation(2.0F, 2.2F, -3.2F, 0.0F, 0.0F, -0.28F));
+        root.getChild("body").addOrReplaceChild("tripo_celestial_sternum_gem",
+                CubeListBuilder.create().texOffs(58, 8)
+                        .addBox(-0.9F, -0.9F, -0.4F, 1.8F, 1.8F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 3.0F, -3.62F, 0.0F, 0.0F, 0.7853982F));
+        root.getChild("body").addOrReplaceChild("tripo_celestial_back_sun",
+                CubeListBuilder.create().texOffs(66, 8)
+                        .addBox(-2.4F, -1.2F, -0.4F, 4.8F, 2.4F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 3.1F, 3.25F, 0.0F, 0.0F, 0.7853982F));
+        root.getChild("right_arm").addOrReplaceChild("tripo_celestial_right_pauldron",
+                CubeListBuilder.create().texOffs(80, 8)
+                        .addBox(-2.2F, -0.7F, -2.7F, 4.4F, 1.4F, 5.4F, new CubeDeformation(0.06F)),
+                PartPose.offsetAndRotation(-2.0F, -2.0F, 0.0F, 0.0F, 0.0F, -0.16F));
+        root.getChild("left_arm").addOrReplaceChild("tripo_celestial_left_pauldron",
+                CubeListBuilder.create().texOffs(98, 8)
+                        .addBox(-2.2F, -0.7F, -2.7F, 4.4F, 1.4F, 5.4F, new CubeDeformation(0.06F)),
+                PartPose.offsetAndRotation(2.0F, -2.0F, 0.0F, 0.0F, 0.0F, 0.16F));
+        root.getChild("right_arm").addOrReplaceChild("tripo_celestial_right_winglet",
+                CubeListBuilder.create().texOffs(116, 8)
+                        .addBox(-1.8F, -0.45F, -0.4F, 3.6F, 0.9F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(-4.2F, -2.6F, 0.0F, 0.0F, 0.0F, -0.55F));
+        root.getChild("left_arm").addOrReplaceChild("tripo_celestial_left_winglet",
+                CubeListBuilder.create().texOffs(0, 16)
+                        .addBox(-1.8F, -0.45F, -0.4F, 3.6F, 0.9F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(4.2F, -2.6F, 0.0F, 0.0F, 0.0F, 0.55F));
+    }
+
+    private static void addLivingChestDetails(PartDefinition root) {
+        root.getChild("body").addOrReplaceChild("tripo_living_bark_left",
+                CubeListBuilder.create().texOffs(10, 16)
+                        .addBox(-2.0F, -1.2F, -0.5F, 4.0F, 2.4F, 1.0F, new CubeDeformation(0.05F)),
+                PartPose.offsetAndRotation(-2.0F, 2.2F, -3.2F, 0.0F, 0.0F, 0.20F));
+        root.getChild("body").addOrReplaceChild("tripo_living_bark_right",
+                CubeListBuilder.create().texOffs(22, 16)
+                        .addBox(-2.0F, -1.2F, -0.5F, 4.0F, 2.4F, 1.0F, new CubeDeformation(0.05F)),
+                PartPose.offsetAndRotation(2.0F, 2.2F, -3.2F, 0.0F, 0.0F, -0.20F));
+        root.getChild("body").addOrReplaceChild("tripo_living_heartwood",
+                CubeListBuilder.create().texOffs(34, 16)
+                        .addBox(-0.9F, -0.9F, -0.45F, 1.8F, 1.8F, 0.9F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 3.1F, -3.65F, 0.0F, 0.0F, 0.7853982F));
+        root.getChild("body").addOrReplaceChild("tripo_living_back_bark",
+                CubeListBuilder.create().texOffs(42, 16)
+                        .addBox(-3.4F, -1.0F, -0.45F, 6.8F, 2.0F, 0.9F, new CubeDeformation(0.05F)),
+                PartPose.offsetAndRotation(0.0F, 3.2F, 3.25F, 0.0F, 0.0F, -0.10F));
+        root.getChild("right_arm").addOrReplaceChild("tripo_living_right_root_cap",
+                CubeListBuilder.create().texOffs(58, 16)
+                        .addBox(-2.2F, -0.75F, -2.7F, 4.4F, 1.5F, 5.4F, new CubeDeformation(0.06F)),
+                PartPose.offsetAndRotation(-2.0F, -2.0F, 0.0F, 0.0F, 0.0F, -0.12F));
+        root.getChild("left_arm").addOrReplaceChild("tripo_living_left_root_cap",
+                CubeListBuilder.create().texOffs(76, 16)
+                        .addBox(-2.2F, -0.75F, -2.7F, 4.4F, 1.5F, 5.4F, new CubeDeformation(0.06F)),
+                PartPose.offsetAndRotation(2.0F, -2.0F, 0.0F, 0.0F, 0.0F, 0.12F));
+        root.getChild("right_arm").addOrReplaceChild("tripo_living_right_leaf",
+                CubeListBuilder.create().texOffs(94, 16)
+                        .addBox(-1.5F, -0.45F, -0.4F, 3.0F, 0.9F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(-4.0F, -2.8F, -0.1F, 0.0F, 0.0F, -0.48F));
+        root.getChild("left_arm").addOrReplaceChild("tripo_living_left_leaf",
+                CubeListBuilder.create().texOffs(104, 16)
+                        .addBox(-1.5F, -0.45F, -0.4F, 3.0F, 0.9F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(4.0F, -2.8F, -0.1F, 0.0F, 0.0F, 0.48F));
+    }
+
+    private static void addVoidLegDetails(PartDefinition root) {
+        root.getChild("right_leg").addOrReplaceChild("tripo_void_right_thigh_blade",
+                CubeListBuilder.create().texOffs(114, 16)
+                        .addBox(-0.55F, -1.8F, -0.45F, 1.1F, 3.6F, 0.9F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(-2.75F, 2.5F, -2.65F, 0.0F, 0.0F, -0.18F));
+        root.getChild("left_leg").addOrReplaceChild("tripo_void_left_thigh_blade",
+                CubeListBuilder.create().texOffs(120, 16)
+                        .addBox(-0.55F, -1.8F, -0.45F, 1.1F, 3.6F, 0.9F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(2.75F, 2.5F, -2.65F, 0.0F, 0.0F, 0.18F));
+        root.getChild("right_leg").addOrReplaceChild("tripo_void_right_knee_gem",
+                CubeListBuilder.create().texOffs(0, 24)
+                        .addBox(-0.75F, -0.75F, -0.4F, 1.5F, 1.5F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 5.8F, -3.35F, 0.0F, 0.0F, 0.7853982F));
+        root.getChild("left_leg").addOrReplaceChild("tripo_void_left_knee_gem",
+                CubeListBuilder.create().texOffs(8, 24)
+                        .addBox(-0.75F, -0.75F, -0.4F, 1.5F, 1.5F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 5.8F, -3.35F, 0.0F, 0.0F, 0.7853982F));
+        root.getChild("right_leg").addOrReplaceChild("tripo_void_right_hip_fin",
+                CubeListBuilder.create().texOffs(16, 24)
+                        .addBox(-1.5F, -0.4F, -0.4F, 3.0F, 0.8F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(-2.65F, 0.4F, 0.0F, 0.0F, 0.0F, -0.42F));
+        root.getChild("left_leg").addOrReplaceChild("tripo_void_left_hip_fin",
+                CubeListBuilder.create().texOffs(26, 24)
+                        .addBox(-1.5F, -0.4F, -0.4F, 3.0F, 0.8F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(2.65F, 0.4F, 0.0F, 0.0F, 0.0F, 0.42F));
+    }
+
+    private static void addCelestialLegDetails(PartDefinition root) {
+        root.getChild("right_leg").addOrReplaceChild("tripo_celestial_right_thigh_ray",
+                CubeListBuilder.create().texOffs(36, 24)
+                        .addBox(-0.55F, -1.8F, -0.45F, 1.1F, 3.6F, 0.9F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(-2.7F, 2.4F, -2.6F, 0.0F, 0.0F, -0.14F));
+        root.getChild("left_leg").addOrReplaceChild("tripo_celestial_left_thigh_ray",
+                CubeListBuilder.create().texOffs(42, 24)
+                        .addBox(-0.55F, -1.8F, -0.45F, 1.1F, 3.6F, 0.9F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(2.7F, 2.4F, -2.6F, 0.0F, 0.0F, 0.14F));
+        root.getChild("right_leg").addOrReplaceChild("tripo_celestial_right_knee_star",
+                CubeListBuilder.create().texOffs(48, 24)
+                        .addBox(-0.8F, -0.8F, -0.4F, 1.6F, 1.6F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 5.7F, -3.4F, 0.0F, 0.0F, 0.7853982F));
+        root.getChild("left_leg").addOrReplaceChild("tripo_celestial_left_knee_star",
+                CubeListBuilder.create().texOffs(56, 24)
+                        .addBox(-0.8F, -0.8F, -0.4F, 1.6F, 1.6F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 5.7F, -3.4F, 0.0F, 0.0F, 0.7853982F));
+        root.getChild("right_leg").addOrReplaceChild("tripo_celestial_right_hip_wing",
+                CubeListBuilder.create().texOffs(64, 24)
+                        .addBox(-1.5F, -0.4F, -0.4F, 3.0F, 0.8F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(-2.7F, 0.5F, 0.0F, 0.0F, 0.0F, -0.50F));
+        root.getChild("left_leg").addOrReplaceChild("tripo_celestial_left_hip_wing",
+                CubeListBuilder.create().texOffs(74, 24)
+                        .addBox(-1.5F, -0.4F, -0.4F, 3.0F, 0.8F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(2.7F, 0.5F, 0.0F, 0.0F, 0.0F, 0.50F));
+    }
+
+    private static void addLivingLegDetails(PartDefinition root) {
+        root.getChild("right_leg").addOrReplaceChild("tripo_living_right_root_ridge",
+                CubeListBuilder.create().texOffs(84, 24)
+                        .addBox(-0.55F, -1.9F, -0.45F, 1.1F, 3.8F, 0.9F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(-2.7F, 2.5F, -2.6F, 0.0F, 0.0F, -0.12F));
+        root.getChild("left_leg").addOrReplaceChild("tripo_living_left_root_ridge",
+                CubeListBuilder.create().texOffs(90, 24)
+                        .addBox(-0.55F, -1.9F, -0.45F, 1.1F, 3.8F, 0.9F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(2.7F, 2.5F, -2.6F, 0.0F, 0.0F, 0.12F));
+        root.getChild("right_leg").addOrReplaceChild("tripo_living_right_knee_seed",
+                CubeListBuilder.create().texOffs(96, 24)
+                        .addBox(-0.75F, -0.75F, -0.4F, 1.5F, 1.5F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 5.8F, -3.35F, 0.0F, 0.0F, 0.7853982F));
+        root.getChild("left_leg").addOrReplaceChild("tripo_living_left_knee_seed",
+                CubeListBuilder.create().texOffs(104, 24)
+                        .addBox(-0.75F, -0.75F, -0.4F, 1.5F, 1.5F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 5.8F, -3.35F, 0.0F, 0.0F, 0.7853982F));
+        root.getChild("right_leg").addOrReplaceChild("tripo_living_right_hip_leaf",
+                CubeListBuilder.create().texOffs(112, 24)
+                        .addBox(-1.5F, -0.4F, -0.4F, 3.0F, 0.8F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(-2.7F, 0.5F, -0.1F, 0.0F, 0.0F, -0.44F));
+        root.getChild("left_leg").addOrReplaceChild("tripo_living_left_hip_leaf",
+                CubeListBuilder.create().texOffs(0, 32)
+                        .addBox(-1.5F, -0.4F, -0.4F, 3.0F, 0.8F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(2.7F, 0.5F, -0.1F, 0.0F, 0.0F, 0.44F));
+    }
+
+    private static void addVoidBootDetails(PartDefinition root) {
+        root.getChild("right_leg").addOrReplaceChild("tripo_void_right_toe_blade",
+                CubeListBuilder.create().texOffs(10, 32)
+                        .addBox(-1.6F, -0.45F, -0.5F, 3.2F, 0.9F, 1.0F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 11.1F, -4.4F, 0.0F, 0.0F, -0.12F));
+        root.getChild("left_leg").addOrReplaceChild("tripo_void_left_toe_blade",
+                CubeListBuilder.create().texOffs(20, 32)
+                        .addBox(-1.6F, -0.45F, -0.5F, 3.2F, 0.9F, 1.0F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 11.1F, -4.4F, 0.0F, 0.0F, 0.12F));
+        root.getChild("right_leg").addOrReplaceChild("tripo_void_right_ankle_fin",
+                CubeListBuilder.create().texOffs(30, 32)
+                        .addBox(-1.4F, -0.4F, -0.4F, 2.8F, 0.8F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(-2.8F, 8.4F, 0.0F, 0.0F, 0.0F, -0.45F));
+        root.getChild("left_leg").addOrReplaceChild("tripo_void_left_ankle_fin",
+                CubeListBuilder.create().texOffs(40, 32)
+                        .addBox(-1.4F, -0.4F, -0.4F, 2.8F, 0.8F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(2.8F, 8.4F, 0.0F, 0.0F, 0.0F, 0.45F));
+        root.getChild("right_leg").addOrReplaceChild("tripo_void_right_toe_gem",
+                CubeListBuilder.create().texOffs(50, 32)
+                        .addBox(-0.65F, -0.65F, -0.4F, 1.3F, 1.3F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 10.6F, -4.95F, 0.0F, 0.0F, 0.7853982F));
+        root.getChild("left_leg").addOrReplaceChild("tripo_void_left_toe_gem",
+                CubeListBuilder.create().texOffs(58, 32)
+                        .addBox(-0.65F, -0.65F, -0.4F, 1.3F, 1.3F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 10.6F, -4.95F, 0.0F, 0.0F, 0.7853982F));
+    }
+
+    private static void addCelestialBootDetails(PartDefinition root) {
+        root.getChild("right_leg").addOrReplaceChild("tripo_celestial_right_sabatons",
+                CubeListBuilder.create().texOffs(66, 32)
+                        .addBox(-1.7F, -0.5F, -0.55F, 3.4F, 1.0F, 1.1F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 11.0F, -4.45F, 0.0F, 0.0F, -0.08F));
+        root.getChild("left_leg").addOrReplaceChild("tripo_celestial_left_sabatons",
+                CubeListBuilder.create().texOffs(76, 32)
+                        .addBox(-1.7F, -0.5F, -0.55F, 3.4F, 1.0F, 1.1F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 11.0F, -4.45F, 0.0F, 0.0F, 0.08F));
+        root.getChild("right_leg").addOrReplaceChild("tripo_celestial_right_ankle_wing",
+                CubeListBuilder.create().texOffs(88, 32)
+                        .addBox(-1.5F, -0.4F, -0.4F, 3.0F, 0.8F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(-2.8F, 8.3F, 0.0F, 0.0F, 0.0F, -0.52F));
+        root.getChild("left_leg").addOrReplaceChild("tripo_celestial_left_ankle_wing",
+                CubeListBuilder.create().texOffs(98, 32)
+                        .addBox(-1.5F, -0.4F, -0.4F, 3.0F, 0.8F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(2.8F, 8.3F, 0.0F, 0.0F, 0.0F, 0.52F));
+        root.getChild("right_leg").addOrReplaceChild("tripo_celestial_right_toe_star",
+                CubeListBuilder.create().texOffs(108, 32)
+                        .addBox(-0.65F, -0.65F, -0.4F, 1.3F, 1.3F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 10.5F, -4.98F, 0.0F, 0.0F, 0.7853982F));
+        root.getChild("left_leg").addOrReplaceChild("tripo_celestial_left_toe_star",
+                CubeListBuilder.create().texOffs(116, 32)
+                        .addBox(-0.65F, -0.65F, -0.4F, 1.3F, 1.3F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 10.5F, -4.98F, 0.0F, 0.0F, 0.7853982F));
+    }
+
+    private static void addLivingBootDetails(PartDefinition root) {
+        root.getChild("right_leg").addOrReplaceChild("tripo_living_right_root_toe",
+                CubeListBuilder.create().texOffs(0, 40)
+                        .addBox(-1.7F, -0.5F, -0.55F, 3.4F, 1.0F, 1.1F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 11.0F, -4.45F, 0.0F, 0.0F, -0.10F));
+        root.getChild("left_leg").addOrReplaceChild("tripo_living_left_root_toe",
+                CubeListBuilder.create().texOffs(12, 40)
+                        .addBox(-1.7F, -0.5F, -0.55F, 3.4F, 1.0F, 1.1F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 11.0F, -4.45F, 0.0F, 0.0F, 0.10F));
+        root.getChild("right_leg").addOrReplaceChild("tripo_living_right_ankle_vine",
+                CubeListBuilder.create().texOffs(24, 40)
+                        .addBox(-1.5F, -0.4F, -0.4F, 3.0F, 0.8F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(-2.7F, 8.4F, -0.1F, 0.0F, 0.0F, -0.42F));
+        root.getChild("left_leg").addOrReplaceChild("tripo_living_left_ankle_vine",
+                CubeListBuilder.create().texOffs(34, 40)
+                        .addBox(-1.5F, -0.4F, -0.4F, 3.0F, 0.8F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(2.7F, 8.4F, -0.1F, 0.0F, 0.0F, 0.42F));
+        root.getChild("right_leg").addOrReplaceChild("tripo_living_right_toe_seed",
+                CubeListBuilder.create().texOffs(44, 40)
+                        .addBox(-0.65F, -0.65F, -0.4F, 1.3F, 1.3F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 10.6F, -4.95F, 0.0F, 0.0F, 0.7853982F));
+        root.getChild("left_leg").addOrReplaceChild("tripo_living_left_toe_seed",
+                CubeListBuilder.create().texOffs(52, 40)
+                        .addBox(-0.65F, -0.65F, -0.4F, 1.3F, 1.3F, 0.8F, new CubeDeformation(0.04F)),
+                PartPose.offsetAndRotation(0.0F, 10.6F, -4.95F, 0.0F, 0.0F, 0.7853982F));
     }
 
     private static void addLegacyBalanceVoidDetails(PartDefinition root) {
