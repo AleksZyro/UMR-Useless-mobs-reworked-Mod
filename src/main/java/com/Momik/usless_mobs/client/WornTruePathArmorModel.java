@@ -99,12 +99,12 @@ public class WornTruePathArmorModel extends HumanoidModel<LivingEntity> {
                 PartPose.ZERO);
         root.getChild("head").addOrReplaceChild("balance_void_side_horn",
                 CubeListBuilder.create().texOffs(104, 0)
-                        .addBox(-6.4F, -10.6F, -1.0F, 2.8F, 1.4F, 2.0F, new CubeDeformation(0.06F)),
-                PartPose.rotation(0.0F, 0.0F, -0.48F));
+                        .addBox(-1.4F, -0.7F, -1.0F, 2.8F, 1.4F, 2.0F, new CubeDeformation(0.06F)),
+                PartPose.offsetAndRotation(-5.0F, -9.9F, 0.0F, 0.0F, 0.0F, -0.48F));
         root.getChild("head").addOrReplaceChild("balance_living_vine",
                 CubeListBuilder.create().texOffs(114, 0)
-                        .addBox(3.4F, -10.8F, -4.95F, 2.8F, 1.0F, 1.0F, new CubeDeformation(0.05F)),
-                PartPose.rotation(0.0F, 0.0F, 0.36F));
+                        .addBox(-1.4F, -0.5F, -0.5F, 2.8F, 1.0F, 1.0F, new CubeDeformation(0.05F)),
+                PartPose.offsetAndRotation(4.8F, -10.3F, -4.45F, 0.0F, 0.0F, 0.36F));
     }
 
     public static void showForType(HumanoidModel<?> model, ArmorItem.Type type) {
@@ -185,51 +185,50 @@ public class WornTruePathArmorModel extends HumanoidModel<LivingEntity> {
     }
 
     private static void addPathCrown(PartDefinition root, TruePathArmorItem.Path path) {
-        PartDefinition head = root.getChild("head");
-        head.addOrReplaceChild("true_crown_band",
+        root.getChild("head").addOrReplaceChild("true_crown_band",
                 CubeListBuilder.create().texOffs(72, 0)
                         .addBox(-5.0F, -9.0F, -5.0F, 10.0F, 2.0F, 10.0F, new CubeDeformation(0.18F)),
                 PartPose.ZERO);
-        head.addOrReplaceChild("true_crown_center_spike",
+        root.getChild("head").addOrReplaceChild("true_crown_center_spike",
                 CubeListBuilder.create().texOffs(0, 52)
                         .addBox(-1.0F, -12.2F, -5.15F, 2.0F, 4.0F, 2.0F, new CubeDeformation(0.10F)),
                 PartPose.ZERO);
-        head.addOrReplaceChild("true_crown_left_spike",
+        root.getChild("head").addOrReplaceChild("true_crown_left_spike",
                 CubeListBuilder.create().texOffs(8, 52)
                         .addBox(-4.2F, -11.0F, -5.0F, 1.8F, 3.2F, 1.8F, new CubeDeformation(0.08F)),
                 PartPose.ZERO);
-        head.addOrReplaceChild("true_crown_right_spike",
+        root.getChild("head").addOrReplaceChild("true_crown_right_spike",
                 CubeListBuilder.create().texOffs(16, 52)
                         .addBox(2.4F, -11.0F, -5.0F, 1.8F, 3.2F, 1.8F, new CubeDeformation(0.08F)),
                 PartPose.ZERO);
 
         if (path == TruePathArmorItem.Path.VOID) {
-            head.addOrReplaceChild("true_void_left_horn",
+            root.getChild("head").addOrReplaceChild("true_void_left_horn",
                     CubeListBuilder.create().texOffs(24, 52)
-                            .addBox(-6.2F, -10.4F, -1.2F, 2.5F, 1.5F, 2.4F, new CubeDeformation(0.06F)),
-                    PartPose.rotation(0.0F, 0.0F, -0.42F));
-            head.addOrReplaceChild("true_void_right_horn",
+                            .addBox(-1.25F, -0.75F, -1.2F, 2.5F, 1.5F, 2.4F, new CubeDeformation(0.06F)),
+                    PartPose.offsetAndRotation(-4.95F, -9.65F, 0.0F, 0.0F, 0.0F, -0.42F));
+            root.getChild("head").addOrReplaceChild("true_void_right_horn",
                     CubeListBuilder.create().texOffs(34, 52)
-                            .addBox(3.7F, -10.4F, -1.2F, 2.5F, 1.5F, 2.4F, new CubeDeformation(0.06F)),
-                    PartPose.rotation(0.0F, 0.0F, 0.42F));
+                            .addBox(-1.25F, -0.75F, -1.2F, 2.5F, 1.5F, 2.4F, new CubeDeformation(0.06F)),
+                    PartPose.offsetAndRotation(4.95F, -9.65F, 0.0F, 0.0F, 0.0F, 0.42F));
         } else if (path == TruePathArmorItem.Path.CELESTIAL) {
-            head.addOrReplaceChild("true_celestial_left_wing",
+            root.getChild("head").addOrReplaceChild("true_celestial_left_wing",
                     CubeListBuilder.create().texOffs(44, 52)
-                            .addBox(-6.4F, -8.6F, -1.0F, 2.6F, 3.2F, 1.8F, new CubeDeformation(0.05F)),
-                    PartPose.rotation(0.0F, 0.0F, -0.28F));
-            head.addOrReplaceChild("true_celestial_right_wing",
+                            .addBox(-1.3F, -1.6F, -0.9F, 2.6F, 3.2F, 1.8F, new CubeDeformation(0.05F)),
+                    PartPose.offsetAndRotation(-5.1F, -7.0F, -0.1F, 0.0F, 0.0F, -0.28F));
+            root.getChild("head").addOrReplaceChild("true_celestial_right_wing",
                     CubeListBuilder.create().texOffs(54, 52)
-                            .addBox(3.8F, -8.6F, -1.0F, 2.6F, 3.2F, 1.8F, new CubeDeformation(0.05F)),
-                    PartPose.rotation(0.0F, 0.0F, 0.28F));
+                            .addBox(-1.3F, -1.6F, -0.9F, 2.6F, 3.2F, 1.8F, new CubeDeformation(0.05F)),
+                    PartPose.offsetAndRotation(5.1F, -7.0F, -0.1F, 0.0F, 0.0F, 0.28F));
         } else {
-            head.addOrReplaceChild("true_living_vine",
+            root.getChild("head").addOrReplaceChild("true_living_vine",
                     CubeListBuilder.create().texOffs(64, 52)
-                            .addBox(-4.7F, -9.8F, -5.35F, 9.4F, 1.0F, 1.0F, new CubeDeformation(0.08F)),
-                    PartPose.rotation(0.0F, 0.0F, 0.12F));
-            head.addOrReplaceChild("true_living_leaf",
+                            .addBox(-4.7F, -0.5F, -0.5F, 9.4F, 1.0F, 1.0F, new CubeDeformation(0.08F)),
+                    PartPose.offsetAndRotation(0.0F, -9.3F, -4.85F, 0.0F, 0.0F, 0.12F));
+            root.getChild("head").addOrReplaceChild("true_living_leaf",
                     CubeListBuilder.create().texOffs(86, 52)
-                            .addBox(1.0F, -11.2F, -5.3F, 2.0F, 1.2F, 1.2F, new CubeDeformation(0.05F)),
-                    PartPose.rotation(0.0F, 0.0F, 0.42F));
+                            .addBox(-1.0F, -0.6F, -0.6F, 2.0F, 1.2F, 1.2F, new CubeDeformation(0.05F)),
+                    PartPose.offsetAndRotation(2.0F, -10.6F, -4.7F, 0.0F, 0.0F, 0.42F));
         }
     }
 

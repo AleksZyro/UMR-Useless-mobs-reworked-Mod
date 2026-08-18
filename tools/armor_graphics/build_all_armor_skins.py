@@ -304,11 +304,45 @@ def publish_documents(repo_root: Path, documents: dict[str, Image.Image]) -> Non
                 backup.unlink()
 
 
-def build_contact_sheet(documents: dict[str, Image.Image]) -> Image.Image:
+CLIENT_PREVIEW_PATHS = {
+    family: f"Modelle/Exports/armor_graphics_review/all_armor_{family}_client.png"
+    for family in ("void", "celestial", "living", "balance", "corrupted", "reactor")
+}
+
+
+def _client_subject_preview(source: Image.Image) -> Image.Image:
+    source = source.convert("RGBA")
+    # The real client captures are 16:9; crop the central player/model so details
+    # remain readable in the contact sheet instead of shrinking the whole HUD.
+    crop_width = min(source.width, round(source.height * 0.82))
+    left = max(0, (source.width - crop_width) // 2)
+    return source.crop((left, 0, left + crop_width, source.height))
+
+
+def contact_entries(
+    documents: dict[str, Image.Image], repo_root: Path
+) -> list[tuple[str, str, str, Image.Image]]:
+    entries = []
+    for family, relative_path in CLIENT_PREVIEW_PATHS.items():
+        path = repo_root / relative_path
+        if not path.is_file():
+            raise FileNotFoundError(f"missing real-client armor preview: {path}")
+        with Image.open(path) as source:
+            source.load()
+            entries.append((family, "full set", path.name, _client_subject_preview(source)))
+    for spec in OUTPUT_SPECS:
+        if "textures/item" in spec.relative_path:
+            entries.append(
+                (spec.family, spec.slot, Path(spec.relative_path).name, documents[spec.relative_path])
+            )
+    return entries
+
+
+def build_contact_sheet(documents: dict[str, Image.Image], repo_root: Path) -> Image.Image:
     sheet = Image.new("RGBA", (1200, 1200), (15, 14, 20, 255))
     draw = ImageDraw.Draw(sheet)
     cell_width, cell_height = 240, 200
-    for index, spec in enumerate(OUTPUT_SPECS):
+    for index, (family, slot, filename, image) in enumerate(contact_entries(documents, repo_root)):
         column, row = index % 5, index // 5
         left, top = column * cell_width, row * cell_height
         draw.rectangle(
@@ -316,7 +350,6 @@ def build_contact_sheet(documents: dict[str, Image.Image]) -> Image.Image:
             fill=(24, 22, 30, 255),
             outline=(58, 53, 69, 255),
         )
-        image = documents[spec.relative_path]
         scale = min(200 / image.width, 150 / image.height)
         preview = image.resize(
             (max(1, round(image.width * scale)), max(1, round(image.height * scale))),
@@ -325,8 +358,8 @@ def build_contact_sheet(documents: dict[str, Image.Image]) -> Image.Image:
         x = left + (cell_width - preview.width) // 2
         y = top + 28 + (150 - preview.height) // 2
         sheet.alpha_composite(preview, (x, y))
-        draw.text((left + 10, top + 10), f"{spec.family} / {spec.slot}", fill=(231, 226, 239, 255))
-        draw.text((left + 10, top + 180), Path(spec.relative_path).name, fill=(153, 145, 166, 255))
+        draw.text((left + 10, top + 10), f"{family} / {slot}", fill=(231, 226, 239, 255))
+        draw.text((left + 10, top + 180), filename, fill=(153, 145, 166, 255))
     return sheet
 
 
@@ -334,7 +367,9 @@ def write_all(repo_root: Path) -> None:
     documents = build_documents(repo_root)
     publish_documents(repo_root, documents)
     review_path = repo_root / "Modelle/Exports/armor_graphics_review/all_armor_skins_contact.png"
-    candidate = _stage_payload(review_path, png_bytes(build_contact_sheet(documents)), ".candidate")
+    candidate = _stage_payload(
+        review_path, png_bytes(build_contact_sheet(documents, repo_root)), ".candidate"
+    )
     try:
         os.replace(candidate, review_path)
     finally:

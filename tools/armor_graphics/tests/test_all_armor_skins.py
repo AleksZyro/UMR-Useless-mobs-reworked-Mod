@@ -177,7 +177,18 @@ class AllArmorSkinContract(unittest.TestCase):
             self.assertEqual([], list(root.rglob("*.backup")))
 
     def test_contact_sheet_contains_all_outputs(self):
-        sheet = self.generator.build_contact_sheet(self.generator.build_documents(REPO_ROOT))
+        documents = self.generator.build_documents(REPO_ROOT)
+        entries = self.generator.contact_entries(documents, REPO_ROOT)
+        self.assertEqual(24, len(entries))
+        self.assertEqual(
+            {"void", "celestial", "living", "balance", "corrupted", "reactor"},
+            {entry[0] for entry in entries if entry[1] == "full set"},
+        )
+        self.assertFalse(
+            any("layer_" in filename for _family, _slot, filename, _image in entries),
+            "technical worn UV atlases must not be presented as finished graphics",
+        )
+        sheet = self.generator.build_contact_sheet(documents, REPO_ROOT)
         self.assertEqual("RGBA", sheet.mode)
         self.assertEqual((1200, 1200), sheet.size)
         self.assertGreater(len(set(sheet.getdata())), 30)

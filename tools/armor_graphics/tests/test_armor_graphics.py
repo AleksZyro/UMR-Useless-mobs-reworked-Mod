@@ -485,7 +485,8 @@ def worn_model_child_owners(source: str) -> dict[str, str]:
 def worn_method_geometry(source: str, method_name: str) -> dict[str, tuple]:
     searchable_source = mask_java_non_code(source)
     declaration = re.compile(
-        rf"\bprivate\s+static\s+void\s+{re.escape(method_name)}\s*\(\s*PartDefinition\s+root\s*\)\s*\{{"
+        rf"\bprivate\s+static\s+void\s+{re.escape(method_name)}\s*\(\s*PartDefinition\s+root"
+        rf"(?:\s*,\s*TruePathArmorItem\.Path\s+path)?\s*\)\s*\{{"
     )
     declarations = list(declaration.finditer(searchable_source))
     if len(declarations) != 1:
@@ -979,6 +980,47 @@ class ContractHelperTests(unittest.TestCase):
         for mutation in mutations:
             with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
                 worn_method_geometry(mutation, "build")
+
+    def test_path_crown_rotated_accents_use_local_centred_pivots(self):
+        source = (REPO_ROOT / "src/main/java/com/Momik/usless_mobs/client/WornTruePathArmorModel.java").read_text(
+            encoding="utf-8"
+        )
+        geometry = worn_method_geometry(source, "addPathCrown")
+        expected = {
+            "true_void_left_horn": ((2.5, 1.5, 2.4), (-4.95, -9.65, 0.0)),
+            "true_void_right_horn": ((2.5, 1.5, 2.4), (4.95, -9.65, 0.0)),
+            "true_celestial_left_wing": ((2.6, 3.2, 1.8), (-5.1, -7.0, -0.1)),
+            "true_celestial_right_wing": ((2.6, 3.2, 1.8), (5.1, -7.0, -0.1)),
+            "true_living_vine": ((9.4, 1.0, 1.0), (0.0, -9.3, -4.85)),
+            "true_living_leaf": ((2.0, 1.2, 1.2), (2.0, -10.6, -4.7)),
+        }
+        for name, (dimensions, offset) in expected.items():
+            with self.subTest(name=name):
+                part = geometry[name]
+                origin = part[2]
+                self.assertEqual(dimensions, part[3])
+                self.assertEqual("offsetAndRotation", part[5])
+                self.assertEqual(offset, part[6])
+                for axis in range(3):
+                    self.assertAlmostEqual(-dimensions[axis] / 2, origin[axis], places=5)
+
+    def test_balance_crown_accents_use_local_centred_pivots(self):
+        source = (REPO_ROOT / "src/main/java/com/Momik/usless_mobs/client/WornTruePathArmorModel.java").read_text(
+            encoding="utf-8"
+        )
+        geometry = worn_method_geometry(source, "addBalancedCrown")
+        expected = {
+            "balance_void_side_horn": ((2.8, 1.4, 2.0), (-5.0, -9.9, 0.0)),
+            "balance_living_vine": ((2.8, 1.0, 1.0), (4.8, -10.3, -4.45)),
+        }
+        for name, (dimensions, offset) in expected.items():
+            with self.subTest(name=name):
+                part = geometry[name]
+                self.assertEqual(dimensions, part[3])
+                self.assertEqual("offsetAndRotation", part[5])
+                self.assertEqual(offset, part[6])
+                for axis in range(3):
+                    self.assertAlmostEqual(-dimensions[axis] / 2, part[2][axis], places=5)
 
     def test_void_crystal_knight_routing_rejects_comment_literal_and_unrelated_decoys(self):
         valid = '''class Example {
