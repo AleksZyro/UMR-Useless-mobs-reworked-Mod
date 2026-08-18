@@ -1,4 +1,5 @@
 import hashlib
+import math
 import unittest
 from pathlib import Path
 
@@ -49,6 +50,25 @@ class WornArmorOfflineRenderContract(unittest.TestCase):
         self.assertEqual(hashlib.sha256(first.tobytes()).digest(), hashlib.sha256(second.tobytes()).digest())
         colours = {pixel for pixel in first.getdata() if pixel[3]}
         self.assertGreater(len(colours), 8, "the preview must use the real detailed atlas, not one flat colour")
+
+    def test_every_runtime_cube_face_is_opaque_in_its_active_atlas(self):
+        transparent_faces = []
+        for family in render_worn_armor.FAMILIES:
+            for slot in render_worn_armor.SLOTS:
+                with Image.open(render_worn_armor._texture_path(ROOT, family, slot)) as source:
+                    texture = source.convert("RGBA")
+                for cube in render_worn_armor.assemble_piece(ROOT, family, slot):
+                    for face, uv in render_worn_armor.box_uv_faces(cube["uv_origin"], cube["source_size"]).items():
+                        u, v = uv["uv"]
+                        width, height = uv["uv_size"]
+                        pixels = [
+                            texture.getpixel((x, y))[3]
+                            for y in range(int(v), min(texture.height, math.ceil(v + height)))
+                            for x in range(int(u), min(texture.width, math.ceil(u + width)))
+                        ]
+                        if not pixels or any(alpha != 255 for alpha in pixels):
+                            transparent_faces.append(f"{family}/{slot}/{cube['name']}/{face}")
+        self.assertEqual([], transparent_faces, f"runtime faces with missing texels: {transparent_faces[:12]}")
 
     def test_contact_sheet_contains_every_family_slot_and_view(self):
         for family in render_worn_armor.FAMILIES:

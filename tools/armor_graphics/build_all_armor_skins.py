@@ -113,6 +113,12 @@ OUTPUT_SPECS = tuple(
     for spec in OUTPUT_SPECS
 )
 
+FULL_COVERAGE_WORN = {
+    f"true_{family}_layer_{layer}.png"
+    for family in ("void", "celestial", "living")
+    for layer in (1, 2)
+}
+
 
 def png_bytes(image: Image.Image) -> bytes:
     stream = io.BytesIO()
@@ -213,6 +219,26 @@ def _paint_from_alpha(source: Image.Image, family: str, slot: str) -> Image.Imag
     return result
 
 
+def _add_full_coverage_panel_seams(image: Image.Image, family: str) -> Image.Image:
+    """Break large custom-cuboid surfaces into readable forged material panels."""
+    result = image.copy()
+    pixels = result.load()
+    palette = FAMILY_PALETTES[family]
+    for y in range(result.height):
+        for x in range(result.width):
+            if pixels[x, y] == palette[-1]:
+                continue
+            if x % 16 == 15 and y % 16 == 15:
+                pixels[x, y] = palette[4]
+            elif x % 16 == 15:
+                pixels[x, y] = palette[1]
+            elif y % 16 == 15:
+                pixels[x, y] = palette[0]
+            elif (x * 7 + y * 11 + len(family)) % 47 == 0:
+                pixels[x, y] = palette[4]
+    return result
+
+
 def build_documents(repo_root: Path) -> dict[str, Image.Image]:
     documents = {}
     void_builder = runpy.run_path(
@@ -238,6 +264,14 @@ def build_documents(repo_root: Path) -> dict[str, Image.Image]:
                 detailed = _paint_from_alpha(base, spec.family, spec.slot)
                 documents[spec.relative_path] = detailed.resize(
                     spec.size, Image.Resampling.NEAREST
+                )
+            elif path.name in FULL_COVERAGE_WORN:
+                # These atlases are sampled by custom cuboids, not vanilla armour UVs.
+                # Every atlas texel must therefore be a valid material texel; retaining
+                # the old vanilla alpha mask made hundreds of real cube faces invisible.
+                opaque_template = Image.new("RGBA", source.size, (255, 255, 255, 255))
+                documents[spec.relative_path] = _add_full_coverage_panel_seams(
+                    _paint_from_alpha(opaque_template, spec.family, spec.slot), spec.family
                 )
             else:
                 documents[spec.relative_path] = _paint_from_alpha(source, spec.family, spec.slot)
