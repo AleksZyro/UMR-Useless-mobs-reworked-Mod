@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 import tempfile
 import unittest
@@ -475,21 +476,46 @@ def item_model_problems(model_path: Path, item_id: str) -> list[str]:
         resolved_mapping[alias] = resolve_texture(f"#{alias}")
 
     resolved_faces = []
-    if not isinstance(elements, list) or not elements:
+    if elements is BUILTIN_ITEM_ELEMENTS:
+        layer_aliases = sorted(
+            (
+                alias
+                for alias in texture_mapping
+                if re.fullmatch(r"layer[0-9]+", alias)
+            ),
+            key=lambda alias: int(alias[5:]),
+        )
+        if not layer_aliases:
+            report("builtin item parent requires at least one layerN texture")
+        for alias in layer_aliases:
+            resolved = resolve_texture(f"#{alias}")
+            if resolved is not None:
+                resolved_faces.append(resolved)
+    elif not isinstance(elements, list) or not elements:
         report("effective model must provide non-empty elements with textured faces")
     else:
         for element_index, element in enumerate(elements):
             if not isinstance(element, dict):
                 report(f"elements[{element_index}] must be a JSON object")
                 continue
+            coordinates_by_corner = {}
             for corner in ("from", "to"):
                 coordinates = element.get(corner)
                 if not (
                     isinstance(coordinates, list)
                     and len(coordinates) == 3
-                    and all(isinstance(value, (int, float)) for value in coordinates)
+                    and all(
+                        isinstance(value, (int, float))
+                        and not isinstance(value, bool)
+                        and math.isfinite(float(value))
+                        for value in coordinates
+                    )
                 ):
-                    report(f"elements[{element_index}].{corner} must contain three numbers")
+                    report(
+                        f"elements[{element_index}].{corner} must contain three finite numbers"
+                    )
+                else:
+                    coordinates_by_corner[corner] = coordinates
             faces = element.get("faces")
             if not isinstance(faces, dict) or not faces:
                 report(f"elements[{element_index}].faces must be a non-empty object")
@@ -498,6 +524,25 @@ def item_model_problems(model_path: Path, item_id: str) -> list[str]:
                 if face_name not in VALID_FACE_DIRECTIONS:
                     report(
                         f"elements[{element_index}].faces has invalid direction {face_name!r}"
+                    )
+                    continue
+                if len(coordinates_by_corner) != 2:
+                    continue
+                plane_axes = {
+                    "north": (0, 1),
+                    "south": (0, 1),
+                    "west": (2, 1),
+                    "east": (2, 1),
+                    "down": (0, 2),
+                    "up": (0, 2),
+                }[face_name]
+                start = coordinates_by_corner["from"]
+                end = coordinates_by_corner["to"]
+                dimensions = tuple(end[axis] - start[axis] for axis in plane_axes)
+                if not all(dimension > 0 for dimension in dimensions):
+                    report(
+                        f"elements[{element_index}].faces.{face_name} is degenerate; "
+                        f"plane dimensions must be strictly positive, got {dimensions}"
                     )
                     continue
                 if not isinstance(face, dict):
@@ -912,6 +957,30 @@ class CrownContractParserRegression(unittest.TestCase):
         }
         self.assertTrue(self.validate_fixture(model))
 
+    def test_model_validator_rejects_degenerate_north_face(self):
+        model = {
+            "textures": {"main": "usless_mobs:item/test_crown"},
+            "elements": [
+                {
+                    "from": [4, 4, 4],
+                    "to": [4, 4, 4],
+                    "faces": {"north": {"texture": "#main"}},
+                }
+            ],
+        }
+        self.assertTrue(self.validate_fixture(model))
+        partially_degenerate = {
+            "textures": {"main": "usless_mobs:item/test_crown"},
+            "elements": [
+                {
+                    "from": [4, 1, 1],
+                    "to": [4, 8, 6],
+                    "faces": {"north": {"texture": "#main"}},
+                }
+            ],
+        }
+        self.assertTrue(self.validate_fixture(partially_degenerate))
+
     def test_model_validator_accepts_vanilla_generated_and_handheld_parents(self):
         for parent in ("minecraft:item/generated", "minecraft:item/handheld"):
             with self.subTest(parent=parent):
@@ -924,6 +993,28 @@ class CrownContractParserRegression(unittest.TestCase):
                         }
                     ),
                 )
+        self.assertEqual(
+            [],
+            self.validate_fixture(
+                {
+                    "parent": "minecraft:item/generated",
+                    "textures": {
+                        "layer0": "usless_mobs:item/test_crown",
+                        "layer3": "usless_mobs:item/test_crown",
+                    },
+                }
+            ),
+        )
+
+    def test_builtin_parent_validates_every_present_layer_texture(self):
+        model = {
+            "parent": "minecraft:item/generated",
+            "textures": {
+                "layer0": "usless_mobs:item/test_crown",
+                "layer1": "usless_mobs:item/missing_overlay",
+            },
+        }
+        self.assertTrue(self.validate_fixture(model))
 
     def test_model_validator_rejects_undecodable_active_texture(self):
         model = {
