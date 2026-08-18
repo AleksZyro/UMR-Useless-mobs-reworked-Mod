@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import unittest
 from collections import Counter
 from pathlib import Path
@@ -23,6 +24,13 @@ ROYAL_IDS = {
     "royal_balance_crown": "true_crown",
 }
 ALL_IDS = set(ROYAL_IDS) | set(ROYAL_IDS.values())
+BASELINE_CROWN_TAG_VALUES = {
+    "usless_mobs:king_slime_krone",
+    "usless_mobs:netherite_kings_krone",
+    "usless_mobs:void_reaper_king",
+    "usless_mobs:god_king",
+    "usless_mobs:living_king",
+}
 
 
 def load_json_object(path: Path, problems: list[str]) -> dict | None:
@@ -99,18 +107,136 @@ def java_tokens(source: str):
 
 def registered_item_ids(source: str) -> list[str]:
     tokens = list(java_tokens(source))
+    depths = []
+    depth = 0
+    for token in tokens:
+        depths.append(depth)
+        if token == ("punctuation", "{"):
+            depth += 1
+        elif token == ("punctuation", "}"):
+            depth -= 1
+
+    class_open = None
+    for index in range(len(tokens) - 2):
+        if tokens[index][0:2] == ("identifier", "class"):
+            for candidate in range(index + 1, len(tokens)):
+                if tokens[candidate] == ("punctuation", "{"):
+                    class_open = candidate
+                    break
+            break
+    if class_open is None:
+        return []
+
+    class_depth = depths[class_open] + 1
     registrations = []
-    for index in range(len(tokens) - 4):
-        window = tokens[index : index + 5]
+    for index in range(class_open + 1, len(tokens) - 14):
+        if depths[index] != class_depth:
+            continue
+        window = tokens[index : index + 15]
         if (
-            window[0] == ("identifier", "ITEMS")
-            and window[1] == ("punctuation", ".")
-            and window[2] == ("identifier", "register")
-            and window[3] == ("punctuation", "(")
-            and window[4][0] == "string"
+            window[0] == ("identifier", "public")
+            and window[1] == ("identifier", "static")
+            and window[2] == ("identifier", "final")
+            and window[3] == ("identifier", "RegistryObject")
+            and window[4] == ("punctuation", "<")
+            and window[5] == ("identifier", "Item")
+            and window[6] == ("punctuation", ">")
+            and window[7][0] == "identifier"
+            and window[8] == ("punctuation", "=")
+            and window[9] == ("identifier", "ITEMS")
+            and window[10] == ("punctuation", ".")
+            and window[11] == ("identifier", "register")
+            and window[12] == ("punctuation", "(")
+            and window[13][0] == "string"
         ):
-            registrations.append(window[4][1])
+            field_name = window[7][1]
+            item_id = window[13][1]
+            if field_name == item_id.upper():
+                registrations.append(item_id)
     return registrations
+
+
+def item_model_problems(model: dict) -> list[str]:
+    problems = []
+    parent = model.get("parent")
+    elements = model.get("elements")
+    has_parent = isinstance(parent, str) and bool(parent.strip())
+    has_elements = isinstance(elements, list) and bool(elements)
+    if not has_parent and not has_elements:
+        problems.append("model must define a non-empty parent and/or non-empty elements")
+        return problems
+
+    if "parent" in model and not has_parent:
+        problems.append("parent must be a non-empty resource-location string")
+    if "elements" in model and not has_elements:
+        problems.append("elements must be a non-empty list when present")
+
+    textures = model.get("textures")
+    texture_values = []
+    if isinstance(textures, dict):
+        texture_values.extend(
+            value.strip()
+            for value in textures.values()
+            if isinstance(value, str) and value.strip()
+        )
+    if has_elements:
+        for element_index, element in enumerate(elements):
+            if not isinstance(element, dict):
+                problems.append(f"elements[{element_index}] must be a JSON object")
+                continue
+            for corner in ("from", "to"):
+                coordinates = element.get(corner)
+                if not (
+                    isinstance(coordinates, list)
+                    and len(coordinates) == 3
+                    and all(isinstance(value, (int, float)) for value in coordinates)
+                ):
+                    problems.append(
+                        f"elements[{element_index}].{corner} must contain three numbers"
+                    )
+            faces = element.get("faces")
+            if not isinstance(faces, dict) or not faces:
+                problems.append(f"elements[{element_index}].faces must be a non-empty object")
+                continue
+            for face_name, face in faces.items():
+                if not isinstance(face, dict):
+                    problems.append(
+                        f"elements[{element_index}].faces.{face_name} must be an object"
+                    )
+                    continue
+                texture = face.get("texture")
+                if not isinstance(texture, str) or not texture:
+                    problems.append(
+                        f"elements[{element_index}].faces.{face_name}.texture must be non-empty"
+                    )
+                elif texture.startswith("#"):
+                    reference = texture[1:]
+                    if not (
+                        isinstance(textures, dict)
+                        and isinstance(textures.get(reference), str)
+                        and textures[reference].strip()
+                    ):
+                        problems.append(
+                            f"elements[{element_index}].faces.{face_name}.texture "
+                            f"references missing texture key {texture}"
+                        )
+                else:
+                    texture_values.append(texture)
+
+    generic_parents = {"minecraft:item/generated", "minecraft:item/handheld"}
+    inherits_custom_model = has_parent and parent not in generic_parents
+    if not texture_values and not inherits_custom_model:
+        problems.append(
+            "model must provide a non-empty texture reference or inherit a custom parent model"
+        )
+    return problems
+
+
+def exact_resource_matches(directory: Path, item_id: str, extension: str) -> list[Path]:
+    if not directory.is_dir():
+        return []
+    expected_name = f"{item_id}{extension}"
+    return [path for path in directory.iterdir() if path.is_file() and path.name == expected_name]
 
 
 def append_mismatch(
@@ -155,7 +281,6 @@ class CurioCrownContract(unittest.TestCase):
                 f"found {sum(counts[item_id] for item_id in actual_royal)}"
             )
         self.assert_no_problems(problems)
-
     def test_upgrade_recipes_use_exact_nine_slot_pattern(self):
         problems = []
         for royal, combat in ROYAL_IDS.items():
@@ -219,6 +344,10 @@ class CurioCrownContract(unittest.TestCase):
         problems = []
         tag = load_json_object(CROWN_TAG, problems)
         if tag is not None:
+            if tag.get("replace", False) is not False:
+                problems.append(
+                    f"{CROWN_TAG.relative_to(ROOT)}: replace must be false or omitted"
+                )
             values = tag.get("values")
             if not isinstance(values, list) or not all(isinstance(value, str) for value in values):
                 problems.append(
@@ -226,39 +355,44 @@ class CurioCrownContract(unittest.TestCase):
                 )
             else:
                 expected = {f"usless_mobs:{item_id}" for item_id in ALL_IDS}
-                missing = sorted(expected - set(values))
-                if missing:
-                    problems.append(f"{CROWN_TAG.relative_to(ROOT)}: missing crown tag values: {missing}")
+                value_set = set(values)
+                missing_contract = sorted(expected - value_set)
+                missing_baseline = sorted(BASELINE_CROWN_TAG_VALUES - value_set)
+                if missing_contract:
+                    problems.append(
+                        f"{CROWN_TAG.relative_to(ROOT)}: missing crown contract values: "
+                        f"{missing_contract}"
+                    )
+                if missing_baseline:
+                    problems.append(
+                        f"{CROWN_TAG.relative_to(ROOT)}: removed baseline crown values: "
+                        f"{missing_baseline}"
+                    )
         self.assert_no_problems(problems)
 
     def test_every_crown_has_exactly_one_valid_item_model(self):
         problems = []
-        candidates = list(MODELS.iterdir()) if MODELS.is_dir() else []
         for item_id in sorted(ALL_IDS):
-            matches = [
-                path
-                for path in candidates
-                if path.is_file() and path.suffix.lower() == ".json" and path.stem == item_id
-            ]
+            matches = exact_resource_matches(MODELS, item_id, ".json")
             if len(matches) != 1:
                 problems.append(
                     f"expected exactly one model at "
                     f"{(MODELS / f'{item_id}.json').relative_to(ROOT)}, found {len(matches)}"
                 )
                 continue
-            load_json_object(matches[0], problems)
+            model = load_json_object(matches[0], problems)
+            if model is not None:
+                problems.extend(
+                    f"{matches[0].relative_to(ROOT)}: {problem}"
+                    for problem in item_model_problems(model)
+                )
         self.assert_no_problems(problems)
 
     def test_every_crown_has_exactly_one_64x64_rgba_texture(self):
         problems = []
-        candidates = list(TEXTURES.iterdir()) if TEXTURES.is_dir() else []
         for item_id in sorted(ALL_IDS):
             expected = TEXTURES / f"{item_id}.png"
-            matches = [
-                path
-                for path in candidates
-                if path.is_file() and path.suffix.lower() == ".png" and path.stem == item_id
-            ]
+            matches = exact_resource_matches(TEXTURES, item_id, ".png")
             if len(matches) != 1:
                 problems.append(
                     f"expected exactly one texture at {expected.relative_to(ROOT)}, found {len(matches)}"
@@ -298,6 +432,88 @@ class CurioCrownContract(unittest.TestCase):
                         f"{path.relative_to(ROOT)}: missing non-empty translation for {key}"
                     )
         self.assert_no_problems(problems)
+
+
+class CrownContractParserRegression(unittest.TestCase):
+    def test_registry_parser_rejects_method_local_and_unassigned_decoys(self):
+        source = r'''
+            public final class ModItems {
+                public static final RegistryObject<Item> ROYAL_VOID_CROWN =
+                    ITEMS.register("royal_void_crown", () -> create());
+
+                static {
+                    ITEMS.register("royal_celestial_crown", () -> create());
+                }
+
+                public static void addDecoys() {
+                    RegistryObject<Item> local =
+                        ITEMS.register("royal_living_crown", () -> create());
+                }
+            }
+        '''
+        self.assertEqual(["royal_void_crown"], registered_item_ids(source))
+
+    def test_registry_parser_requires_public_static_final_registry_object_item(self):
+        source = r'''
+            public final class ModItems {
+                private static final RegistryObject<Item> PRIVATE_CROWN =
+                    ITEMS.register("royal_void_crown", () -> create());
+                public final RegistryObject<Item> INSTANCE_CROWN =
+                    ITEMS.register("royal_celestial_crown", () -> create());
+                public static final RegistryObject<Block> WRONG_REGISTRY =
+                    ITEMS.register("royal_living_crown", () -> create());
+                public static final RegistryObject<Item> UNUSED =
+                    ITEMS.register("royal_void_crown", () -> create());
+                public static final RegistryObject<Item> ROYAL_BALANCE_CROWN =
+                    ITEMS.register("royal_balance_crown", () -> create());
+            }
+        '''
+        self.assertEqual(["royal_balance_crown"], registered_item_ids(source))
+
+    def test_model_validator_rejects_empty_and_untextured_template_models(self):
+        self.assertTrue(item_model_problems({}))
+        self.assertTrue(item_model_problems({"elements": []}))
+        self.assertTrue(item_model_problems({"parent": "minecraft:item/generated"}))
+        self.assertTrue(
+            item_model_problems(
+                {"textures": {"main": "usless_mobs:item/crown"}, "elements": [{}]}
+            )
+        )
+
+    def test_model_validator_accepts_generated_elements_templates_and_inheritance(self):
+        valid_models = [
+            {
+                "parent": "minecraft:item/generated",
+                "textures": {"layer0": "usless_mobs:item/royal_void_crown"},
+            },
+            {
+                "textures": {"main": "usless_mobs:item/royal_void_crown"},
+                "elements": [
+                    {
+                        "from": [1, 2, 3],
+                        "to": [4, 5, 6],
+                        "faces": {"north": {"texture": "#main"}},
+                    }
+                ],
+            },
+            {"parent": "usless_mobs:item/shared_crown_geometry"},
+        ]
+        for model in valid_models:
+            with self.subTest(model=model):
+                self.assertEqual([], item_model_problems(model))
+
+    def test_resource_matcher_rejects_uppercase_extensions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            uppercase = root / "royal_void_crown.JSON"
+            uppercase.write_text("{}", encoding="utf-8")
+            self.assertEqual([], exact_resource_matches(root, "royal_void_crown", ".json"))
+            uppercase.unlink()
+            lowercase = root / "royal_void_crown.json"
+            lowercase.write_text("{}", encoding="utf-8")
+            self.assertEqual(
+                [lowercase], exact_resource_matches(root, "royal_void_crown", ".json")
+            )
 
 
 if __name__ == "__main__":
