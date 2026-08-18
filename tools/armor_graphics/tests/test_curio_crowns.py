@@ -4,8 +4,10 @@ import json
 import re
 import tempfile
 import unittest
+import warnings
 from collections import Counter
 from pathlib import Path
+from unittest import mock
 
 from PIL import Image, UnidentifiedImageError
 
@@ -25,6 +27,15 @@ ROYAL_IDS = {
     "royal_balance_crown": "true_crown",
 }
 ALL_IDS = set(ROYAL_IDS) | set(ROYAL_IDS.values())
+VALID_FACE_DIRECTIONS = {"down", "up", "north", "south", "west", "east"}
+BUILTIN_ITEM_PARENTS = {"minecraft:item/generated", "minecraft:item/handheld"}
+BUILTIN_ITEM_ELEMENTS = [
+    {
+        "from": [0, 0, 0],
+        "to": [16, 16, 0.1],
+        "faces": {"north": {"texture": "#layer0"}},
+    }
+]
 BASELINE_CROWN_TAG_VALUES = {
     "usless_mobs:king_slime_krone",
     "usless_mobs:netherite_kings_krone",
@@ -37,7 +48,11 @@ BASELINE_CROWN_TAG_VALUES = {
 def load_json_object(path: Path, problems: list[str]) -> dict | None:
     """Load a JSON object while turning I/O/schema problems into test diagnostics."""
     try:
-        document = json.loads(path.read_text(encoding="utf-8"))
+        exact_path = exact_case_file(path, ROOT)
+        if exact_path is None:
+            problems.append(f"missing exact-case JSON file: {path.relative_to(ROOT)}")
+            return None
+        document = json.loads(exact_path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         problems.append(f"missing JSON file: {path.relative_to(ROOT)}")
         return None
@@ -157,6 +172,71 @@ def registered_item_ids(source: str) -> list[str]:
     return registrations
 
 
+def all_registered_royal_ids(source: str) -> list[str]:
+    tokens = list(java_tokens(source))
+    registrations = []
+    for index in range(len(tokens) - 4):
+        window = tokens[index : index + 5]
+        if (
+            window[0] == ("identifier", "ITEMS")
+            and window[1] == ("punctuation", ".")
+            and window[2] == ("identifier", "register")
+            and window[3] == ("punctuation", "(")
+            and window[4][0] == "string"
+            and window[4][1].startswith("royal_")
+        ):
+            registrations.append(window[4][1])
+    return registrations
+
+
+def royal_registration_problems(source: str) -> list[str]:
+    problems = []
+    expected = set(ROYAL_IDS)
+    canonical_counts = Counter(registered_item_ids(source))
+    canonical_royal_counts = Counter(
+        {
+            item_id: count
+            for item_id, count in canonical_counts.items()
+            if item_id.startswith("royal_")
+        }
+    )
+    global_counts = Counter(all_registered_royal_ids(source))
+    actual_canonical = set(canonical_royal_counts)
+    missing = sorted(expected - actual_canonical)
+    unexpected = sorted(actual_canonical - expected)
+    wrong_canonical_counts = {
+        item_id: canonical_royal_counts[item_id]
+        for item_id in expected
+        if canonical_counts[item_id] != 1
+    }
+    if missing:
+        problems.append(f"missing Royal canonical fields: {missing}")
+    if unexpected:
+        problems.append(f"unexpected canonical royal_ fields: {unexpected}")
+    if wrong_canonical_counts or sum(canonical_royal_counts.values()) != 4:
+        problems.append(
+            "each Royal ID must have exactly one canonical public static final field; "
+            f"observed {dict(sorted(canonical_royal_counts.items()))}"
+        )
+
+    unexpected_global = sorted(set(global_counts) - expected)
+    wrong_global_counts = {
+        item_id: global_counts[item_id]
+        for item_id in expected
+        if global_counts[item_id] != 1
+    }
+    if unexpected_global:
+        problems.append(
+            f"unexpected executable royal_ registrations anywhere in source: {unexpected_global}"
+        )
+    if wrong_global_counts or sum(global_counts.values()) != 4:
+        problems.append(
+            "source must contain exactly four executable Royal registrations globally; "
+            f"observed {dict(sorted(global_counts.items()))}"
+        )
+    return problems
+
+
 RESOURCE_LOCATION = re.compile(r"[a-z0-9_.-]+:[a-z0-9_.\-/]+")
 TEXTURE_ALIAS = re.compile(r"[a-z0-9_.-]+")
 ALLOWED_BUILTIN_FACE_TEXTURES = frozenset()
@@ -179,6 +259,50 @@ def display_path(path: Path) -> str:
         return str(path)
 
 
+def resolved_within(path: Path, root: Path) -> bool:
+    try:
+        path.resolve(strict=True).relative_to(root.resolve(strict=True))
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def exact_case_file(path: Path, root: Path) -> Path | None:
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        return None
+    current = root
+    for component in relative.parts:
+        if not current.is_dir():
+            return None
+        matches = [candidate for candidate in current.iterdir() if candidate.name == component]
+        if len(matches) != 1:
+            return None
+        current = matches[0]
+    if not current.is_file() or not resolved_within(current, root):
+        return None
+    return current
+
+
+def exact_case_directory(path: Path, root: Path) -> Path | None:
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        return None
+    current = root
+    for component in relative.parts:
+        if not current.is_dir():
+            return None
+        matches = [candidate for candidate in current.iterdir() if candidate.name == component]
+        if len(matches) != 1:
+            return None
+        current = matches[0]
+    if not current.is_dir() or not resolved_within(current, root):
+        return None
+    return current
+
+
 def exact_asset_file(assets_root: Path, parts: tuple[str, ...]) -> Path | None:
     current = assets_root
     for index, part in enumerate(parts):
@@ -190,7 +314,22 @@ def exact_asset_file(assets_root: Path, parts: tuple[str, ...]) -> Path | None:
         current = matches[0]
         if index < len(parts) - 1 and not current.is_dir():
             return None
-    return current if current.is_file() else None
+    if not current.is_file() or not resolved_within(current, assets_root):
+        return None
+    return current
+
+
+def png_decode_problem(path: Path) -> str | None:
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(path) as image:
+                image.load()
+                if image.format != "PNG":
+                    return f"must be PNG, got {image.format!r}"
+    except Exception as error:
+        return f"is not a decodable PNG: {type(error).__name__}: {error}"
+    return None
 
 
 def item_model_problems(model_path: Path, item_id: str) -> list[str]:
@@ -205,6 +344,8 @@ def item_model_problems(model_path: Path, item_id: str) -> list[str]:
         return [f"{display_path(model_path)} is not below an assets directory"]
 
     resolved_assets_root = assets_root.resolve()
+    if not resolved_within(model_path, assets_root):
+        return [f"model {display_path(model_path)} resolves outside its assets root"]
     cache = {}
 
     def read_model(path: Path) -> dict | None:
@@ -246,6 +387,9 @@ def item_model_problems(model_path: Path, item_id: str) -> list[str]:
                 f"repo-local model at {display_path(parent_path)}; found {len(exact_matches)}"
             )
             return None
+        if not resolved_within(exact_matches[0], assets_root):
+            report(f"{display_path(owner)} parent resolves outside its assets root")
+            return None
         return exact_matches[0]
 
     def effective_model(path: Path, stack: tuple[Path, ...]):
@@ -274,11 +418,14 @@ def item_model_problems(model_path: Path, item_id: str) -> list[str]:
             if not has_parent:
                 report(f"{display_path(path)} parent must be a non-empty ResourceLocation")
             else:
-                parent_path = local_parent_path(parent, path)
-                if parent_path is not None:
-                    inherited_textures, inherited_elements = effective_model(
-                        parent_path, (*stack, canonical)
-                    )
+                if parent in BUILTIN_ITEM_PARENTS:
+                    inherited_elements = BUILTIN_ITEM_ELEMENTS
+                else:
+                    parent_path = local_parent_path(parent, path)
+                    if parent_path is not None:
+                        inherited_textures, inherited_elements = effective_model(
+                            parent_path, (*stack, canonical)
+                        )
 
         textures = document.get("textures", {})
         if not isinstance(textures, dict):
@@ -348,6 +495,11 @@ def item_model_problems(model_path: Path, item_id: str) -> list[str]:
                 report(f"elements[{element_index}].faces must be a non-empty object")
                 continue
             for face_name, face in faces.items():
+                if face_name not in VALID_FACE_DIRECTIONS:
+                    report(
+                        f"elements[{element_index}].faces has invalid direction {face_name!r}"
+                    )
+                    continue
                 if not isinstance(face, dict):
                     report(f"elements[{element_index}].faces.{face_name} must be an object")
                     continue
@@ -362,6 +514,8 @@ def item_model_problems(model_path: Path, item_id: str) -> list[str]:
                     resolved_faces.append(resolved)
 
     expected_texture = f"usless_mobs:item/{item_id}"
+    if not resolved_faces:
+        report("effective model must contain at least one renderable valid-direction face")
     if expected_texture not in resolved_faces:
         report(
             f"effective faces must reference own texture {expected_texture!r}; "
@@ -392,27 +546,37 @@ def item_model_problems(model_path: Path, item_id: str) -> list[str]:
                 "lowercase repo-local PNG"
             )
             continue
-        try:
-            with Image.open(local_texture) as image:
-                image.load()
-                if image.format != "PNG":
-                    report(
-                        f"active face texture {display_path(local_texture)} must be PNG, "
-                        f"got {image.format!r}"
-                    )
-        except (OSError, UnidentifiedImageError) as error:
+        if not resolved_within(local_texture, assets_root):
             report(
-                f"active face texture {display_path(local_texture)} is not a decodable PNG: "
-                f"{error}"
+                f"active face texture {texture_resource!r} resolves outside its assets root"
             )
+            continue
+        decode_problem = png_decode_problem(local_texture)
+        if decode_problem is not None:
+            report(f"active face texture {display_path(local_texture)} {decode_problem}")
     return problems
 
 
 def exact_resource_matches(directory: Path, item_id: str, extension: str) -> list[Path]:
-    if not directory.is_dir():
+    try:
+        directory.relative_to(ROOT)
+        anchor = ROOT
+    except ValueError:
+        anchor = next(
+            (candidate for candidate in (directory, *directory.parents) if candidate.name == "assets"),
+            directory,
+        )
+    exact_directory = exact_case_directory(directory, anchor)
+    if exact_directory is None:
         return []
     expected_name = f"{item_id}{extension}"
-    return [path for path in directory.iterdir() if path.is_file() and path.name == expected_name]
+    return [
+        path
+        for path in exact_directory.iterdir()
+        if path.is_file()
+        and path.name == expected_name
+        and resolved_within(path, anchor)
+    ]
 
 
 def append_mismatch(
@@ -429,34 +593,12 @@ class CurioCrownContract(unittest.TestCase):
         self.assertFalse(problems, "\n- " + "\n- ".join(problems))
 
     def test_mod_items_registers_exactly_the_four_royal_ids(self):
-        problems = []
         try:
             source = MOD_ITEMS.read_text(encoding="utf-8")
         except (OSError, UnicodeError) as error:
             self.fail(f"cannot read {MOD_ITEMS.relative_to(ROOT)}: {error}")
+        self.assert_no_problems(royal_registration_problems(source))
 
-        registrations = registered_item_ids(source)
-        counts = Counter(registrations)
-        expected = set(ROYAL_IDS)
-        actual_royal = {item_id for item_id in counts if item_id.startswith("royal_")}
-        missing = sorted(expected - actual_royal)
-        unexpected = sorted(actual_royal - expected)
-        duplicates = {item_id: counts[item_id] for item_id in expected if counts[item_id] != 1}
-        if missing:
-            problems.append(f"missing Royal ITEMS.register calls: {missing}")
-        if unexpected:
-            problems.append(f"unexpected royal_ ITEMS.register calls: {unexpected}")
-        if duplicates:
-            problems.append(
-                "each Royal ID must have exactly one ITEMS.register call; "
-                f"observed counts: {dict(sorted(duplicates.items()))}"
-            )
-        if sum(counts[item_id] for item_id in actual_royal) != 4:
-            problems.append(
-                "ModItems must contain exactly four royal_ registrations; "
-                f"found {sum(counts[item_id] for item_id in actual_royal)}"
-            )
-        self.assert_no_problems(problems)
     def test_upgrade_recipes_use_exact_nine_slot_pattern(self):
         problems = []
         for royal, combat in ROYAL_IDS.items():
@@ -569,23 +711,30 @@ class CurioCrownContract(unittest.TestCase):
                     f"expected exactly one texture at {expected.relative_to(ROOT)}, found {len(matches)}"
                 )
                 continue
+            decode_problem = png_decode_problem(matches[0])
+            if decode_problem is not None:
+                problems.append(
+                    f"invalid texture {matches[0].relative_to(ROOT)}: {decode_problem}"
+                )
+                continue
             try:
-                with Image.open(matches[0]) as image:
-                    image.load()
-                    if image.format != "PNG":
-                        problems.append(
-                            f"{matches[0].relative_to(ROOT)} must be PNG, got {image.format!r}"
-                        )
-                    if image.mode != "RGBA":
-                        problems.append(
-                            f"{matches[0].relative_to(ROOT)} must use RGBA mode, got {image.mode!r}"
-                        )
-                    if image.size != (64, 64):
-                        problems.append(
-                            f"{matches[0].relative_to(ROOT)} must be 64x64, got {image.size}"
-                        )
-            except (OSError, UnidentifiedImageError) as error:
-                problems.append(f"invalid texture {matches[0].relative_to(ROOT)}: {error}")
+                with warnings.catch_warnings():
+                    warnings.simplefilter("error", Image.DecompressionBombWarning)
+                    with Image.open(matches[0]) as image:
+                        if image.mode != "RGBA":
+                            problems.append(
+                                f"{matches[0].relative_to(ROOT)} must use RGBA mode, "
+                                f"got {image.mode!r}"
+                            )
+                        if image.size != (64, 64):
+                            problems.append(
+                                f"{matches[0].relative_to(ROOT)} must be 64x64, got {image.size}"
+                            )
+            except Exception as error:
+                problems.append(
+                    f"invalid texture {matches[0].relative_to(ROOT)} during metadata read: "
+                    f"{type(error).__name__}: {error}"
+                )
         self.assert_no_problems(problems)
 
     def test_english_and_german_define_every_crown_translation_key(self):
@@ -635,6 +784,8 @@ class CrownContractParserRegression(unittest.TestCase):
     def test_registry_parser_rejects_method_local_and_unassigned_decoys(self):
         source = r'''
             public final class ModItems {
+                String text = "ITEMS.register(\"royal_string_decoy\", () -> create())";
+                // ITEMS.register("royal_comment_decoy", () -> create());
                 public static final RegistryObject<Item> ROYAL_VOID_CROWN =
                     ITEMS.register("royal_void_crown", () -> create());
 
@@ -649,6 +800,10 @@ class CrownContractParserRegression(unittest.TestCase):
             }
         '''
         self.assertEqual(["royal_void_crown"], registered_item_ids(source))
+        self.assertEqual(
+            ["royal_void_crown", "royal_celestial_crown", "royal_living_crown"],
+            all_registered_royal_ids(source),
+        )
 
     def test_registry_parser_requires_public_static_final_registry_object_item(self):
         source = r'''
@@ -666,6 +821,27 @@ class CrownContractParserRegression(unittest.TestCase):
             }
         '''
         self.assertEqual(["royal_balance_crown"], registered_item_ids(source))
+
+    def test_registry_contract_rejects_extra_global_royal_registration(self):
+        fields = "\n".join(
+            f"public static final RegistryObject<Item> {item_id.upper()} = "
+            f'ITEMS.register("{item_id}", () -> create());'
+            for item_id in ROYAL_IDS
+        )
+        source = f'''
+            public final class ModItems {{
+                {fields}
+                static {{
+                    ITEMS.register("royal_bonus_crown", () -> create());
+                }}
+                // ITEMS.register("royal_comment_crown", () -> create());
+                String decoy = "ITEMS.register(\\\"royal_string_crown\\\", ignored)";
+            }}
+        '''
+        problems = royal_registration_problems(source)
+        self.assertTrue(any("royal_bonus_crown" in problem for problem in problems))
+        self.assertFalse(any("comment_crown" in problem for problem in problems))
+        self.assertFalse(any("string_crown" in problem for problem in problems))
 
     def test_model_validator_rejects_empty_and_untextured_template_models(self):
         self.assertTrue(self.validate_fixture({}))
@@ -722,6 +898,32 @@ class CrownContractParserRegression(unittest.TestCase):
                 }
             )
         )
+
+    def test_model_validator_rejects_invalid_face_direction(self):
+        model = {
+            "textures": {"main": "usless_mobs:item/test_crown"},
+            "elements": [
+                {
+                    "from": [1, 2, 3],
+                    "to": [4, 5, 6],
+                    "faces": {"banana": {"texture": "#main"}},
+                }
+            ],
+        }
+        self.assertTrue(self.validate_fixture(model))
+
+    def test_model_validator_accepts_vanilla_generated_and_handheld_parents(self):
+        for parent in ("minecraft:item/generated", "minecraft:item/handheld"):
+            with self.subTest(parent=parent):
+                self.assertEqual(
+                    [],
+                    self.validate_fixture(
+                        {
+                            "parent": parent,
+                            "textures": {"layer0": "usless_mobs:item/test_crown"},
+                        }
+                    ),
+                )
 
     def test_model_validator_rejects_undecodable_active_texture(self):
         model = {
@@ -845,6 +1047,101 @@ class CrownContractParserRegression(unittest.TestCase):
             self.assertEqual(
                 [lowercase], exact_resource_matches(root, "royal_void_crown", ".json")
             )
+
+    def test_exact_path_checks_reject_uppercase_directory_components(self):
+        with tempfile.TemporaryDirectory() as directory:
+            assets = Path(directory) / "assets"
+            wrong_case = assets / "usless_mobs/Models/item"
+            wrong_case.mkdir(parents=True)
+            (wrong_case / "royal_void_crown.json").write_text("{}", encoding="utf-8")
+            expected = assets / "usless_mobs/models/item"
+            self.assertEqual(
+                [], exact_resource_matches(expected, "royal_void_crown", ".json")
+            )
+
+    def test_resolved_containment_rejects_outside_model_and_texture_targets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            assets = root / "assets"
+            assets.mkdir()
+            outside = root / "outside.png"
+            Image.new("RGBA", (2, 2), (255, 255, 255, 255)).save(outside)
+            self.assertFalse(resolved_within(outside, assets))
+
+            model_path = assets / "usless_mobs/models/item/test_crown.json"
+            model_path.parent.mkdir(parents=True)
+            model_path.write_text(
+                json.dumps(
+                    {
+                        "textures": {"main": "usless_mobs:item/test_crown"},
+                        "elements": [
+                            {
+                                "from": [1, 2, 3],
+                                "to": [4, 5, 6],
+                                "faces": {"north": {"texture": "#main"}},
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with mock.patch(
+                f"{__name__}.exact_asset_file", return_value=outside
+            ):
+                problems = item_model_problems(model_path, "test_crown")
+                self.assertTrue(any("outside" in problem for problem in problems))
+
+            own_texture = assets / "usless_mobs/textures/item/test_crown.png"
+            own_texture.parent.mkdir(parents=True)
+            Image.new("RGBA", (2, 2), (255, 255, 255, 255)).save(own_texture)
+            outside_model = root / "outside.json"
+            outside_model.write_text(
+                json.dumps(
+                    {
+                        "textures": {"main": "usless_mobs:item/test_crown"},
+                        "elements": [
+                            {
+                                "from": [1, 2, 3],
+                                "to": [4, 5, 6],
+                                "faces": {"north": {"texture": "#main"}},
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            model_path.write_text(
+                json.dumps({"parent": "usless_mobs:item/outside"}), encoding="utf-8"
+            )
+            with mock.patch(
+                f"{__name__}.exact_resource_matches", return_value=[outside_model]
+            ):
+                problems = item_model_problems(model_path, "test_crown")
+                self.assertTrue(any("outside" in problem for problem in problems))
+
+    def test_pillow_decode_exceptions_become_contract_problems(self):
+        errors = [
+            Image.DecompressionBombError("too large"),
+            Image.DecompressionBombWarning("suspicious"),
+            ValueError("decoder failed"),
+        ]
+        for error in errors:
+            with self.subTest(error=type(error).__name__):
+                with mock.patch.object(Image, "open", side_effect=error):
+                    self.assertTrue(
+                        self.validate_fixture(
+                            {
+                                "textures": {"main": "usless_mobs:item/test_crown"},
+                                "elements": [
+                                    {
+                                        "from": [1, 2, 3],
+                                        "to": [4, 5, 6],
+                                        "faces": {"north": {"texture": "#main"}},
+                                    }
+                                ],
+                            }
+                        )
+                    )
 
 
 if __name__ == "__main__":
