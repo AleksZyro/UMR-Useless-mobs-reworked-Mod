@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import io
 import unittest
+from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-from tools.corrupted_silverfish_v5.tripo_voxel import MeshData
+from tools.corrupted_silverfish_v5.tripo_voxel import MeshData, load_glb
 from tools.mob_tripo.exact_runtime import (
     MOB_SPECS,
     build_runtime_assets,
@@ -158,6 +159,24 @@ class ExactMobRuntimeTests(unittest.TestCase):
         )
         self.assertEqual(set(MOB_SPECS["helping_allay"].bones), set(decoded))
         self.assertTrue(texture_bytes.startswith(b"\x89PNG\r\n\x1a\n"))
+
+    def test_octopus_preserves_all_triangles_in_nine_nonempty_regions(self):
+        root = Path(__file__).resolve().parents[3]
+        source = load_glb(
+            root
+            / "Modelle/Exports/octopus_v1/tripo_export/octopus_tripo_textured_4k_20260821.glb"
+        )
+
+        payload, _, report = build_runtime_assets("octopus", source)
+        decoded = decode_mesh(payload)
+
+        self.assertEqual(source.triangles.shape[0], report["source_triangles"])
+        self.assertEqual(report["source_triangles"], report["output_triangles"])
+        self.assertEqual({"body", *(f"tentacle{i}" for i in range(8))}, set(decoded))
+        self.assertTrue(all(len(part["faces"]) > 0 for part in decoded.values()))
+        self.assertEqual((4096, 4096), (report["texture_width"], report["texture_height"]))
+        self.assertEqual(0, report["cubes"])
+        self.assertEqual(14.4, report["fit_span"])
 
 
 if __name__ == "__main__":
