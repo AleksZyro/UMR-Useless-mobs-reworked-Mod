@@ -32,5 +32,23 @@ class OctopusContract(unittest.TestCase):
         self.assertIn('tag.putBoolean("OctopusSqueezing", isSqueezing())', source)
         self.assertIn('setActionState(tag.getByte("OctopusAction"))', source)
 
+    def test_octopus_has_eight_arm_ambush_camouflage_squeeze_and_object_behaviour(self):
+        entity = ENTITY.read_text(encoding="utf-8")
+        registry = ENTITIES.read_text(encoding="utf-8")
+
+        self.assertIn("beginAmbush", entity)
+        self.assertIn("beginCamouflage", entity)
+        self.assertIn("updateSqueezing", entity)
+        self.assertIn("interactWithNearbyObject", entity)
+        self.assertIn("refreshDimensions()", entity)
+        self.assertIn("getDimensions(Pose pose)", entity)
+        self.assertIn("EntityDimensions.scalable(0.62F, 0.48F)", entity)
+        self.assertIn(".sized(1.15F, 1.20F)", registry)
+        self.assertIn('tag.putInt("OctopusCarriedTicks", carriedObjectTicks)', entity)
+        self.assertIn('carriedObjectTicks = tag.getInt("OctopusCarriedTicks")', entity)
+        self.assertIn("AABB normalProbe", entity)
+        self.assertIn("this.level().noCollision(this, normalProbe)", entity)
+        self.assertIn("dropCarriedObject();\n        super.dropCustomDeathLoot", entity)
+
 if __name__ == "__main__":
     unittest.main()

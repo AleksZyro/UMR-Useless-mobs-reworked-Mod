@@ -60,7 +60,7 @@ public final class ModEntities {
 
     public static final RegistryObject<EntityType<CorruptedSilverfishEntity>> CORRUPTED_SILVERFISH = ENTITY_TYPES.register("corrupted_silverfish",
             () -> EntityType.Builder.of(CorruptedSilverfishEntity::new, MobCategory.MONSTER)
-                    .sized(2.0F, 0.92F)
+                    .sized(1.10F, 0.92F)
                     .clientTrackingRange(8)
                     .build(Usless_mobs.MODID + ":corrupted_silverfish"));
 
@@ -90,7 +90,7 @@ public final class ModEntities {
 
     public static final RegistryObject<EntityType<OctopusEntity>> OCTOPUS = ENTITY_TYPES.register("octopus",
             () -> EntityType.Builder.of(OctopusEntity::new, MobCategory.WATER_CREATURE)
-                    .sized(0.9F, 0.9F)
+                    .sized(1.15F, 1.20F)
                     .clientTrackingRange(8)
                     .build(Usless_mobs.MODID + ":octopus"));
 
