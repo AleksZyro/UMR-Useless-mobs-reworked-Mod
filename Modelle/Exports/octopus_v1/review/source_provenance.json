@@ -1,0 +1,13 @@
+{
+  "mob": "octopus",
+  "generator": "Tripo Multi-View Builder",
+  "workspace_url": "https://studio.tripo3d.ai/workspace/generate/e3087477-bc37-41b6-b3e2-39fe8c25dd7e",
+  "source_glb": "../tripo_export/octopus_tripo_textured_4k_20260821.glb",
+  "source_sha256": "53f93da6502fb4bd13f0255529c8bf41db077e8401305188e5558c27d4b885e9",
+  "texture_quality": "4096x4096",
+  "pbr": true,
+  "approved_front_axis": "-Z",
+  "approved": true,
+  "runtime_geometry": "exact-triangles",
+  "runtime_cubes": 0
+}
