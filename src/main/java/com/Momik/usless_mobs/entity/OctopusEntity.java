@@ -1,5 +1,6 @@
 package com.Momik.usless_mobs.entity;
 
+import com.Momik.usless_mobs.registry.ModSounds;
 import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -7,6 +8,7 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -64,6 +66,11 @@ public class OctopusEntity extends Squid {
                 .add(Attributes.MAX_HEALTH, 18.0D)
                 .add(Attributes.MOVEMENT_SPEED, 0.9D)
                 .add(Attributes.KNOCKBACK_RESISTANCE, 0.15D);
+    }
+
+    @Override
+    protected SoundEvent getAmbientSound() {
+        return ModSounds.OCTOPUS_AMBIENT.get();
     }
 
     @Override
@@ -206,6 +213,8 @@ public class OctopusEntity extends Squid {
         this.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 110, 1));
         camouflageCooldown = 260;
         startTimedAction(ACTION_CAMOUFLAGE, 110);
+        this.level().playSound(null, this.blockPosition(), ModSounds.OCTOPUS_CAMOUFLAGE.get(),
+                SoundSource.HOSTILE, 0.85F, 0.92F);
     }
 
     private void beginAmbush(Player target) {
@@ -214,6 +223,8 @@ public class OctopusEntity extends Squid {
         this.ambushCooldown = 180;
         this.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, this.ambushWarmup, 0));
         setActionState(ACTION_AMBUSH);
+        this.level().playSound(null, this.blockPosition(), ModSounds.OCTOPUS_CAMOUFLAGE.get(),
+                SoundSource.HOSTILE, 0.62F, 1.08F);
     }
 
     private void tickAmbush() {
@@ -258,6 +269,10 @@ public class OctopusEntity extends Squid {
         if (squeeze != isSqueezing()) {
             setSqueezing(squeeze);
             refreshDimensions();
+            if (squeeze) {
+                this.level().playSound(null, this.blockPosition(), ModSounds.OCTOPUS_SQUEEZE.get(),
+                        SoundSource.HOSTILE, 0.72F, 1.0F);
+            }
         }
     }
 
@@ -331,7 +346,8 @@ public class OctopusEntity extends Squid {
         serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.SQUID_INK,
                 this.getX(), this.getY(0.5D), this.getZ(),
                 44, 0.75D, 0.45D, 0.75D, 0.08D);
-        serverLevel.playSound(null, this.blockPosition(), SoundEvents.SQUID_SQUIRT, SoundSource.HOSTILE, 1.0F, 0.75F);
+        serverLevel.playSound(null, this.blockPosition(), ModSounds.OCTOPUS_INK.get(),
+                SoundSource.HOSTILE, 1.0F, 0.82F);
         inkCooldown = 120;
         startTimedAction(ACTION_INK, 18);
     }
@@ -342,7 +358,8 @@ public class OctopusEntity extends Squid {
         this.tentacleGrabCooldown = this.level().getDifficulty() == net.minecraft.world.Difficulty.HARD ? 125 : 165;
         setActionState(ACTION_GRAB);
         if (this.level() instanceof ServerLevel serverLevel) {
-            serverLevel.playSound(null, this.blockPosition(), SoundEvents.FISHING_BOBBER_THROW, SoundSource.HOSTILE, 0.8F, 0.55F);
+            serverLevel.playSound(null, this.blockPosition(), ModSounds.OCTOPUS_GRAB.get(),
+                    SoundSource.HOSTILE, 0.9F, 0.82F);
         }
     }
 

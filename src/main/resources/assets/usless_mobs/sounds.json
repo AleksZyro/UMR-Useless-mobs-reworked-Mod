@@ -136,6 +136,36 @@
             { "name": "minecraft:particle.soul_escape", "type": "event", "volume": 0.62, "pitch": 1.55 },
             { "name": "minecraft:entity.allay.item_taken", "type": "event", "volume": 0.55, "pitch": 1.28 }
         ]
+    },
+    "octopus_ambient": {
+        "category": "hostile",
+        "sounds": [
+            { "name": "entity/octopus/ambient_1", "volume": 0.72, "pitch": 1.0 }
+        ]
+    },
+    "octopus_ink": {
+        "category": "hostile",
+        "sounds": [
+            { "name": "entity/octopus/ink_1", "volume": 1.0, "pitch": 0.96 }
+        ]
+    },
+    "octopus_grab": {
+        "category": "hostile",
+        "sounds": [
+            { "name": "entity/octopus/grab_1", "volume": 0.92, "pitch": 1.0 }
+        ]
+    },
+    "octopus_camouflage": {
+        "category": "hostile",
+        "sounds": [
+            { "name": "entity/octopus/camouflage_1", "volume": 0.78, "pitch": 1.0 }
+        ]
+    },
+    "octopus_squeeze": {
+        "category": "hostile",
+        "sounds": [
+            { "name": "entity/octopus/squeeze_1", "volume": 0.74, "pitch": 1.0 }
+        ]
     }
 }
 

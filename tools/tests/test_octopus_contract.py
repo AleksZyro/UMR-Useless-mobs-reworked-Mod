@@ -10,6 +10,9 @@ ENTITY = ROOT / "src/main/java/com/Momik/usless_mobs/entity/OctopusEntity.java"
 ENTITIES = ROOT / "src/main/java/com/Momik/usless_mobs/registry/ModEntities.java"
 RENDERER = ROOT / "src/main/java/com/Momik/usless_mobs/client/OctopusRenderer.java"
 EXACT_LAYER = ROOT / "src/main/java/com/Momik/usless_mobs/client/ExactMobMeshLayer.java"
+SOUNDS_JAVA = ROOT / "src/main/java/com/Momik/usless_mobs/registry/ModSounds.java"
+SOUNDS_JSON = ROOT / "src/main/resources/assets/usless_mobs/sounds.json"
+ASSETS = ROOT / "src/main/resources/assets/usless_mobs"
 
 
 class OctopusContract(unittest.TestCase):
@@ -70,6 +73,23 @@ class OctopusContract(unittest.TestCase):
             self.assertIn(state, layer)
         for index in range(8):
             self.assertIn(f'"tentacle{index}"', layer)
+
+    def test_octopus_has_distinct_registered_sound_events_and_files(self):
+        registry = SOUNDS_JAVA.read_text(encoding="utf-8")
+        manifest = json.loads(SOUNDS_JSON.read_text(encoding="utf-8"))
+
+        for event in (
+            "octopus_ambient",
+            "octopus_ink",
+            "octopus_grab",
+            "octopus_camouflage",
+            "octopus_squeeze",
+        ):
+            self.assertIn(event.upper(), registry)
+            self.assertIn(event, manifest)
+            for entry in manifest[event]["sounds"]:
+                sound_name = entry["name"] if isinstance(entry, dict) else entry
+                self.assertTrue((ASSETS / "sounds" / f"{sound_name}.ogg").is_file())
 
 if __name__ == "__main__":
     unittest.main()
