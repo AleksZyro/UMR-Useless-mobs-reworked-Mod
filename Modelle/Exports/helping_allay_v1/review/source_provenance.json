@@ -11,7 +11,7 @@
   "pbr": false,
   "source_glb": "../tripo_export/helping_allay.glb",
   "source_sha256": "5d683e1d7c3ef39d96e33e9e069d8f37d4f10b77f35758907fadc91d6df94db0",
-  "approved_front_axis": "-Z",
+  "approved_front_axis": "+Z",
   "approved": true,
   "approval_notes": "Front, side, and back review confirmed two arms, four separate wings, readable face, visible soul core, and continuous textured materials. PBR post-processing was not used because the UMR exact runtime consumes the original albedo texture."
 }
