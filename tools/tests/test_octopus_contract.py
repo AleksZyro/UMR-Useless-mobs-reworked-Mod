@@ -8,6 +8,8 @@ ROOT = Path(__file__).resolve().parents[2]
 OCTOPUS = ROOT / "Modelle/Exports/octopus_v1"
 ENTITY = ROOT / "src/main/java/com/Momik/usless_mobs/entity/OctopusEntity.java"
 ENTITIES = ROOT / "src/main/java/com/Momik/usless_mobs/registry/ModEntities.java"
+RENDERER = ROOT / "src/main/java/com/Momik/usless_mobs/client/OctopusRenderer.java"
+EXACT_LAYER = ROOT / "src/main/java/com/Momik/usless_mobs/client/ExactMobMeshLayer.java"
 
 
 class OctopusContract(unittest.TestCase):
@@ -49,6 +51,25 @@ class OctopusContract(unittest.TestCase):
         self.assertIn("AABB normalProbe", entity)
         self.assertIn("this.level().noCollision(this, normalProbe)", entity)
         self.assertIn("dropCarriedObject();\n        super.dropCustomDeathLoot", entity)
+
+    def test_octopus_renderer_uses_exact_mesh_and_all_action_states(self):
+        renderer = RENDERER.read_text(encoding="utf-8")
+        layer = EXACT_LAYER.read_text(encoding="utf-8")
+
+        self.assertEqual(1, renderer.count("new ExactMobMeshLayer<>("))
+        self.assertIn("OCTOPUS_EXACT_TEXTURE", renderer)
+        self.assertIn("octopusPose", layer)
+        for state in (
+            "ACTION_SWIM",
+            "ACTION_AMBUSH",
+            "ACTION_GRAB",
+            "ACTION_INK",
+            "ACTION_CAMOUFLAGE",
+            "ACTION_OBJECT",
+        ):
+            self.assertIn(state, layer)
+        for index in range(8):
+            self.assertIn(f'"tentacle{index}"', layer)
 
 if __name__ == "__main__":
     unittest.main()
