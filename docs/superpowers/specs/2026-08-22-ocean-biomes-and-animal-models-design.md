@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-22
 
-**Status:** Awaiting final written-spec approval
+**Status:** Approved by Andrin on 2026-08-22
 
 **Target:** Minecraft 1.20.1, Forge 47.4.16, Java 17
 **Active worktree:** `slime/.worktrees/corrupted-silverfish-v3`
