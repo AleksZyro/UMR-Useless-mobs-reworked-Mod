@@ -1,6 +1,10 @@
 package com.Momik.usless_mobs.entity;
 
 import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -20,6 +24,19 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public class OctopusEntity extends Squid {
+    public static final byte ACTION_IDLE = 0;
+    public static final byte ACTION_SWIM = 1;
+    public static final byte ACTION_AMBUSH = 2;
+    public static final byte ACTION_GRAB = 3;
+    public static final byte ACTION_INK = 4;
+    public static final byte ACTION_CAMOUFLAGE = 5;
+    public static final byte ACTION_OBJECT = 6;
+    private static final byte MAX_ACTION_STATE = ACTION_OBJECT;
+    private static final EntityDataAccessor<Byte> ACTION_STATE =
+            SynchedEntityData.defineId(OctopusEntity.class, EntityDataSerializers.BYTE);
+    private static final EntityDataAccessor<Boolean> SQUEEZING =
+            SynchedEntityData.defineId(OctopusEntity.class, EntityDataSerializers.BOOLEAN);
+
     private int biteCooldown = 40;
     private int inkCooldown = 80;
     private int camouflageCooldown = 180;
@@ -37,6 +54,45 @@ public class OctopusEntity extends Squid {
                 .add(Attributes.MAX_HEALTH, 18.0D)
                 .add(Attributes.MOVEMENT_SPEED, 0.9D)
                 .add(Attributes.KNOCKBACK_RESISTANCE, 0.15D);
+    }
+
+    @Override
+    protected void defineSynchedData() {
+        super.defineSynchedData();
+        this.entityData.define(ACTION_STATE, ACTION_IDLE);
+        this.entityData.define(SQUEEZING, false);
+    }
+
+    public byte getActionState() {
+        return this.entityData.get(ACTION_STATE);
+    }
+
+    public void setActionState(byte action) {
+        this.entityData.set(ACTION_STATE,
+                action >= ACTION_IDLE && action <= MAX_ACTION_STATE ? action : ACTION_IDLE);
+    }
+
+    public boolean isSqueezing() {
+        return this.entityData.get(SQUEEZING);
+    }
+
+    private void setSqueezing(boolean squeezing) {
+        this.entityData.set(SQUEEZING, squeezing);
+    }
+
+    @Override
+    public void addAdditionalSaveData(CompoundTag tag) {
+        super.addAdditionalSaveData(tag);
+        tag.putByte("OctopusAction", getActionState());
+        tag.putBoolean("OctopusSqueezing", isSqueezing());
+    }
+
+    @Override
+    public void readAdditionalSaveData(CompoundTag tag) {
+        super.readAdditionalSaveData(tag);
+        setActionState(tag.getByte("OctopusAction"));
+        setSqueezing(tag.getBoolean("OctopusSqueezing"));
+        refreshDimensions();
     }
 
     @Override
