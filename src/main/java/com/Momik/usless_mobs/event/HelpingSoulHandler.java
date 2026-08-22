@@ -3,6 +3,7 @@ package com.Momik.usless_mobs.event;
 import com.Momik.usless_mobs.Usless_mobs;
 import com.Momik.usless_mobs.entity.HelpingAllayEntity;
 import com.Momik.usless_mobs.registry.ModEntities;
+import com.Momik.usless_mobs.registry.ModSounds;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -86,7 +87,7 @@ public class HelpingSoulHandler {
             serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.NOTE,
                     helpingAllay.getX(), helpingAllay.getY(0.8D), helpingAllay.getZ(),
                     12, 0.25D, 0.25D, 0.25D, 0.0D);
-            serverLevel.playSound(null, helpingAllay.blockPosition(), SoundEvents.ALLAY_AMBIENT_WITH_ITEM, SoundSource.NEUTRAL, 1.0F, 1.25F);
+            serverLevel.playSound(null, helpingAllay.blockPosition(), ModSounds.HELPING_ALLAY_BOND.get(), SoundSource.NEUTRAL, 0.9F, 1.25F);
             player.displayClientMessage(Component.translatable("item.usless_mobs.helping_soul.received")
                     .withStyle(ChatFormatting.AQUA), true);
         }
@@ -112,7 +113,7 @@ public class HelpingSoulHandler {
                 serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.GLOW,
                         allay.getX(), allay.getY(0.8D), allay.getZ(),
                         18, 0.25D, 0.25D, 0.25D, 0.02D);
-                serverLevel.playSound(null, allay.blockPosition(), SoundEvents.ALLAY_ITEM_GIVEN, SoundSource.NEUTRAL, 1.0F, 1.3F);
+                serverLevel.playSound(null, allay.blockPosition(), ModSounds.HELPING_ALLAY_BOND.get(), SoundSource.NEUTRAL, 0.8F, 1.35F);
             }
             player.displayClientMessage(Component.translatable("item.usless_mobs.helping_soul.extended")
                     .withStyle(ChatFormatting.AQUA), true);

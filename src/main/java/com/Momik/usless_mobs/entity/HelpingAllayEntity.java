@@ -1,5 +1,6 @@
 package com.Momik.usless_mobs.entity;
 
+import com.Momik.usless_mobs.registry.ModSounds;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.particles.ParticleTypes;
@@ -110,6 +111,7 @@ public final class HelpingAllayEntity extends Allay {
         if (distance > 24.0D * 24.0D) {
             this.teleportTo(owner.getX(), owner.getY() + 0.5D, owner.getZ());
             playAction(ACTION_TELEPORT, 10);
+            serverLevel.playSound(null, this.blockPosition(), ModSounds.HELPING_ALLAY_RETURN.get(), SoundSource.NEUTRAL, 0.75F, 1.35F);
         } else if (distance > 7.0D * 7.0D) {
             this.getNavigation().moveTo(owner, 1.15D);
         }
@@ -123,6 +125,7 @@ public final class HelpingAllayEntity extends Allay {
             owner.heal(1.0F);
             owner.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 45, 0, true, false, true));
             playAction(ACTION_HEAL, 26);
+            serverLevel.playSound(null, this.blockPosition(), ModSounds.HELPING_ALLAY_HEAL.get(), SoundSource.NEUTRAL, 0.70F, 1.25F);
         }
     }
 
@@ -138,6 +141,7 @@ public final class HelpingAllayEntity extends Allay {
         }
         if (pressuredMonsters > 0) {
             playAction(ACTION_REVEAL, 18);
+            serverLevel.playSound(null, this.blockPosition(), ModSounds.HELPING_ALLAY_REVEAL.get(), SoundSource.NEUTRAL, 0.58F, 1.35F);
         }
         if (pressuredMonsters > 0
                 && this.tickCount % 80 == 0
@@ -156,6 +160,7 @@ public final class HelpingAllayEntity extends Allay {
                     0.55F,
                     1.45F);
             playAction(ACTION_SHIELD, 28);
+            serverLevel.playSound(null, this.blockPosition(), ModSounds.HELPING_ALLAY_SHIELD.get(), SoundSource.NEUTRAL, 0.78F, 1.15F);
         }
         serverLevel.sendParticles(
                 ParticleTypes.NOTE,

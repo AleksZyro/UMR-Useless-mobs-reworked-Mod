@@ -101,5 +101,41 @@
             { "name": "minecraft:mob/silverfish/say3", "volume": 1.0, "pitch": 0.5 },
             { "name": "minecraft:block/sculk_shrieker/shriek2", "volume": 0.4, "pitch": 1.35 }
         ]
+    },
+    "helping_allay_bond": {
+        "category": "neutral",
+        "sounds": [
+            { "name": "minecraft:block.amethyst_block.resonate", "type": "event", "volume": 0.80, "pitch": 1.20 },
+            { "name": "minecraft:entity.allay.item_given", "type": "event", "volume": 0.72, "pitch": 1.12 }
+        ]
+    },
+    "helping_allay_reveal": {
+        "category": "neutral",
+        "sounds": [
+            { "name": "minecraft:block.amethyst_block.chime", "type": "event", "volume": 0.65, "pitch": 1.42 },
+            { "name": "minecraft:entity.allay.ambient_with_item", "type": "event", "volume": 0.48, "pitch": 1.30 }
+        ]
+    },
+    "helping_allay_shield": {
+        "category": "neutral",
+        "sounds": [
+            { "name": "minecraft:block.beacon.power_select", "type": "event", "volume": 0.64, "pitch": 1.18 },
+            { "name": "minecraft:block.amethyst_block.resonate", "type": "event", "volume": 0.76, "pitch": 0.92 }
+        ]
+    },
+    "helping_allay_heal": {
+        "category": "neutral",
+        "sounds": [
+            { "name": "minecraft:block.beacon.ambient", "type": "event", "volume": 0.42, "pitch": 1.45 },
+            { "name": "minecraft:block.amethyst_block.chime", "type": "event", "volume": 0.72, "pitch": 1.16 }
+        ]
+    },
+    "helping_allay_return": {
+        "category": "neutral",
+        "sounds": [
+            { "name": "minecraft:particle.soul_escape", "type": "event", "volume": 0.62, "pitch": 1.55 },
+            { "name": "minecraft:entity.allay.item_taken", "type": "event", "volume": 0.55, "pitch": 1.28 }
+        ]
     }
 }
+

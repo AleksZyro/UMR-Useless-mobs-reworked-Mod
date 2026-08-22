@@ -37,6 +37,7 @@ import com.Momik.usless_mobs.registry.ModFeatures;
 import com.Momik.usless_mobs.registry.ModItems;
 import com.Momik.usless_mobs.registry.ModPotions;
 import com.Momik.usless_mobs.registry.ModRecipeSerializers;
+import com.Momik.usless_mobs.registry.ModSounds;
 import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 import net.minecraft.client.renderer.item.ItemProperties;
 import net.minecraft.resources.ResourceLocation;
@@ -89,6 +90,7 @@ public class Usless_mobs {
         ModEffects.MOB_EFFECTS.register(modEventBus);
         ModPotions.POTIONS.register(modEventBus);
         ModRecipeSerializers.RECIPE_SERIALIZERS.register(modEventBus);
+        ModSounds.SOUND_EVENTS.register(modEventBus);
         ModFeatures.FEATURES.register(modEventBus);
         ModCreativeTabs.CREATIVE_TABS.register(modEventBus);
         MinecraftForge.EVENT_BUS.register(this);

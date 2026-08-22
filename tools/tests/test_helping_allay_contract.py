@@ -57,6 +57,25 @@ class HelpingAllayContractTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("HelpingAllayRenderer::new", setup)
 
+    def test_helping_allay_has_bond_reveal_shield_heal_and_return_sounds(self):
+        sounds = (
+            ROOT / "src/main/resources/assets/usless_mobs/sounds.json"
+        ).read_text(encoding="utf-8")
+        for event in (
+            "helping_allay_bond",
+            "helping_allay_reveal",
+            "helping_allay_shield",
+            "helping_allay_heal",
+            "helping_allay_return",
+        ):
+            self.assertIn(f'"{event}"', sounds)
+
+        registry = (
+            ROOT / "src/main/java/com/Momik/usless_mobs/registry/ModSounds.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn("DeferredRegister<SoundEvent>", registry)
+        self.assertIn("HELPING_ALLAY_BOND", registry)
+
 
 if __name__ == "__main__":
     unittest.main()
