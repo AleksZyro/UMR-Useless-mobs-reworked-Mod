@@ -186,6 +186,14 @@ public final class ModItems {
                 }
             });
 
+    public static final RegistryObject<Item> HELPING_AMETHYST = ITEMS.register("helping_amethyst",
+            () -> new Item(new Item.Properties().stacksTo(16).rarity(Rarity.RARE)) {
+                @Override
+                public boolean isFoil(ItemStack stack) {
+                    return true;
+                }
+            });
+
     public static final RegistryObject<Item> HELPING_SOUL = ITEMS.register("helping_soul",
             () -> new Item(new Item.Properties().stacksTo(16).rarity(Rarity.RARE)) {
                 @Override

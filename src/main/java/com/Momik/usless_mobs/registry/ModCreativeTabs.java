@@ -25,6 +25,7 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.SCHLEIMREAKTOR_SCHMIEDEVORLAGE.get());
                         output.accept(net.mysith.registry.ModItems.CELESTIAL_CRYSTAL.get());
                         output.accept(net.mysith.registry.ModItems.AWAKENED_CELESTIAL_CRYSTAL.get());
+                        output.accept(ModItems.HELPING_AMETHYST.get());
                         output.accept(ModItems.HELPING_SOUL.get());
                         output.accept(ModItems.CELESTIAL_VITALITY_TEMPLATE.get());
                         output.accept(ModItems.BALANCE_UPGRADE_TEMPLATE.get());

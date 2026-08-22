@@ -3,6 +3,7 @@ package com.Momik.usless_mobs.event;
 import com.Momik.usless_mobs.Usless_mobs;
 import com.Momik.usless_mobs.entity.HelpingAllayEntity;
 import com.Momik.usless_mobs.registry.ModEntities;
+import com.Momik.usless_mobs.registry.ModItems;
 import com.Momik.usless_mobs.registry.ModSounds;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -13,7 +14,6 @@ import net.minecraft.world.entity.animal.allay.Allay;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.entity.living.LivingEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
@@ -61,7 +61,7 @@ public class HelpingSoulHandler {
             extendAllaySupport(event, helpingAllay, player, stack);
             return;
         }
-        if (!stack.is(Items.AMETHYST_SHARD)
+        if (!stack.is(ModItems.HELPING_AMETHYST.get())
                 || allay instanceof HelpingAllayEntity
                 || allay.getPersistentData().getBoolean(HELPED_KEY)) {
             return;
@@ -80,7 +80,7 @@ public class HelpingSoulHandler {
             if (!player.getAbilities().instabuild) {
                 stack.shrink(1);
             }
-            ItemStack reward = new ItemStack(com.Momik.usless_mobs.registry.ModItems.HELPING_SOUL.get());
+            ItemStack reward = new ItemStack(ModItems.HELPING_SOUL.get());
             if (!player.getInventory().add(reward)) {
                 player.drop(reward, false);
             }

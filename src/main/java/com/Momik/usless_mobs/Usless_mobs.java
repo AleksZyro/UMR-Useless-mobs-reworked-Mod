@@ -151,6 +151,7 @@ public class Usless_mobs {
             event.accept(ModItems.GLOW_FLARE);
             event.accept(ModItems.POTION_OF_LIFE);
             event.accept(ModItems.CORAL_SCALE);
+            event.accept(ModItems.HELPING_AMETHYST);
             event.accept(ModItems.HELPING_SOUL);
             event.accept(ModItems.VOID_VITALITY_TEMPLATE);
             event.accept(ModItems.CELESTIAL_VITALITY_TEMPLATE);
