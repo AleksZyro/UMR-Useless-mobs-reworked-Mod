@@ -8,6 +8,7 @@ import com.Momik.usless_mobs.client.CustomMob3DModel;
 import com.Momik.usless_mobs.client.CustomMobModelLayers;
 import com.Momik.usless_mobs.client.EnderSlimeRenderer;
 import com.Momik.usless_mobs.client.FrostStrayRenderer;
+import com.Momik.usless_mobs.client.HelpingAllayRenderer;
 import com.Momik.usless_mobs.client.KingSlimeRenderer;
 import com.Momik.usless_mobs.client.LivingBatRenderer;
 import com.Momik.usless_mobs.client.LivingBossRenderer;
@@ -349,6 +350,7 @@ public class Usless_mobs {
             event.registerEntityRenderer(ModEntities.CORAL_DROWNED.get(), CoralDrownedRenderer::new);
             event.registerEntityRenderer(ModEntities.OCTOPUS.get(), OctopusRenderer::new);
             event.registerEntityRenderer(ModEntities.WITCH_BOSS.get(), WitchBossRenderer::new);
+            event.registerEntityRenderer(ModEntities.HELPING_ALLAY.get(), HelpingAllayRenderer::new);
             event.registerEntityRenderer(ModEntities.SLIME_SPIKE.get(), ThrownItemRenderer::new);
             event.registerEntityRenderer(EntityType.BAT, LivingBatRenderer::new);
             event.registerEntityRenderer(EntityType.HUSK, RootedHuskRenderer::new);

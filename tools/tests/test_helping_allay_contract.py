@@ -37,6 +37,26 @@ class HelpingAllayContractTests(unittest.TestCase):
         self.assertIn("copyAllayState", source)
         self.assertIn("allay.discard()", source)
 
+    def test_renderer_uses_only_exact_mesh_and_original_albedo(self):
+        renderer = (
+            ROOT / "src/main/java/com/Momik/usless_mobs/client/HelpingAllayRenderer.java"
+        ).read_text(encoding="utf-8")
+        layer = (
+            ROOT / "src/main/java/com/Momik/usless_mobs/client/HelpingAllayExactLayer.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn("TRANSPARENT_BASE_TEXTURE", renderer)
+        self.assertIn('ExactMobMesh.load(resourceManager, "helping_allay"', layer)
+        self.assertIn("HELPING_ALLAY_EXACT_TEXTURE", layer)
+        self.assertIn("ACTION_SHIELD", layer)
+        self.assertIn("ACTION_HEAL", layer)
+        self.assertNotIn("CustomMob3DLayer", renderer + layer)
+
+    def test_renderer_is_registered_for_the_dedicated_entity(self):
+        setup = (
+            ROOT / "src/main/java/com/Momik/usless_mobs/Usless_mobs.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn("HelpingAllayRenderer::new", setup)
+
 
 if __name__ == "__main__":
     unittest.main()

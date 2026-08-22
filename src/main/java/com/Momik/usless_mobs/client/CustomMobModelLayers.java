@@ -5,6 +5,8 @@ import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.resources.ResourceLocation;
 
 public final class CustomMobModelLayers {
+    public static final ResourceLocation TRANSPARENT_BASE_TEXTURE =
+            texture("textures/entity/custom3d/transparent_base.png");
     public static final ModelLayerLocation LIVING_BOSS =
             layer("living_boss_custom_3d");
     public static final ModelLayerLocation FROST_STRAY =
@@ -38,6 +40,21 @@ public final class CustomMobModelLayers {
             texture("textures/entity/custom3d/living_bat.png");
     public static final ResourceLocation ROOTED_HUSK_TEXTURE =
             texture("textures/entity/custom3d/rooted_husk.png");
+
+    public static final ResourceLocation LIVING_BOSS_EXACT_TEXTURE =
+            texture("textures/entity/custom3d/exact/living_boss.png");
+    public static final ResourceLocation WEB_CAVE_SPIDER_EXACT_TEXTURE =
+            texture("textures/entity/custom3d/exact/web_cave_spider.png");
+    public static final ResourceLocation OCTOPUS_EXACT_TEXTURE =
+            texture("textures/entity/custom3d/exact/octopus.png");
+    public static final ResourceLocation WITCH_BOSS_EXACT_TEXTURE =
+            texture("textures/entity/custom3d/exact/witch_boss.png");
+    public static final ResourceLocation LIVING_BAT_EXACT_TEXTURE =
+            texture("textures/entity/custom3d/exact/living_bat.png");
+    public static final ResourceLocation ROOTED_HUSK_EXACT_TEXTURE =
+            texture("textures/entity/custom3d/exact/rooted_husk.png");
+    public static final ResourceLocation HELPING_ALLAY_EXACT_TEXTURE =
+            texture("textures/entity/custom3d/exact/helping_allay.png");
 
     private CustomMobModelLayers() {}
 
