@@ -20,6 +20,7 @@ import com.Momik.usless_mobs.entity.CelestialSlimeEntity;
 import com.Momik.usless_mobs.entity.CoralDrownedEntity;
 import com.Momik.usless_mobs.entity.EnderSlimeEntity;
 import com.Momik.usless_mobs.entity.FrostStrayEntity;
+import com.Momik.usless_mobs.entity.HelpingAllayEntity;
 import com.Momik.usless_mobs.entity.KingSlimeEntity;
 import com.Momik.usless_mobs.entity.LivingBossEntity;
 import com.Momik.usless_mobs.entity.OctopusEntity;
@@ -284,6 +285,7 @@ public class Usless_mobs {
             event.put(ModEntities.CORAL_DROWNED.get(), CoralDrownedEntity.createAttributes().build());
             event.put(ModEntities.OCTOPUS.get(), OctopusEntity.createAttributes().build());
             event.put(ModEntities.WITCH_BOSS.get(), WitchBossEntity.createAttributes().build());
+            event.put(ModEntities.HELPING_ALLAY.get(), HelpingAllayEntity.createAttributes().build());
         }
 
         @SubscribeEvent

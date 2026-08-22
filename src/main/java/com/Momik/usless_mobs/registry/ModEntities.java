@@ -5,6 +5,7 @@ import com.Momik.usless_mobs.entity.CelestialSlimeEntity;
 import com.Momik.usless_mobs.entity.CoralDrownedEntity;
 import com.Momik.usless_mobs.entity.EnderSlimeEntity;
 import com.Momik.usless_mobs.entity.FrostStrayEntity;
+import com.Momik.usless_mobs.entity.HelpingAllayEntity;
 import com.Momik.usless_mobs.entity.KingSlimeEntity;
 import com.Momik.usless_mobs.entity.LivingBossEntity;
 import com.Momik.usless_mobs.entity.OctopusEntity;
@@ -98,4 +99,11 @@ public final class ModEntities {
                     .sized(0.6F, 1.95F)
                     .clientTrackingRange(10)
                     .build(Usless_mobs.MODID + ":witch_boss"));
+
+    public static final RegistryObject<EntityType<HelpingAllayEntity>> HELPING_ALLAY = ENTITY_TYPES.register("helping_allay",
+            () -> EntityType.Builder.of(HelpingAllayEntity::new, MobCategory.CREATURE)
+                    .sized(0.35F, 0.6F)
+                    .clientTrackingRange(10)
+                    .updateInterval(2)
+                    .build(Usless_mobs.MODID + ":helping_allay"));
 }
