@@ -1,0 +1,18 @@
+{
+  "bones": {
+    "body": 24169,
+    "head": 23590,
+    "left_arm": 14816,
+    "left_leg": 9347,
+    "right_arm": 15560,
+    "right_leg": 8372
+  },
+  "cubes": 0,
+  "fit_axis": 1,
+  "fit_span": 31.2,
+  "mob": "rooted_husk",
+  "output_triangles": 95854,
+  "source_triangles": 95854,
+  "texture_height": 4096,
+  "texture_width": 4096
+}

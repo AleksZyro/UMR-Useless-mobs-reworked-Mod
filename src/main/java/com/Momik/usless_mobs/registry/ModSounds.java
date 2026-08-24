@@ -21,6 +21,28 @@ public final class ModSounds {
     public static final RegistryObject<SoundEvent> OCTOPUS_GRAB = register("octopus_grab");
     public static final RegistryObject<SoundEvent> OCTOPUS_CAMOUFLAGE = register("octopus_camouflage");
     public static final RegistryObject<SoundEvent> OCTOPUS_SQUEEZE = register("octopus_squeeze");
+    public static final RegistryObject<SoundEvent> POLAR_BEAR_AMBIENT = register("polar_bear_ambient");
+    public static final RegistryObject<SoundEvent> POLAR_BEAR_HURT = register("polar_bear_hurt");
+    public static final RegistryObject<SoundEvent> POLAR_BEAR_DEATH = register("polar_bear_death");
+    public static final RegistryObject<SoundEvent> POLAR_BEAR_CHARGE = register("polar_bear_charge");
+    public static final RegistryObject<SoundEvent> LIVING_BAT_AMBIENT = register("living_bat_ambient");
+    public static final RegistryObject<SoundEvent> LIVING_BAT_HURT = register("living_bat_hurt");
+    public static final RegistryObject<SoundEvent> LIVING_BAT_DEATH = register("living_bat_death");
+    public static final RegistryObject<SoundEvent> ROOTED_HUSK_AMBIENT = register("rooted_husk_ambient");
+    public static final RegistryObject<SoundEvent> ROOTED_HUSK_HURT = register("rooted_husk_hurt");
+    public static final RegistryObject<SoundEvent> ROOTED_HUSK_DEATH = register("rooted_husk_death");
+    public static final RegistryObject<SoundEvent> WEB_CAVE_SPIDER_AMBIENT = register("web_cave_spider_ambient");
+    public static final RegistryObject<SoundEvent> WEB_CAVE_SPIDER_HURT = register("web_cave_spider_hurt");
+    public static final RegistryObject<SoundEvent> WEB_CAVE_SPIDER_DEATH = register("web_cave_spider_death");
+    public static final RegistryObject<SoundEvent> WEB_CAVE_SPIDER_CAST = register("web_cave_spider_cast");
+    public static final RegistryObject<SoundEvent> FROST_STRAY_AMBIENT = register("frost_stray_ambient");
+    public static final RegistryObject<SoundEvent> FROST_STRAY_HURT = register("frost_stray_hurt");
+    public static final RegistryObject<SoundEvent> FROST_STRAY_DEATH = register("frost_stray_death");
+    public static final RegistryObject<SoundEvent> FROST_STRAY_VOLLEY = register("frost_stray_volley");
+    public static final RegistryObject<SoundEvent> CORAL_DROWNED_AMBIENT = register("coral_drowned_ambient");
+    public static final RegistryObject<SoundEvent> CORAL_DROWNED_HURT = register("coral_drowned_hurt");
+    public static final RegistryObject<SoundEvent> CORAL_DROWNED_DEATH = register("coral_drowned_death");
+    public static final RegistryObject<SoundEvent> CORAL_DROWNED_SURGE = register("coral_drowned_surge");
 
     private ModSounds() {
     }

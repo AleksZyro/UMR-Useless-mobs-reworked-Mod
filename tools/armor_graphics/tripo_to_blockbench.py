@@ -194,6 +194,16 @@ def load_views(directory: Path, names: Sequence[str] = VIEW_NAMES) -> Dict[str, 
             raise ValueError(f"Missing required multiview image: {path}")
         with Image.open(path) as source:
             pixels = np.asarray(source.convert("RGBA"), dtype=np.uint8)
+        # Image generators commonly use a bright chroma-green studio
+        # background. It is reference canvas, not creature texture data.
+        rgb = pixels[:, :, :3].astype(np.int16)
+        chroma_green = (
+            (rgb[:, :, 1] >= 140)
+            & (rgb[:, :, 1] >= rgb[:, :, 0] + 55)
+            & (rgb[:, :, 1] >= rgb[:, :, 2] + 55)
+        )
+        pixels = pixels.copy()
+        pixels[chroma_green, 3] = 0
         alpha = pixels[:, :, 3]
         ys, xs = np.nonzero(alpha >= 16)
         if not len(xs):
@@ -235,8 +245,9 @@ def _colour_for(point: np.ndarray, views: Mapping[str, View]) -> Tuple[int, int,
         (1 - z, "back", 1 - x, 1 - y),
         (x, "left", 1 - z, 1 - y),
         (1 - x, "right", z, 1 - y),
-        (1 - y, "top", x, z),
     ]
+    if "top" in views:
+        projections.append((1 - y, "top", x, z))
     for _distance, name, u, v in sorted(projections):
         colour = _sample(views[name], u, v)
         if colour is not None:
@@ -296,7 +307,8 @@ def _greedy_merge(labels: Mapping[Tuple[int, int, int], int]) -> Tuple[Cuboid, .
 
 
 def build_candidate(glb_path: Path, views_path: Path, resolution: int = 24) -> Candidate:
-    voxels = _voxel_colours(load_geometry(glb_path), load_views(views_path), resolution)
+    view_names = VIEW_NAMES if (Path(views_path) / "top.png").is_file() else VIEW_NAMES[:-1]
+    voxels = _voxel_colours(load_geometry(glb_path), load_views(views_path, view_names), resolution)
     if not voxels:
         raise ValueError("Tripo mesh produced no occupied voxels")
     palette, labels = _palette_indices(voxels)

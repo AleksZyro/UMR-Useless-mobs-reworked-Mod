@@ -91,7 +91,7 @@ class AnimatedRigContractTests(unittest.TestCase):
         first_tripod = ("leg_front_left", "leg_middle_right", "leg_rear_left")
         opposite_tripod = ("leg_front_right", "leg_middle_left", "leg_rear_right")
         leg_bones = first_tripod + opposite_tripod
-        expected_times = tuple(index * 0.05 for index in range(17))
+        expected_times = tuple(index * 0.025 for index in range(33))
 
         self.assertEqual(set(walk), {"body", *leg_bones})
         self.assertEqual(set(walk["body"]), {"position", "rotation"})
@@ -101,10 +101,20 @@ class AnimatedRigContractTests(unittest.TestCase):
             self.assertEqual(set(walk[bone]), {"rotation"})
             rotations = walk[bone]["rotation"]
             self.assertEqual(tuple(time for time, _ in rotations), expected_times)
-            self.assertEqual(len(rotations), 17)
-            self.assertEqual(max(abs(vector[1]) for _, vector in rotations), 24.0)
-            self.assertEqual(max(abs(vector[2]) for _, vector in rotations), 12.0)
+            self.assertEqual(len(rotations), 33)
+            self.assertEqual(max(abs(vector[1]) for _, vector in rotations), 30.0)
+            self.assertEqual(max(abs(vector[2]) for _, vector in rotations), 16.0)
             self.assertTrue(all(vector[0] == 0 for _, vector in rotations))
+            adjacent_stride_steps = [
+                abs(second[1] - first[1])
+                for (_, first), (_, second) in zip(rotations, rotations[1:])
+            ]
+            adjacent_lift_steps = [
+                abs(second[2] - first[2])
+                for (_, first), (_, second) in zip(rotations, rotations[1:])
+            ]
+            self.assertLessEqual(max(adjacent_stride_steps), 5.86)
+            self.assertLessEqual(max(adjacent_lift_steps), 3.13)
             lift_values = [vector[2] for _, vector in rotations]
             if bone.endswith("left"):
                 self.assertTrue(all(value <= 0 for value in lift_values))
@@ -116,10 +126,13 @@ class AnimatedRigContractTests(unittest.TestCase):
                 self.assertEqual(first[1], candidate[1])
                 self.assertEqual(abs(first[2]), abs(candidate[2]))
         # At each quarter-cycle one tripod clears the ground while the other stays planted.
-        for index in (4, 12):
-            lifted_first = any(abs(walk[bone]["rotation"][index][1][2]) == 12 for bone in first_tripod)
-            lifted_second = any(abs(walk[bone]["rotation"][index][1][2]) == 12 for bone in opposite_tripod)
+        for index in (8, 24):
+            lifted_first = any(abs(walk[bone]["rotation"][index][1][2]) == 16 for bone in first_tripod)
+            lifted_second = any(abs(walk[bone]["rotation"][index][1][2]) == 16 for bone in opposite_tripod)
             self.assertNotEqual(lifted_first, lifted_second)
+
+        body_positions = walk["body"]["position"]
+        self.assertEqual(max(vector[1] for _, vector in body_positions), 0.24)
 
         for bone in opposite_tripod:
             opposite = walk[bone]["rotation"]

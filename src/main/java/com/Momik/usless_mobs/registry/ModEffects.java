@@ -2,6 +2,7 @@ package com.Momik.usless_mobs.registry;
 
 import com.Momik.usless_mobs.effect.ElasticityMobEffect;
 import com.Momik.usless_mobs.effect.GoldenFlowMobEffect;
+import com.Momik.usless_mobs.effect.RabbitFormMobEffect;
 import com.Momik.usless_mobs.Usless_mobs;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraftforge.registries.DeferredRegister;
@@ -16,4 +17,6 @@ public final class ModEffects {
     public static final RegistryObject<MobEffect> ELASTICITY = MOB_EFFECTS.register("elasticity", ElasticityMobEffect::new);
 
     public static final RegistryObject<MobEffect> GOLDEN_FLOW = MOB_EFFECTS.register("golden_flow", GoldenFlowMobEffect::new);
+
+    public static final RegistryObject<MobEffect> RABBIT_FORM = MOB_EFFECTS.register("rabbit_form", RabbitFormMobEffect::new);
 }

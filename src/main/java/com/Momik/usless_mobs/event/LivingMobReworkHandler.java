@@ -16,10 +16,10 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.ambient.Bat;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.animal.axolotl.Axolotl;
 import net.minecraft.world.entity.animal.Ocelot;
+import com.Momik.usless_mobs.entity.LivingOcelotEntity;
 import net.minecraft.world.entity.animal.PolarBear;
 import net.minecraft.world.entity.animal.Squid;
 import net.minecraft.world.entity.Entity;
@@ -53,6 +53,7 @@ public final class LivingMobReworkHandler {
     private static final String OCELOT_MARK_UNTIL_KEY = "UmrOcelotMarkUntil";
     private static final String SQUID_INK_BURST_KEY = "UmrSquidInkBurstUntil";
     private static final String GLOW_SQUID_NEXT_GIFT_KEY = "UmrGlowSquidNextGift";
+    private static final String GLOW_SQUID_FLASH_COOLDOWN_KEY = "UmrGlowSquidFlashCooldown";
 
     private LivingMobReworkHandler() {
     }
@@ -64,6 +65,10 @@ public final class LivingMobReworkHandler {
             return;
         }
 
+        if (entity.getPersistentData().getBoolean(WitchBossEntity.HUNT_HOUND_KEY)) {
+            tickWitchHound(entity, serverLevel);
+            return;
+        }
         if (entity.getPersistentData().getBoolean(WitchBossEntity.DECOY_KEY)) {
             tickWitchDecoy(entity, serverLevel);
             return;
@@ -77,15 +82,13 @@ public final class LivingMobReworkHandler {
             tickAxolotl(axolotl, serverLevel);
         } else if (entity instanceof Drowned drowned && !(entity instanceof CoralDrownedEntity)) {
             tickDrowned(drowned, serverLevel);
-        } else if (entity instanceof Bat bat) {
-            tickBat(bat, serverLevel);
         } else if (entity instanceof GlowSquid glowSquid) {
             tickGlowSquid(glowSquid, serverLevel);
         } else if (entity instanceof Squid squid && !(entity instanceof OctopusEntity)) {
             tickSquid(squid, serverLevel);
         } else if (entity instanceof PolarBear polarBear) {
             tickPolarBear(polarBear, serverLevel);
-        } else if (entity instanceof Ocelot ocelot) {
+        } else if (entity instanceof LivingOcelotEntity ocelot) {
             tickOcelot(ocelot, serverLevel);
         }
     }
@@ -115,7 +118,9 @@ public final class LivingMobReworkHandler {
                 markOcelotTarget(serverLevel, owner, monster);
             }
 
-            if (hurtEntity instanceof Squid squid && !(hurtEntity instanceof OctopusEntity) && source instanceof LivingEntity attacker) {
+            if (hurtEntity instanceof GlowSquid glowSquid && source instanceof LivingEntity attacker) {
+                glowSquidFlash(glowSquid, attacker, serverLevel);
+            } else if (hurtEntity instanceof Squid squid && !(hurtEntity instanceof OctopusEntity) && source instanceof LivingEntity attacker) {
                 squidInkBurst(squid, attacker, serverLevel);
             }
         }
@@ -126,7 +131,7 @@ public final class LivingMobReworkHandler {
         if (!(event.getLevel() instanceof ServerLevel serverLevel) || !(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
-        if (event.getTarget() instanceof Ocelot ocelot) {
+        if (event.getTarget() instanceof LivingOcelotEntity ocelot) {
             bindOcelot(event, serverLevel, player, ocelot);
         } else if (event.getTarget() instanceof GlowSquid glowSquid) {
             feedGlowSquid(event, serverLevel, player, glowSquid);
@@ -217,24 +222,6 @@ public final class LivingMobReworkHandler {
         level.playSound(null, target.blockPosition(), SoundEvents.TRIDENT_RIPTIDE_1, SoundSource.HOSTILE, 0.9F, 1.1F);
     }
 
-    private static void tickBat(Bat bat, ServerLevel level) {
-        Player player = level.getNearestPlayer(bat, 2.4D);
-        if (player == null || player.getAbilities().instabuild || !cooldownReady(bat, 80)) {
-            return;
-        }
-        boolean night = isNight(level);
-        player.hurt(bat.damageSources().mobAttack(bat), night ? 3.0F : 2.0F);
-        player.addEffect(new MobEffectInstance(MobEffects.POISON, 45, 0));
-        if (night) {
-            player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 45, 0));
-            player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 80, 0));
-        }
-        level.sendParticles(ParticleTypes.SCULK_SOUL,
-                player.getX(), player.getY(0.55D), player.getZ(),
-                night ? 16 : 8, 0.25D, 0.25D, 0.25D, 0.02D);
-        level.playSound(null, player.blockPosition(), SoundEvents.BAT_TAKEOFF, SoundSource.HOSTILE, 0.8F, 0.65F);
-    }
-
     private static void tickGlowSquid(GlowSquid glowSquid, ServerLevel level) {
         if (glowSquid.tickCount % 80 != 0) {
             return;
@@ -291,7 +278,7 @@ public final class LivingMobReworkHandler {
         level.sendParticles(ParticleTypes.SNOWFLAKE,
                 bear.getX(), bear.getY(0.4D), bear.getZ(),
                 18, 0.45D, 0.15D, 0.45D, 0.08D);
-        level.playSound(null, bear.blockPosition(), SoundEvents.POLAR_BEAR_WARNING, SoundSource.HOSTILE, 1.1F, 0.75F);
+        level.playSound(null, bear.blockPosition(), com.Momik.usless_mobs.registry.ModSounds.POLAR_BEAR_CHARGE.get(), SoundSource.HOSTILE, 1.1F, 0.75F);
     }
 
     private static void tickOcelot(Ocelot ocelot, ServerLevel level) {
@@ -395,7 +382,7 @@ public final class LivingMobReworkHandler {
     }
 
     private static void markOcelotTarget(ServerLevel level, Player owner, Monster monster) {
-        boolean hasBoundOcelot = !level.getEntitiesOfClass(Ocelot.class, owner.getBoundingBox().inflate(12.0D),
+        boolean hasBoundOcelot = !level.getEntitiesOfClass(LivingOcelotEntity.class, owner.getBoundingBox().inflate(12.0D),
                 ocelot -> ocelot.isAlive()
                         && ocelot.getPersistentData().hasUUID(OCELOT_OWNER_KEY)
                         && ocelot.getPersistentData().getUUID(OCELOT_OWNER_KEY).equals(owner.getUUID())).isEmpty();
@@ -434,6 +421,33 @@ public final class LivingMobReworkHandler {
         level.playSound(null, squid.blockPosition(), SoundEvents.SQUID_SQUIRT, SoundSource.NEUTRAL, 0.9F, 0.8F);
     }
 
+    private static void glowSquidFlash(GlowSquid squid, LivingEntity attacker, ServerLevel level) {
+        long now = level.getGameTime();
+        if (squid.getPersistentData().getLong(GLOW_SQUID_FLASH_COOLDOWN_KEY) > now) {
+            return;
+        }
+        squid.getPersistentData().putLong(GLOW_SQUID_FLASH_COOLDOWN_KEY, now + 180L);
+
+        AABB area = squid.getBoundingBox().inflate(5.5D);
+        for (LivingEntity living : level.getEntitiesOfClass(LivingEntity.class, area,
+                living -> living.isAlive() && living != squid)) {
+            living.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 45, 0));
+            living.addEffect(new MobEffectInstance(MobEffects.GLOWING, 90, 0));
+        }
+        pushAway(squid, attacker, 0.65D);
+        Vec3 flee = squid.position().subtract(attacker.position()).normalize().scale(0.52D);
+        squid.setDeltaMovement(squid.getDeltaMovement().add(flee.x, 0.10D, flee.z));
+        squid.hurtMarked = true;
+        level.sendParticles(ParticleTypes.FLASH,
+                squid.getX(), squid.getY(0.55D), squid.getZ(),
+                4, 0.28D, 0.20D, 0.28D, 0.0D);
+        level.sendParticles(ParticleTypes.END_ROD,
+                squid.getX(), squid.getY(0.55D), squid.getZ(),
+                46, 0.85D, 0.55D, 0.85D, 0.12D);
+        level.playSound(null, squid.blockPosition(), SoundEvents.FIREWORK_ROCKET_BLAST,
+                SoundSource.NEUTRAL, 1.15F, 1.65F);
+    }
+
     private static void tickWitchDecoy(LivingEntity decoy, ServerLevel level) {
         int ticks = decoy.getPersistentData().getInt(WitchBossEntity.DECOY_TICKS_KEY) - 1;
         decoy.getPersistentData().putInt(WitchBossEntity.DECOY_TICKS_KEY, ticks);
@@ -461,6 +475,23 @@ public final class LivingMobReworkHandler {
                     spirit.getX(), spirit.getY(0.5D), spirit.getZ(),
                     10, 0.25D, 0.25D, 0.25D, 0.02D);
             spirit.discard();
+        }
+    }
+
+    private static void tickWitchHound(LivingEntity hound, ServerLevel level) {
+        int ticks = hound.getPersistentData().getInt(WitchBossEntity.HUNT_HOUND_TICKS_KEY) - 1;
+        hound.getPersistentData().putInt(WitchBossEntity.HUNT_HOUND_TICKS_KEY, ticks);
+
+        boolean ownerAlive = false;
+        if (hound.getPersistentData().hasUUID(WitchBossEntity.HUNT_OWNER_KEY)) {
+            UUID ownerId = hound.getPersistentData().getUUID(WitchBossEntity.HUNT_OWNER_KEY);
+            ownerAlive = level.getEntity(ownerId) instanceof WitchBossEntity owner && owner.isAlive();
+        }
+        if (ticks <= 0 || !ownerAlive || !hound.isAlive()) {
+            level.sendParticles(ParticleTypes.POOF,
+                    hound.getX(), hound.getY(0.5D), hound.getZ(),
+                    10, 0.3D, 0.25D, 0.3D, 0.02D);
+            hound.discard();
         }
     }
 

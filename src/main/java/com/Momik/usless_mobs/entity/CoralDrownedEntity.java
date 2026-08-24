@@ -1,8 +1,10 @@
 package com.Momik.usless_mobs.entity;
 
+import com.Momik.usless_mobs.registry.ModSounds;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
@@ -156,7 +158,7 @@ public class CoralDrownedEntity extends Drowned {
         this.coralSurgeDirection = direction.normalize();
         this.coralSurgeOrigin = this.position().add(this.coralSurgeDirection.scale(0.8D));
         this.coralSurgeWarmup = 22;
-        this.playSound(SoundEvents.CONDUIT_AMBIENT, 0.9F, 0.75F);
+        this.playSound(ModSounds.CORAL_DROWNED_SURGE.get(), 0.9F, 0.72F);
     }
 
     private void tickCoralSurgeWarmup() {
@@ -197,7 +199,22 @@ public class CoralDrownedEntity extends Drowned {
             serverLevel.sendParticles(ParticleTypes.SPLASH, pos.x, this.getY(0.35D), pos.z,
                     5, 0.28D, 0.15D, 0.28D, 0.06D);
         }
-        serverLevel.playSound(null, this.blockPosition(), SoundEvents.DOLPHIN_SPLASH, SoundSource.HOSTILE, 1.0F, 0.7F);
+        serverLevel.playSound(null, this.blockPosition(), ModSounds.CORAL_DROWNED_SURGE.get(), SoundSource.HOSTILE, 1.0F, 1.0F);
+    }
+
+    @Override
+    public SoundEvent getAmbientSound() {
+        return ModSounds.CORAL_DROWNED_AMBIENT.get();
+    }
+
+    @Override
+    protected SoundEvent getHurtSound(DamageSource source) {
+        return ModSounds.CORAL_DROWNED_HURT.get();
+    }
+
+    @Override
+    protected SoundEvent getDeathSound() {
+        return ModSounds.CORAL_DROWNED_DEATH.get();
     }
 
     @Override

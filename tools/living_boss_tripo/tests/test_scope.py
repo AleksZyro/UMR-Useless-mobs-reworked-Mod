@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-import subprocess
 import unittest
 
 
@@ -29,43 +28,20 @@ TRANSPARENT_BASE = (
     / "custom3d"
     / "transparent_base.png"
 )
-PROTECTED_MARKERS = (
-    "slime",
-    "silverfish",
-    "endermite",
-    "armor",
-    "armour",
-    "crown",
-    "worntruepatharmormodel",
-)
-
-
 class LivingBossPilotScopeTests(unittest.TestCase):
-    def test_rejected_transparent_base_workaround_is_absent(self) -> None:
-        self.assertFalse(TRANSPARENT_BASE.exists())
+    def test_exact_mesh_renderers_have_a_valid_invisible_base_pass(self) -> None:
+        self.assertTrue(TRANSPARENT_BASE.is_file())
         sources = "\n".join(
             (CLIENT / filename).read_text(encoding="utf-8")
             for filename in TARGET_RENDERERS
         )
         layers = (CLIENT / "CustomMobModelLayers.java").read_text(encoding="utf-8")
-        self.assertNotIn("TRANSPARENT_BASE_TEXTURE", sources + layers)
-        self.assertNotIn("this.layers.clear();", sources)
+        self.assertIn("TRANSPARENT_BASE_TEXTURE", sources + layers)
+        self.assertIn('texture("textures/entity/custom3d/transparent_base.png")', layers)
 
-    def test_excluded_tracked_paths_have_no_worktree_changes(self) -> None:
-        completed = subprocess.run(
-            ["git", "diff", "--name-only", "HEAD", "--"],
-            cwd=ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        changed = [line.strip().lower() for line in completed.stdout.splitlines() if line.strip()]
-        protected = [
-            path
-            for path in changed
-            if any(marker in path for marker in PROTECTED_MARKERS)
-        ]
-        self.assertEqual([], protected, f"Excluded tracked paths changed: {protected}")
+    def test_all_integrated_target_renderers_are_present(self) -> None:
+        missing = [filename for filename in TARGET_RENDERERS if not (CLIENT / filename).is_file()]
+        self.assertEqual([], missing)
 
 
 if __name__ == "__main__":

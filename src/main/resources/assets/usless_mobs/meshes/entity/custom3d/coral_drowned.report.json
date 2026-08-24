@@ -1,0 +1,18 @@
+{
+  "bones": {
+    "body": 227497,
+    "head": 133135,
+    "left_arm": 88119,
+    "left_leg": 94366,
+    "right_arm": 92555,
+    "right_leg": 92341
+  },
+  "cubes": 0,
+  "fit_axis": 1,
+  "fit_span": 31.2,
+  "mob": "coral_drowned",
+  "output_triangles": 728013,
+  "source_triangles": 728013,
+  "texture_height": 4096,
+  "texture_width": 4096
+}

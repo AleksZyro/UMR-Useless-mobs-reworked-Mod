@@ -47,6 +47,10 @@ public final class CustomMobModelLayers {
             texture("textures/entity/custom3d/exact/web_cave_spider.png");
     public static final ResourceLocation OCTOPUS_EXACT_TEXTURE =
             texture("textures/entity/custom3d/exact/octopus.png");
+    public static final ResourceLocation SQUID_EXACT_TEXTURE =
+            texture("textures/entity/custom3d/exact/squid.png");
+    public static final ResourceLocation GLOW_SQUID_EXACT_TEXTURE =
+            texture("textures/entity/custom3d/exact/glow_squid.png");
     public static final ResourceLocation WITCH_BOSS_EXACT_TEXTURE =
             texture("textures/entity/custom3d/exact/witch_boss.png");
     public static final ResourceLocation LIVING_BAT_EXACT_TEXTURE =
@@ -55,6 +59,16 @@ public final class CustomMobModelLayers {
             texture("textures/entity/custom3d/exact/rooted_husk.png");
     public static final ResourceLocation HELPING_ALLAY_EXACT_TEXTURE =
             texture("textures/entity/custom3d/exact/helping_allay.png");
+    public static final ResourceLocation POLAR_BEAR_EXACT_TEXTURE =
+            texture("textures/entity/custom3d/exact/polar_bear.png");
+    public static final ResourceLocation FROST_STRAY_EXACT_TEXTURE =
+            texture("textures/entity/custom3d/exact/frost_stray.png");
+    public static final ResourceLocation CORAL_DROWNED_EXACT_TEXTURE =
+            texture("textures/entity/custom3d/exact/coral_drowned.png");
+    public static final ResourceLocation AXOLOTL_EXACT_TEXTURE =
+            texture("textures/entity/custom3d/exact/axolotl.png");
+    public static final ResourceLocation OCELOT_EXACT_TEXTURE =
+            texture("textures/entity/custom3d/exact/ocelot.png");
 
     private CustomMobModelLayers() {}
 

@@ -81,7 +81,7 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.KING_SCHLEIM_SPAWN_EGG.get());
                         output.accept(ModItems.ENDER_SCHLEIM_SPAWN_EGG.get());
                         output.accept(ModItems.CELESTIAL_SLIME_SPAWN_EGG.get());
-                        output.accept(Items.ALLAY_SPAWN_EGG);
+                        output.accept(ModItems.HELPING_ALLAY_SPAWN_EGG.get());
                     })
                     .build());
 
@@ -129,6 +129,13 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.CORAL_DROWNED_SPAWN_EGG.get());
                         output.accept(ModItems.OCTOPUS_SPAWN_EGG.get());
                         output.accept(ModItems.WITCH_BOSS_SPAWN_EGG.get());
+                        output.accept(ModItems.LIVING_SQUID_SPAWN_EGG.get());
+                        output.accept(ModItems.LIVING_GLOW_SQUID_SPAWN_EGG.get());
+                        output.accept(ModItems.LIVING_POLAR_BEAR_SPAWN_EGG.get());
+                        output.accept(ModItems.LIVING_AXOLOTL_SPAWN_EGG.get());
+                        output.accept(ModItems.LIVING_OCELOT_SPAWN_EGG.get());
+                        output.accept(ModItems.LIVING_BAT_SPAWN_EGG.get());
+                        output.accept(ModItems.ROOTED_HUSK_SPAWN_EGG.get());
                     })
                     .build());
 }

@@ -25,6 +25,9 @@ public class LivingCrystalBlock extends Block {
         super.stepOn(level, pos, state, entity);
     }
 
+    // BlockBehaviour marks direct calls as deprecated in 1.20.1; overriding the
+    // lifecycle hook remains the supported way to react to every placement.
+    @SuppressWarnings("deprecation")
     @Override
     public void onPlace(BlockState state, Level level, BlockPos pos,
                         BlockState oldState, boolean isMoving) {

@@ -1,0 +1,18 @@
+{
+  "bones": {
+    "body": 20137,
+    "head": 14687,
+    "left_arm": 11349,
+    "left_leg": 16130,
+    "right_arm": 11829,
+    "right_leg": 15478
+  },
+  "cubes": 0,
+  "fit_axis": 1,
+  "fit_span": 31.2,
+  "mob": "witch_boss",
+  "output_triangles": 89610,
+  "source_triangles": 89610,
+  "texture_height": 4096,
+  "texture_width": 4096
+}

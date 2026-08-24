@@ -1,0 +1,21 @@
+{
+  "bones": {
+    "body": 52492,
+    "web_leg_0": 5706,
+    "web_leg_1": 6486,
+    "web_leg_2": 4539,
+    "web_leg_3": 5574,
+    "web_leg_4": 5847,
+    "web_leg_5": 6578,
+    "web_leg_6": 4670,
+    "web_leg_7": 5342
+  },
+  "cubes": 0,
+  "fit_axis": 0,
+  "fit_span": 11.2,
+  "mob": "web_cave_spider",
+  "output_triangles": 97234,
+  "source_triangles": 97234,
+  "texture_height": 4096,
+  "texture_width": 4096
+}

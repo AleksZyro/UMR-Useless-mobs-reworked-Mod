@@ -60,13 +60,15 @@ public final class HelpingAllayExactLayer extends RenderLayer<Allay, AllayModel>
         VertexConsumer buffer = bufferSource.getBuffer(
                 RenderType.entityCutoutNoCull(CustomMobModelLayers.HELPING_ALLAY_EXACT_TEXTURE));
         int overlay = LivingEntityRenderer.getOverlayCoords(helpingAllay, 0.0F);
+        poseStack.pushPose();
+        float modelScale = 1.35F;
+        poseStack.scale(modelScale, modelScale, modelScale);
+        poseStack.translate(0F, 1.5F / modelScale - 1.5F, 0F);
+        poseStack.translate(0F, Mth.sin(ageInTicks * 0.12F) * 0.012F, 0F);
         for (String bone : BONES) {
-            BonePose animation = poseFor(
-                    bone,
-                    helpingAllay,
-                    ageInTicks,
-                    netHeadYaw,
-                    headPitch);
+            // The source has shared vertices but no skin weights. Independent
+            // bone rotations would split the Allay's continuous surface.
+            BonePose animation = BonePose.ZERO;
             Vector3f pivot = this.mesh.pivot(bone);
             poseStack.pushPose();
             poseStack.translate(
@@ -91,6 +93,7 @@ public final class HelpingAllayExactLayer extends RenderLayer<Allay, AllayModel>
                     overlay);
             poseStack.popPose();
         }
+        poseStack.popPose();
     }
 
     private static BonePose poseFor(

@@ -48,7 +48,7 @@ class OctopusContract(unittest.TestCase):
         self.assertIn("refreshDimensions()", entity)
         self.assertIn("getDimensions(Pose pose)", entity)
         self.assertIn("EntityDimensions.scalable(0.62F, 0.48F)", entity)
-        self.assertIn(".sized(1.15F, 1.20F)", registry)
+        self.assertIn(".sized(1.50F, 1.40F)", registry)
         self.assertIn('tag.putInt("OctopusCarriedTicks", carriedObjectTicks)', entity)
         self.assertIn('carriedObjectTicks = tag.getInt("OctopusCarriedTicks")', entity)
         self.assertIn("AABB normalProbe", entity)
@@ -61,6 +61,7 @@ class OctopusContract(unittest.TestCase):
 
         self.assertEqual(1, renderer.count("new ExactMobMeshLayer<>("))
         self.assertIn("OCTOPUS_EXACT_TEXTURE", renderer)
+        self.assertIn("case OCTOPUS -> 1.40F", layer)
         self.assertIn("octopusPose", layer)
         for state in (
             "ACTION_SWIM",
@@ -89,6 +90,8 @@ class OctopusContract(unittest.TestCase):
             self.assertIn(event, manifest)
             for entry in manifest[event]["sounds"]:
                 sound_name = entry["name"] if isinstance(entry, dict) else entry
+                self.assertTrue(sound_name.startswith("usless_mobs:"))
+                sound_name = sound_name.removeprefix("usless_mobs:")
                 self.assertTrue((ASSETS / "sounds" / f"{sound_name}.ogg").is_file())
 
 if __name__ == "__main__":

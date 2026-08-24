@@ -7,6 +7,7 @@ import com.Momik.usless_mobs.Usless_mobs;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.ambient.Bat;
 import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.animal.PolarBear;
 import net.minecraft.world.entity.animal.axolotl.Axolotl;
 import net.minecraft.world.entity.animal.frog.Frog;
 import net.minecraft.world.entity.animal.goat.Goat;
@@ -94,7 +95,7 @@ public final class LivingDropsHandler {
         }
         if (isNatureCrystalSource(entity)) {
             maybeDrop(entity, com.Momik.usless_mobs.registry.ModItems.NATURE_CRYSTAL.get().getDefaultInstance(), natureCrystalChance(entity, looting));
-            if (entity.getType() == EntityType.POLAR_BEAR) {
+            if (entity instanceof PolarBear) {
                 maybeDrop(entity, new ItemStack(com.Momik.usless_mobs.registry.ModItems.BEAR_CLAW.get(), 1 + entity.getRandom().nextInt(1 + Math.max(1, looting + 1))), 0.70F + 0.08F * looting);
                 maybeDrop(entity, com.Momik.usless_mobs.registry.ModItems.BEARCLAW_NECKLACE.get().getDefaultInstance(), 0.06F + 0.02F * looting);
             }
@@ -108,8 +109,7 @@ public final class LivingDropsHandler {
         if (entity instanceof Goat || entity instanceof AbstractHorse || entity instanceof Llama || entity instanceof TraderLlama || entity instanceof Sniffer) {
             return false; // avoid punishing utility/rare animals.
         }
-        return entity.getType() == EntityType.POLAR_BEAR
-                || entity.getType() == EntityType.OCELOT
+        return entity instanceof PolarBear
                 || entity.getType() == EntityType.FOX
                 || entity.getType() == EntityType.WOLF
                 || entity.getType() == EntityType.BAT
@@ -117,7 +117,7 @@ public final class LivingDropsHandler {
     }
 
     private static float natureCrystalChance(LivingEntity entity, int looting) {
-        float base = entity.getType() == EntityType.POLAR_BEAR ? 0.24F : 0.08F;
+        float base = entity instanceof PolarBear ? 0.24F : 0.08F;
         return Math.min(0.45F, base + 0.035F * looting);
     }
 

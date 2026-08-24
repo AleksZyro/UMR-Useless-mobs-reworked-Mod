@@ -1,8 +1,10 @@
 package com.Momik.usless_mobs.entity;
 
+import com.Momik.usless_mobs.registry.ModSounds;
 import java.util.UUID;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
@@ -82,7 +84,7 @@ public class FrostStrayEntity extends Stray {
         this.iceVolleyTargetId = target.getUUID();
         this.iceVolleyWarmup = ICE_VOLLEY_WARMUP_TICKS;
         this.iceVolleyCooldown = this.level().getDifficulty() == net.minecraft.world.Difficulty.HARD ? 150 : 195;
-        serverLevel.playSound(null, this.blockPosition(), SoundEvents.POWDER_SNOW_STEP, SoundSource.HOSTILE, 1.0F, 0.7F);
+        serverLevel.playSound(null, this.blockPosition(), ModSounds.FROST_STRAY_VOLLEY.get(), SoundSource.HOSTILE, 0.85F, 0.72F);
     }
 
     private void tickIceVolley(ServerLevel serverLevel) {
@@ -141,7 +143,7 @@ public class FrostStrayEntity extends Stray {
         serverLevel.sendParticles(ParticleTypes.SNOWFLAKE,
                 this.getX(), this.getEyeY(), this.getZ(),
                 18, 0.35D, 0.25D, 0.35D, 0.04D);
-        serverLevel.playSound(null, this.blockPosition(), SoundEvents.SKELETON_SHOOT, SoundSource.HOSTILE, 1.0F, 0.65F);
+        serverLevel.playSound(null, this.blockPosition(), ModSounds.FROST_STRAY_VOLLEY.get(), SoundSource.HOSTILE, 1.0F, 1.0F);
     }
 
     @Override
@@ -153,6 +155,21 @@ public class FrostStrayEntity extends Stray {
             this.playSound(SoundEvents.PLAYER_HURT_FREEZE, 0.8F, 0.8F);
         }
         return hurt;
+    }
+
+    @Override
+    public SoundEvent getAmbientSound() {
+        return ModSounds.FROST_STRAY_AMBIENT.get();
+    }
+
+    @Override
+    protected SoundEvent getHurtSound(DamageSource source) {
+        return ModSounds.FROST_STRAY_HURT.get();
+    }
+
+    @Override
+    protected SoundEvent getDeathSound() {
+        return ModSounds.FROST_STRAY_DEATH.get();
     }
 
     @Override

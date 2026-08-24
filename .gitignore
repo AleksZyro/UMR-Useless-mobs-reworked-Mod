@@ -124,6 +124,19 @@ run/
 runs/
 /run-data/
 
+# Local Codex/agent state and validation scratch output
+/.agents/
+/.codex-tmp/
+/.superpowers/
+/tmp/
+
+# Local service hand-off marker; contains no project source
+/Modelle/Exports/armor_graphics_tripo/.pilot-export-url.txt
+
+# Reproducible Blockbench review export exceeds GitHub's 100 MB blob limit.
+# The source GLB and active runtime mesh remain versioned.
+/Modelle/Exports/web_cave_spider_v1/blockbench/Web Cave Spider Tripo Mesh Exact.bbmodel
+
 # Persistent cooperative lock for the v3 candidate manifest writer
 /Modelle/Exports/corrupted_silverfish_v3/review/.candidate-sha256.lock
 

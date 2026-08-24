@@ -7,7 +7,6 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.CaveSpider;
-import net.minecraft.world.entity.monster.Husk;
 import net.minecraft.world.entity.monster.Stray;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -38,17 +37,5 @@ public class LivingCombatHandler {
             target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 80, 1));
         }
 
-        if (source instanceof Husk husk) {
-            target.addEffect(new MobEffectInstance(MobEffects.HUNGER, 180, 1));
-            target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 70, 0));
-            if (husk.getHealth() < husk.getMaxHealth()) {
-                husk.heal(1.0F);
-            }
-            if (target.level() instanceof ServerLevel serverLevel) {
-                serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.SPORE_BLOSSOM_AIR,
-                        target.getX(), target.getY(0.65D), target.getZ(),
-                        10, 0.3D, 0.3D, 0.3D, 0.01D);
-            }
-        }
     }
 }

@@ -149,6 +149,39 @@ def _face_centroid(vertices: JsonObject, face: JsonObject) -> Tuple[float, float
     return tuple(sum(point[axis] for point in points) / 3.0 for axis in range(3))
 
 
+def _classify_face_region(vertices: JsonObject, face: JsonObject) -> str:
+    """Keep the belly between adjacent legs on the body bone.
+
+    The Tripo surface contains coincident voxel corners across neighbouring leg
+    stations. Centroid-only classification split those corners between two
+    independently rotating legs, which could open a visible cut. A leg face is
+    now movable only when the complete triangle lies inside one anatomical
+    station and outside the body attachment plane.
+    """
+    vertex_ids = face.get("vertices", [])
+    if len(vertex_ids) != 3:
+        raise ValueError("Only triangular Tripo mesh faces are supported")
+    try:
+        points = [tuple(_number(value) for value in vertices[vertex_id]) for vertex_id in vertex_ids]
+    except KeyError as exc:
+        raise ValueError(f"Mesh face references missing vertex {exc.args[0]!r}") from exc
+    if any(len(point) != 3 or not all(math.isfinite(value) for value in point) for point in points):
+        raise ValueError("Mesh positions must be finite Vec3 values")
+
+    centroid = tuple(sum(point[axis] for point in points) / 3.0 for axis in range(3))
+    region = classify_centroid(centroid)
+    if not region.startswith("leg_"):
+        return "body"
+
+    station = 6.0 if "front" in region else (0.0 if "middle" in region else -6.0)
+    side_sign = -1.0 if region.endswith("left") else 1.0
+    if any(side_sign * point[0] < 4.0 for point in points):
+        return "body"
+    if any(abs(point[2] - station) > 2.5 for point in points):
+        return "body"
+    return region
+
+
 def _stable_id(kind: str, name: str) -> str:
     return str(uuid5(UUID_NAMESPACE, f"{kind}:{name}"))
 
@@ -248,7 +281,7 @@ def build_rig_document(source: JsonObject) -> Tuple[JsonObject, JsonObject]:
     for source_index, source_element in enumerate(_mesh_elements(source)):
         source_vertices = source_element.get("vertices", {})
         for face_id, source_face in source_element.get("faces", {}).items():
-            region = classify_centroid(_face_centroid(source_vertices, source_face))
+            region = _classify_face_region(source_vertices, source_face)
             if region not in region_elements:
                 element = copy.deepcopy(source_element)
                 element["name"] = f"{region}_mesh"

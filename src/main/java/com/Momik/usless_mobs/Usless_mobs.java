@@ -12,6 +12,11 @@ import com.Momik.usless_mobs.client.HelpingAllayRenderer;
 import com.Momik.usless_mobs.client.KingSlimeRenderer;
 import com.Momik.usless_mobs.client.LivingBatRenderer;
 import com.Momik.usless_mobs.client.LivingBossRenderer;
+import com.Momik.usless_mobs.client.LivingSquidRenderer;
+import com.Momik.usless_mobs.client.LivingGlowSquidRenderer;
+import com.Momik.usless_mobs.client.LivingPolarBearRenderer;
+import com.Momik.usless_mobs.client.LivingAxolotlRenderer;
+import com.Momik.usless_mobs.client.LivingOcelotRenderer;
 import com.Momik.usless_mobs.client.OctopusRenderer;
 import com.Momik.usless_mobs.client.RootedHuskRenderer;
 import com.Momik.usless_mobs.client.WebCaveSpiderRenderer;
@@ -24,7 +29,14 @@ import com.Momik.usless_mobs.entity.FrostStrayEntity;
 import com.Momik.usless_mobs.entity.HelpingAllayEntity;
 import com.Momik.usless_mobs.entity.KingSlimeEntity;
 import com.Momik.usless_mobs.entity.LivingBossEntity;
+import com.Momik.usless_mobs.entity.LivingBatEntity;
+import com.Momik.usless_mobs.entity.LivingSquidEntity;
+import com.Momik.usless_mobs.entity.LivingGlowSquidEntity;
+import com.Momik.usless_mobs.entity.LivingPolarBearEntity;
+import com.Momik.usless_mobs.entity.LivingAxolotlEntity;
+import com.Momik.usless_mobs.entity.LivingOcelotEntity;
 import com.Momik.usless_mobs.entity.OctopusEntity;
+import com.Momik.usless_mobs.entity.RootedHuskEntity;
 import com.Momik.usless_mobs.entity.WebCaveSpiderEntity;
 import com.Momik.usless_mobs.entity.WitchBossEntity;
 import com.Momik.usless_mobs.network.ModNetwork;
@@ -42,7 +54,6 @@ import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 import net.minecraft.client.renderer.item.ItemProperties;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.SpawnPlacements;
 import net.minecraft.world.item.alchemy.Potion;
 import net.minecraft.world.item.alchemy.Potions;
@@ -264,6 +275,14 @@ public class Usless_mobs {
             event.accept(ModItems.CORAL_DROWNED_SPAWN_EGG);
             event.accept(ModItems.OCTOPUS_SPAWN_EGG);
             event.accept(ModItems.WITCH_BOSS_SPAWN_EGG);
+            event.accept(ModItems.HELPING_ALLAY_SPAWN_EGG);
+            event.accept(ModItems.LIVING_SQUID_SPAWN_EGG);
+            event.accept(ModItems.LIVING_GLOW_SQUID_SPAWN_EGG);
+            event.accept(ModItems.LIVING_POLAR_BEAR_SPAWN_EGG);
+            event.accept(ModItems.LIVING_AXOLOTL_SPAWN_EGG);
+            event.accept(ModItems.LIVING_OCELOT_SPAWN_EGG);
+            event.accept(ModItems.LIVING_BAT_SPAWN_EGG);
+            event.accept(ModItems.ROOTED_HUSK_SPAWN_EGG);
             event.accept(ModItems.KING_SLIME_SPAWNER);
         }
     }
@@ -290,6 +309,13 @@ public class Usless_mobs {
             event.put(ModEntities.OCTOPUS.get(), OctopusEntity.createAttributes().build());
             event.put(ModEntities.WITCH_BOSS.get(), WitchBossEntity.createAttributes().build());
             event.put(ModEntities.HELPING_ALLAY.get(), HelpingAllayEntity.createAttributes().build());
+            event.put(ModEntities.LIVING_SQUID.get(), LivingSquidEntity.createAttributes().build());
+            event.put(ModEntities.LIVING_GLOW_SQUID.get(), LivingGlowSquidEntity.createAttributes().build());
+            event.put(ModEntities.LIVING_POLAR_BEAR.get(), LivingPolarBearEntity.createAttributes().build());
+            event.put(ModEntities.LIVING_AXOLOTL.get(), LivingAxolotlEntity.createAttributes().build());
+            event.put(ModEntities.LIVING_OCELOT.get(), LivingOcelotEntity.createAttributes().build());
+            event.put(ModEntities.LIVING_BAT.get(), LivingBatEntity.createAttributes().build());
+            event.put(ModEntities.ROOTED_HUSK.get(), RootedHuskEntity.createAttributes().build());
         }
 
         @SubscribeEvent
@@ -354,9 +380,14 @@ public class Usless_mobs {
             event.registerEntityRenderer(ModEntities.OCTOPUS.get(), OctopusRenderer::new);
             event.registerEntityRenderer(ModEntities.WITCH_BOSS.get(), WitchBossRenderer::new);
             event.registerEntityRenderer(ModEntities.HELPING_ALLAY.get(), HelpingAllayRenderer::new);
+            event.registerEntityRenderer(ModEntities.LIVING_SQUID.get(), LivingSquidRenderer::new);
+            event.registerEntityRenderer(ModEntities.LIVING_GLOW_SQUID.get(), LivingGlowSquidRenderer::new);
+            event.registerEntityRenderer(ModEntities.LIVING_POLAR_BEAR.get(), LivingPolarBearRenderer::new);
+            event.registerEntityRenderer(ModEntities.LIVING_AXOLOTL.get(), LivingAxolotlRenderer::new);
+            event.registerEntityRenderer(ModEntities.LIVING_OCELOT.get(), LivingOcelotRenderer::new);
+            event.registerEntityRenderer(ModEntities.LIVING_BAT.get(), LivingBatRenderer::new);
+            event.registerEntityRenderer(ModEntities.ROOTED_HUSK.get(), RootedHuskRenderer::new);
             event.registerEntityRenderer(ModEntities.SLIME_SPIKE.get(), ThrownItemRenderer::new);
-            event.registerEntityRenderer(EntityType.BAT, LivingBatRenderer::new);
-            event.registerEntityRenderer(EntityType.HUSK, RootedHuskRenderer::new);
         }
 
         @SubscribeEvent

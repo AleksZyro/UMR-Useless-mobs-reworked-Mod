@@ -44,7 +44,7 @@ class GlowLayerIntegrationContract(unittest.TestCase):
 
         self.assertRegex(
             renderer_source,
-            r"static\s+final\s+ResourceLocation\s+\w+\s*=\s*new\s+ResourceLocation\("
+            r"static\s+final\s+ResourceLocation\s+\w+\s*=\s*ResourceLocation\.tryBuild\("
             r'\s*"usless_mobs"\s*,\s*"textures/entity/corrupted_silverfish_glowmask\.png"\s*\)',
         )
         guarded_registration = re.compile(

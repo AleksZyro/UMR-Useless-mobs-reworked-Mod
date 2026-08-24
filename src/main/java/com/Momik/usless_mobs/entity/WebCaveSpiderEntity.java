@@ -1,8 +1,9 @@
 package com.Momik.usless_mobs.entity;
 
+import com.Momik.usless_mobs.registry.ModSounds;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -74,7 +75,7 @@ public class WebCaveSpiderEntity extends CaveSpider {
             serverLevel.sendParticles(ParticleTypes.ITEM_SLIME,
                     target.getX(), target.getY(0.6D), target.getZ(),
                     18, 0.35D, 0.35D, 0.35D, 0.03D);
-            serverLevel.playSound(null, target.blockPosition(), SoundEvents.SLIME_BLOCK_PLACE, SoundSource.HOSTILE, 1.0F, 0.8F);
+            serverLevel.playSound(null, target.blockPosition(), ModSounds.WEB_CAVE_SPIDER_CAST.get(), SoundSource.HOSTILE, 1.0F, 0.8F);
         }
         this.webShotCooldown = this.level().getDifficulty() == net.minecraft.world.Difficulty.HARD ? 90 : 120;
     }
@@ -96,8 +97,23 @@ public class WebCaveSpiderEntity extends CaveSpider {
             serverLevel.sendParticles(ParticleTypes.ITEM_SLIME,
                     target.getX(), target.getY(0.15D), target.getZ(),
                     30, 1.05D, 0.08D, 1.05D, 0.02D);
-            serverLevel.playSound(null, target.blockPosition(), SoundEvents.SLIME_BLOCK_PLACE, SoundSource.HOSTILE, 1.0F, 0.9F);
+            serverLevel.playSound(null, target.blockPosition(), ModSounds.WEB_CAVE_SPIDER_CAST.get(), SoundSource.HOSTILE, 1.0F, 0.9F);
         }
+    }
+
+    @Override
+    public SoundEvent getAmbientSound() {
+        return ModSounds.WEB_CAVE_SPIDER_AMBIENT.get();
+    }
+
+    @Override
+    protected SoundEvent getHurtSound(DamageSource source) {
+        return ModSounds.WEB_CAVE_SPIDER_HURT.get();
+    }
+
+    @Override
+    protected SoundEvent getDeathSound() {
+        return ModSounds.WEB_CAVE_SPIDER_DEATH.get();
     }
 
     @Override

@@ -43,11 +43,11 @@ def _animation_specs() -> Dict[str, JsonObject]:
         },
     }
 
-    walk_times = tuple(index * 0.05 for index in range(17))
+    walk_times = tuple(index * 0.025 for index in range(33))
     phase_angles = tuple(2 * math.pi * time / 0.8 for time in walk_times)
-    stride = tuple(round(24.0 * math.cos(angle), 6) for angle in phase_angles)
+    stride = tuple(round(30.0 * math.cos(angle), 6) for angle in phase_angles)
     bob = tuple(
-        round(0.18 * math.sin(angle) ** 2, 6)
+        round(0.24 * math.sin(angle) ** 2, 6)
         for angle in phase_angles
     )
     sway = tuple(round(math.cos(angle), 6) for angle in phase_angles)
@@ -56,7 +56,7 @@ def _animation_specs() -> Dict[str, JsonObject]:
             "position": _channel(walk_times, ((0, value, 0) for value in bob)),
             "rotation": _channel(
                 walk_times,
-                ((0, 0.5 * value, 0.7 * value) for value in sway),
+                ((0, 0.6 * value, 1.0 * value) for value in sway),
             ),
         },
     }
@@ -68,7 +68,7 @@ def _animation_specs() -> Dict[str, JsonObject]:
         phase = 1 if bone in first_tripod else -1
         lift_sign = -1 if bone.endswith("left") else 1
         lift = tuple(
-            round(lift_sign * 12.0 * max(0.0, phase * math.sin(angle)), 6)
+            round(lift_sign * 16.0 * max(0.0, phase * math.sin(angle)), 6)
             for angle in phase_angles
         )
         walk[bone] = {

@@ -124,7 +124,7 @@ class RuntimeExportContractTests(unittest.TestCase):
 
 
 class ProductionIntegrationContractTests(unittest.TestCase):
-    def test_entity_hitbox_matches_the_approved_mesh_visible_bounds(self):
+    def test_entity_navigation_core_matches_the_measured_mesh_width_and_height(self):
         geometry = json.loads(
             (RUNTIME_ROOT / "geo" / "corrupted_silverfish.geo.json").read_text(encoding="utf-8")
         )["minecraft:geometry"][0]["description"]
@@ -137,8 +137,28 @@ class ProductionIntegrationContractTests(unittest.TestCase):
 
         self.assertIsNotNone(registration, "Corrupted Silverfish registration must declare its hitbox")
         width, height = (float(value) for value in registration.groups())
-        self.assertAlmostEqual(width, geometry["visible_bounds_width"], places=2)
+        self.assertAlmostEqual(width, 1.10, places=2)
         self.assertAlmostEqual(height, geometry["visible_bounds_height"], places=2)
+
+    def test_measured_mesh_remains_two_blocks_long(self):
+        module = load_runtime_export()
+        decoded = module.decode_runtime_mesh(
+            (RUNTIME_ROOT / "meshes" / "entity" / "corrupted_silverfish.mesh").read_bytes()
+        )
+        positions = [
+            position
+            for faces in decoded.values()
+            for face in faces
+            for position, _uv in face
+        ]
+        size = [
+            (max(position[axis] for position in positions) - min(position[axis] for position in positions)) / 16.0
+            for axis in range(3)
+        ]
+
+        self.assertAlmostEqual(size[0], 1.10, places=2)
+        self.assertAlmostEqual(size[1], 0.92, places=2)
+        self.assertAlmostEqual(size[2], 2.00, places=2)
 
     def test_committed_runtime_assets_match_the_approved_bundle(self):
         module = load_runtime_export()

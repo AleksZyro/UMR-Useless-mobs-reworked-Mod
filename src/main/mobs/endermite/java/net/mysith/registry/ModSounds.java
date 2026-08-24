@@ -27,6 +27,12 @@ public class ModSounds {
     public static final RegistryObject<SoundEvent> SOUL_DRAIN_HEAL = register("soul_drain_heal");
     public static final RegistryObject<SoundEvent> SOUL_ENDERMITE_SCREECH = register("soul_endermite_screech");
 
+    public static final RegistryObject<SoundEvent> CORRUPTED_SILVERFISH_AMBIENT = register("corrupted_silverfish_ambient");
+    public static final RegistryObject<SoundEvent> CORRUPTED_SILVERFISH_HURT = register("corrupted_silverfish_hurt");
+    public static final RegistryObject<SoundEvent> CORRUPTED_SILVERFISH_ATTACK = register("corrupted_silverfish_attack");
+    public static final RegistryObject<SoundEvent> CORRUPTED_SILVERFISH_ESCAPE = register("corrupted_silverfish_escape");
+    public static final RegistryObject<SoundEvent> CORRUPTED_SILVERFISH_DEATH = register("corrupted_silverfish_death");
+
     private static RegistryObject<SoundEvent> register(String name) {
         return SOUNDS.register(name,
                 () -> SoundEvent.createVariableRangeEvent(ResourceLocation.tryBuild(MySithMod.MODID, name)));

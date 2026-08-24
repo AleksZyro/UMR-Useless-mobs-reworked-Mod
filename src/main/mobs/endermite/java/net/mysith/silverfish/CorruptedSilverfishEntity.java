@@ -5,6 +5,7 @@ import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.damagesource.DamageSource;
@@ -25,6 +26,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.entity.PartEntity;
+import net.mysith.registry.ModSounds;
 import org.joml.Vector3f;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
@@ -35,6 +39,10 @@ import software.bernie.geckolib.core.object.PlayState;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
 public class CorruptedSilverfishEntity extends Silverfish implements GeoEntity {
+    private static final float PART_WIDTH = 1.10F;
+    private static final float PART_HEIGHT = 0.92F;
+    private static final double PART_FRONT_OFFSET = 0.55D;
+    private static final double PART_REAR_OFFSET = 0.55D;
     private static final DustParticleOptions CORRUPTION_DUST =
             new DustParticleOptions(new Vector3f(0.45F, 0.10F, 0.75F), 1.0F);
     private static final RawAnimation IDLE_ANIM = RawAnimation.begin().thenLoop("animation.corrupted_silverfish.idle");
@@ -45,9 +53,20 @@ public class CorruptedSilverfishEntity extends Silverfish implements GeoEntity {
     private boolean panicBurstUsed = false;
     private int swarmCallCooldown = 80;
     private final AnimatableInstanceCache geoCache = GeckoLibUtil.createInstanceCache(this);
+    private final CorruptedSilverfishPart frontPart;
+    private final CorruptedSilverfishPart rearPart;
+    private final CorruptedSilverfishPart[] damageParts;
+    private final CorruptedSilverfishClearance clearance;
+    private int lastPartDamageTick = Integer.MIN_VALUE;
+    private int lastPartDamageAttackerId = Integer.MIN_VALUE;
+    private float lastPartDamageAmount = Float.NaN;
 
     public CorruptedSilverfishEntity(EntityType<? extends Silverfish> entityType, Level level) {
         super(entityType, level);
+        this.frontPart = new CorruptedSilverfishPart(this, "front", PART_WIDTH, PART_HEIGHT);
+        this.rearPart = new CorruptedSilverfishPart(this, "rear", PART_WIDTH, PART_HEIGHT);
+        this.damageParts = new CorruptedSilverfishPart[]{this.frontPart, this.rearPart};
+        this.clearance = new CorruptedSilverfishClearance(this);
         this.xpReward = 8;
     }
 
@@ -86,6 +105,7 @@ public class CorruptedSilverfishEntity extends Silverfish implements GeoEntity {
         boolean hurt = super.doHurtTarget(target);
         if (hurt && !this.level().isClientSide) {
             this.triggerAnim("action", "attack");
+            this.playSound(ModSounds.CORRUPTED_SILVERFISH_ATTACK.get(), 1.15F, 0.72F);
         }
         if (hurt && target instanceof LivingEntity living) {
             living.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, 70, 0));
@@ -99,10 +119,12 @@ public class CorruptedSilverfishEntity extends Silverfish implements GeoEntity {
     @Override
     public void aiStep() {
         super.aiStep();
+        updateDamageParts();
 
         if (this.level().isClientSide) {
             return;
         }
+        this.clearance.tick();
 
         if (this.tickCount % 16 == 0 && this.level() instanceof ServerLevel serverLevel) {
             serverLevel.sendParticles(CORRUPTION_DUST, this.getX(), this.getY(0.45D), this.getZ(),
@@ -135,6 +157,63 @@ public class CorruptedSilverfishEntity extends Silverfish implements GeoEntity {
             this.swarmCallCooldown = 150 + this.random.nextInt(60);
         }
         return hurt;
+    }
+
+    private void updateDamageParts() {
+        double yawRadians = Math.toRadians(this.yBodyRot);
+        double forwardX = -Math.sin(yawRadians);
+        double forwardZ = Math.cos(yawRadians);
+        this.frontPart.setPos(
+                this.getX() + forwardX * PART_FRONT_OFFSET,
+                this.getY(),
+                this.getZ() + forwardZ * PART_FRONT_OFFSET);
+        this.rearPart.setPos(
+                this.getX() - forwardX * PART_REAR_OFFSET,
+                this.getY(),
+                this.getZ() - forwardZ * PART_REAR_OFFSET);
+    }
+
+    boolean hurtFromPart(CorruptedSilverfishPart part, DamageSource source, float amount) {
+        Entity attacker = source.getEntity();
+        int attackerId = attacker == null ? Integer.MIN_VALUE : attacker.getId();
+        if (this.tickCount == this.lastPartDamageTick
+                && attackerId == this.lastPartDamageAttackerId
+                && Float.compare(amount, this.lastPartDamageAmount) == 0) {
+            return false;
+        }
+
+        boolean hurt = this.hurt(source, amount);
+        if (hurt) {
+            this.lastPartDamageTick = this.tickCount;
+            this.lastPartDamageAttackerId = attackerId;
+            this.lastPartDamageAmount = amount;
+        }
+        return hurt;
+    }
+
+    @Override
+    public boolean isMultipartEntity() {
+        return true;
+    }
+
+    @Override
+    public PartEntity<?>[] getParts() {
+        return this.damageParts;
+    }
+
+    CorruptedSilverfishPart[] damageParts() {
+        return this.damageParts;
+    }
+
+    void onCorruptionEscape(Vec3 departure, Vec3 arrival) {
+        if (!(this.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        serverLevel.sendParticles(CORRUPTION_DUST, departure.x, departure.y + 0.35D, departure.z,
+                18, 0.4D, 0.2D, 0.4D, 0.03D);
+        serverLevel.sendParticles(ParticleTypes.SCULK_SOUL, arrival.x, arrival.y + 0.35D, arrival.z,
+                16, 0.35D, 0.2D, 0.35D, 0.025D);
+        this.playSound(ModSounds.CORRUPTED_SILVERFISH_ESCAPE.get(), 1.0F, 0.85F);
     }
 
     @Override
@@ -209,6 +288,21 @@ public class CorruptedSilverfishEntity extends Silverfish implements GeoEntity {
 
     private static float cappedDropChance(float baseChance, float perLootingLevel, int looting, float cap) {
         return Math.min(cap, baseChance + perLootingLevel * looting);
+    }
+
+    @Override
+    protected SoundEvent getAmbientSound() {
+        return ModSounds.CORRUPTED_SILVERFISH_AMBIENT.get();
+    }
+
+    @Override
+    protected SoundEvent getHurtSound(DamageSource source) {
+        return ModSounds.CORRUPTED_SILVERFISH_HURT.get();
+    }
+
+    @Override
+    protected SoundEvent getDeathSound() {
+        return ModSounds.CORRUPTED_SILVERFISH_DEATH.get();
     }
 
     @Override

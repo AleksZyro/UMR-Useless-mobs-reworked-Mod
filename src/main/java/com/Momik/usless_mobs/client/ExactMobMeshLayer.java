@@ -1,6 +1,9 @@
 package com.Momik.usless_mobs.client;
 
 import com.Momik.usless_mobs.entity.OctopusEntity;
+import com.Momik.usless_mobs.entity.CoralDrownedEntity;
+import com.Momik.usless_mobs.entity.LivingBatEntity;
+import com.Momik.usless_mobs.entity.RootedHuskEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
@@ -15,6 +18,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.monster.AbstractSkeleton;
 import org.joml.Vector3f;
 
 import java.io.IOException;
@@ -53,12 +57,52 @@ public final class ExactMobMeshLayer<T extends LivingEntity, M extends EntityMod
         // world light from multiplying that baked appearance a second time.
         int materialLight = LightTexture.FULL_BRIGHT;
         poseStack.pushPose();
+        float modelScale = switch (this.variant) {
+            case LIVING_BOSS -> 1.35F;
+            case WEB_CAVE_SPIDER -> 1.80F;
+            case OCTOPUS -> 1.40F;
+            case SQUID -> 1.80F;
+            case GLOW_SQUID -> 1.15F;
+            case LIVING_BAT -> 1.60F;
+            case ROOTED_HUSK -> 1.10F;
+            default -> 1.0F;
+        };
+        float floorScaleY = modelScale;
+        poseStack.scale(modelScale, modelScale, modelScale);
+        float modelYaw = switch (this.variant) {
+            // The Frost Stray GLB is reversed relative to the skeleton look
+            // vector. This half-turn keeps its skull/ribcage on the forward
+            // side instead of presenting the ice spine while approaching.
+            case FROST_STRAY -> 180F;
+            // The Coral Drowned source faces the runtime X axis. The positive
+            // quarter-turn presents the archived face/chest view along the
+            // entity look vector; the old negative turn exposed its backpack.
+            case CORAL_DROWNED -> 90F;
+            default -> 0F;
+        };
+        if (modelYaw != 0F) {
+            poseStack.mulPose(Axis.YP.rotationDegrees(modelYaw));
+        }
         if (entity instanceof OctopusEntity octopus && octopus.isSqueezing()) {
-            poseStack.scale(1.0F, 0.40F, 1.0F);
+            poseStack.scale(0.49F, 0.55F, 0.49F);
+            floorScaleY *= 0.55F;
+        }
+        poseStack.translate(0F, 1.5F / floorScaleY - 1.5F, 0F);
+        if (usesRigidRootAnimation()) {
+            // These Tripo assets are continuous surfaces. Their exported regions
+            // have no vertex weights, so rotating regions separately tears open
+            // shared seams. Animate the complete surface as one cohesive root.
+            poseStack.translate(0F, rigidRootYOffset(entity, limbSwing,
+                    limbSwingAmount, ageInTicks), 0F);
         }
         for (String bone : this.mesh.boneNames()) {
-            BonePose animation = poseFor(bone, entity, limbSwing, limbSwingAmount,
-                    ageInTicks, netHeadYaw, headPitch);
+            BonePose animation;
+            if (usesRigidRootAnimation()) {
+                animation = BonePose.ZERO;
+            } else {
+                animation = poseFor(bone, entity, limbSwing, limbSwingAmount,
+                        ageInTicks, netHeadYaw, headPitch);
+            }
             Vector3f pivot = this.mesh.pivot(bone);
             poseStack.pushPose();
             poseStack.translate(
@@ -69,10 +113,82 @@ public final class ExactMobMeshLayer<T extends LivingEntity, M extends EntityMod
             if (animation.yRot() != 0F) poseStack.mulPose(Axis.YP.rotation(animation.yRot()));
             if (animation.xRot() != 0F) poseStack.mulPose(Axis.XP.rotation(animation.xRot()));
             poseStack.translate(-pivot.x() / 16F, -pivot.y() / 16F, -pivot.z() / 16F);
-            this.mesh.renderBone(bone, poseStack, buffer, materialLight, overlay);
+            if (this.variant == CustomMob3DModel.Variant.OCTOPUS
+                    && entity instanceof OctopusEntity octopus) {
+                this.mesh.renderOctopusBone(bone, poseStack, buffer, materialLight, overlay,
+                        ageInTicks, entity.isInWater(), octopus.getActionState(), octopus.isSqueezing());
+            } else if (this.variant == CustomMob3DModel.Variant.SQUID) {
+                this.mesh.renderSquidBone(bone, poseStack, buffer, materialLight, overlay,
+                        ageInTicks, entity.isInWater());
+            } else if (this.variant == CustomMob3DModel.Variant.GLOW_SQUID) {
+                this.mesh.renderGlowSquidBone(bone, poseStack, buffer, materialLight, overlay,
+                        ageInTicks, entity.isInWater());
+            } else if (this.variant == CustomMob3DModel.Variant.AXOLOTL) {
+                this.mesh.renderAxolotlBone(bone, poseStack, buffer, materialLight, overlay,
+                        ageInTicks, limbSwing, limbSwingAmount, entity.isInWater());
+            } else if (this.variant == CustomMob3DModel.Variant.OCELOT) {
+                this.mesh.renderOcelotBone(bone, poseStack, buffer, materialLight, overlay,
+                        ageInTicks, limbSwing, limbSwingAmount, netHeadYaw, headPitch,
+                        entity.isSprinting(), !entity.onGround());
+            } else if (this.variant == CustomMob3DModel.Variant.LIVING_BAT
+                    && entity instanceof LivingBatEntity bat) {
+                this.mesh.renderBatBone(bone, poseStack, buffer, materialLight, overlay,
+                        ageInTicks, bat.isResting());
+            } else {
+                if (this.variant == CustomMob3DModel.Variant.WEB_CAVE_SPIDER) {
+                    this.mesh.renderSpiderBone(bone, poseStack, buffer, materialLight, overlay,
+                            limbSwing, limbSwingAmount);
+                } else if (this.variant == CustomMob3DModel.Variant.LIVING_BOSS
+                        || this.variant == CustomMob3DModel.Variant.POLAR_BEAR) {
+                    this.mesh.renderQuadrupedBone(bone, poseStack, buffer, materialLight, overlay,
+                            limbSwing, limbSwingAmount, netHeadYaw, headPitch);
+                } else if (this.variant == CustomMob3DModel.Variant.FROST_STRAY
+                        || this.variant == CustomMob3DModel.Variant.CORAL_DROWNED
+                        || this.variant == CustomMob3DModel.Variant.WITCH_BOSS
+                        || this.variant == CustomMob3DModel.Variant.ROOTED_HUSK) {
+                    boolean aimingBow = entity instanceof AbstractSkeleton skeleton && skeleton.isAggressive();
+                    boolean aggressiveMelee = entity instanceof CoralDrownedEntity drowned && drowned.isAggressive()
+                            || entity instanceof RootedHuskEntity husk && husk.isAggressive();
+                    this.mesh.renderHumanoidBone(bone, poseStack, buffer, materialLight, overlay,
+                            limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch,
+                            entity.isInWater(), aimingBow, aggressiveMelee);
+                } else {
+                    this.mesh.renderBone(bone, poseStack, buffer, materialLight, overlay);
+                }
+            }
             poseStack.popPose();
         }
         poseStack.popPose();
+    }
+
+    private boolean usesRigidRootAnimation() {
+        return switch (this.variant) {
+            case LIVING_BOSS, WEB_CAVE_SPIDER, OCTOPUS, SQUID, GLOW_SQUID,
+                    WITCH_BOSS, LIVING_BAT, ROOTED_HUSK, POLAR_BEAR, FROST_STRAY,
+                    CORAL_DROWNED -> true;
+            case AXOLOTL, OCELOT -> true;
+            default -> false;
+        };
+    }
+
+    private float rigidRootYOffset(T entity, float limbSwing, float amount, float age) {
+        float walk = limbSwing * 0.6662F;
+        return switch (this.variant) {
+            case LIVING_BOSS -> Mth.abs(Mth.cos(walk)) * 0.030F * amount;
+            case WEB_CAVE_SPIDER -> Mth.sin(age * 0.20F) * 0.011F;
+            case OCTOPUS -> Mth.sin(age * 0.08F) * (entity.isInWater() ? 0.019F : 0.006F);
+            case SQUID -> Mth.sin(age * 0.12F) * 0.012F;
+            case GLOW_SQUID -> Mth.sin(age * 0.14F) * 0.018F;
+            case WITCH_BOSS -> Mth.sin(age * 0.10F) * 0.008F;
+            case LIVING_BAT -> Mth.sin(age * 0.16F) * 0.015F;
+            case ROOTED_HUSK -> Mth.sin(age * 0.08F) * 0.004F;
+            case POLAR_BEAR -> Mth.abs(Mth.cos(walk)) * 0.018F * amount;
+            case FROST_STRAY -> Mth.abs(Mth.cos(walk)) * 0.014F * amount;
+            case CORAL_DROWNED -> Mth.sin(age * 0.10F) * (entity.isInWater() ? 0.018F : 0.006F);
+            case AXOLOTL -> Mth.sin(age * 0.16F) * (entity.isInWater() ? 0.012F : 0.004F);
+            case OCELOT -> Mth.abs(Mth.cos(walk)) * 0.012F * amount;
+            default -> 0F;
+        };
     }
 
     private BonePose poseFor(String bone, T entity, float limbSwing, float amount,
@@ -126,6 +242,18 @@ public final class ExactMobMeshLayer<T extends LivingEntity, M extends EntityMod
                     0,
                     Mth.cos(age * 0.14F + phase) * 0.27F * strength);
         }
+        if (this.variant == CustomMob3DModel.Variant.SQUID
+                && (bone.startsWith("arm") || bone.startsWith("catching_tentacle"))) {
+            boolean catching = bone.startsWith("catching_tentacle");
+            int index = Integer.parseInt(bone.substring(catching ? "catching_tentacle".length() : "arm".length()));
+            float phase = index * Mth.PI / (catching ? 2.0F : 4.0F);
+            float waterStrength = entity.isInWater() ? 1.0F : 0.22F;
+            float reach = catching ? 0.24F : 0.14F;
+            return new BonePose(0, 0, 0,
+                    Mth.sin(age * 0.24F + phase) * reach * waterStrength,
+                    Mth.cos(age * 0.19F + phase) * reach * 0.72F * waterStrength,
+                    0);
+        }
         if (bone.contains("wing")) {
             boolean left = bone.startsWith("left");
             boolean tip = bone.endsWith("tip");
@@ -138,6 +266,7 @@ public final class ExactMobMeshLayer<T extends LivingEntity, M extends EntityMod
                 case LIVING_BOSS -> new BonePose(0, Mth.abs(Mth.cos(walk)) * 0.50F * amount, 0, 0, 0, 0);
                 case WEB_CAVE_SPIDER -> new BonePose(0, Mth.sin(age * 0.20F) * 0.18F, 0, 0, 0, 0);
                 case OCTOPUS -> new BonePose(0, Mth.sin(age * 0.08F) * (entity.isInWater() ? 0.30F : 0.10F), 0, 0, 0, 0);
+                case SQUID -> new BonePose(0, Mth.sin(age * 0.12F) * 0.18F, 0, 0, 0, Mth.sin(age * 0.07F) * 0.025F);
                 case WITCH_BOSS -> new BonePose(0, Mth.sin(age * 0.10F) * 0.12F, 0, 0, 0, Mth.sin(age * 0.06F) * 0.05F);
                 case LIVING_BAT -> new BonePose(0, Mth.sin(age * 0.16F) * 0.24F, 0, 0, 0, 0);
                 case ROOTED_HUSK -> new BonePose(0, 0, 0, 0, 0, Mth.sin(age * 0.04F) * 0.035F);
@@ -217,9 +346,16 @@ public final class ExactMobMeshLayer<T extends LivingEntity, M extends EntityMod
             case LIVING_BOSS -> "living_boss";
             case WEB_CAVE_SPIDER -> "web_cave_spider";
             case OCTOPUS -> "octopus";
+            case SQUID -> "squid";
+            case GLOW_SQUID -> "glow_squid";
             case WITCH_BOSS -> "witch_boss";
             case LIVING_BAT -> "living_bat";
             case ROOTED_HUSK -> "rooted_husk";
+            case POLAR_BEAR -> "polar_bear";
+            case FROST_STRAY -> "frost_stray";
+            case CORAL_DROWNED -> "coral_drowned";
+            case AXOLOTL -> "axolotl";
+            case OCELOT -> "ocelot";
             default -> throw new IllegalArgumentException("Variant is not an approved exact Tripo mob: " + variant);
         };
     }
@@ -229,8 +365,15 @@ public final class ExactMobMeshLayer<T extends LivingEntity, M extends EntityMod
             case LIVING_BOSS -> Set.of("body", "leg_front_left", "leg_front_right", "leg_rear_left", "leg_rear_right");
             case WEB_CAVE_SPIDER -> Set.of("body", "web_leg_0", "web_leg_1", "web_leg_2", "web_leg_3", "web_leg_4", "web_leg_5", "web_leg_6", "web_leg_7");
             case OCTOPUS -> Set.of("body", "tentacle0", "tentacle1", "tentacle2", "tentacle3", "tentacle4", "tentacle5", "tentacle6", "tentacle7");
+            case SQUID -> Set.of("body", "arm0", "arm1", "arm2", "arm3", "arm4", "arm5", "arm6", "arm7", "catching_tentacle0", "catching_tentacle1");
+            case GLOW_SQUID -> Set.of("body", "arm0", "arm1", "arm2", "arm3", "arm4", "arm5", "arm6", "arm7", "catching_tentacle0", "catching_tentacle1");
             case WITCH_BOSS, ROOTED_HUSK -> Set.of("body", "head", "right_arm", "left_arm", "right_leg", "left_leg");
             case LIVING_BAT -> Set.of("body", "head", "right_wing", "left_wing", "right_wing_tip", "left_wing_tip");
+            case POLAR_BEAR -> Set.of("body", "head", "leg_front_left", "leg_front_right", "leg_rear_left", "leg_rear_right");
+            case FROST_STRAY -> Set.of("body", "head", "right_arm", "left_arm", "right_leg", "left_leg");
+            case CORAL_DROWNED -> Set.of("body", "head", "right_arm", "left_arm", "right_leg", "left_leg");
+            case AXOLOTL -> Set.of("body", "head", "tail", "leg_front_left", "leg_front_right", "leg_rear_left", "leg_rear_right");
+            case OCELOT -> Set.of("body", "head", "tail", "leg_front_left", "leg_front_right", "leg_rear_left", "leg_rear_right");
             default -> throw new IllegalArgumentException("Variant is not an approved exact Tripo mob: " + variant);
         };
     }

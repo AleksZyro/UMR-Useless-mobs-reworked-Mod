@@ -17,7 +17,7 @@ import software.bernie.geckolib.util.RenderUtils;
 import java.io.IOException;
 
 public class CorruptedSilverfishRenderer extends GeoEntityRenderer<CorruptedSilverfishEntity> {
-    private static final ResourceLocation GLOWMASK = new ResourceLocation(
+    private static final ResourceLocation GLOWMASK = ResourceLocation.tryBuild(
             "usless_mobs", "textures/entity/corrupted_silverfish_glowmask.png");
     private final CorruptedSilverfishMesh exactMesh;
 

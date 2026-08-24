@@ -1,0 +1,23 @@
+{
+  "bones": {
+    "arm0": 61781,
+    "arm1": 65348,
+    "arm2": 3866,
+    "arm3": 33605,
+    "arm4": 42412,
+    "arm5": 25564,
+    "arm6": 74476,
+    "arm7": 42817,
+    "body": 333748,
+    "catching_tentacle0": 31225,
+    "catching_tentacle1": 19785
+  },
+  "cubes": 0,
+  "fit_axis": 2,
+  "fit_span": 22.4,
+  "mob": "squid",
+  "output_triangles": 734627,
+  "source_triangles": 734627,
+  "texture_height": 4096,
+  "texture_width": 4096
+}

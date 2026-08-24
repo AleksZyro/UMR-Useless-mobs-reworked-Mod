@@ -18,9 +18,14 @@ public class CustomMob3DModel<T extends LivingEntity> extends HierarchicalModel<
         WEB_CAVE_SPIDER,
         CORAL_DROWNED,
         OCTOPUS,
+        SQUID,
+        GLOW_SQUID,
         WITCH_BOSS,
         LIVING_BAT,
-        ROOTED_HUSK
+        ROOTED_HUSK,
+        POLAR_BEAR,
+        AXOLOTL,
+        OCELOT
     }
 
     private final ModelPart root;
@@ -81,9 +86,11 @@ public class CustomMob3DModel<T extends LivingEntity> extends HierarchicalModel<
             case WEB_CAVE_SPIDER -> addWebCaveSpider(root);
             case CORAL_DROWNED -> addCoralDrowned(root);
             case OCTOPUS -> addOctopus(root);
+            case SQUID, GLOW_SQUID -> { }
             case WITCH_BOSS -> addWitchBoss(root);
             case LIVING_BAT -> addLivingBat(root);
             case ROOTED_HUSK -> addRootedHusk(root);
+            case POLAR_BEAR, AXOLOTL, OCELOT -> { }
         }
 
         return LayerDefinition.create(mesh, 64, 64);
@@ -115,11 +122,13 @@ public class CustomMob3DModel<T extends LivingEntity> extends HierarchicalModel<
             case LIVING_BOSS -> animateLivingBoss(limbSwing, limbSwingAmount, ageInTicks);
             case WEB_CAVE_SPIDER -> animateSpider(limbSwing, limbSwingAmount, ageInTicks);
             case OCTOPUS -> animateOctopus(ageInTicks, entity.isInWater());
+            case SQUID, GLOW_SQUID -> { }
             case LIVING_BAT -> animateBat(ageInTicks);
             case WITCH_BOSS -> animateWitch(ageInTicks);
             case FROST_STRAY -> animateFrost(ageInTicks);
             case CORAL_DROWNED -> animateCoral(ageInTicks, entity.isInWater());
             case ROOTED_HUSK -> animateRooted(ageInTicks);
+            case POLAR_BEAR -> { }
         }
     }
 

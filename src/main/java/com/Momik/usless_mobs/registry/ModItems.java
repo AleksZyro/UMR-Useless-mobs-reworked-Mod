@@ -568,6 +568,30 @@ public final class ModItems {
     public static final RegistryObject<Item> WITCH_BOSS_SPAWN_EGG = ITEMS.register("witch_boss_spawn_egg",
             () -> new ForgeSpawnEggItem(ModEntities.WITCH_BOSS, 0x2B1433, 0xB95CFF, new Item.Properties().rarity(Rarity.EPIC)));
 
+    public static final RegistryObject<Item> HELPING_ALLAY_SPAWN_EGG = ITEMS.register("helping_allay_spawn_egg",
+            () -> new ForgeSpawnEggItem(ModEntities.HELPING_ALLAY, 0x67DDE8, 0x6E3BA4, new Item.Properties().rarity(Rarity.RARE)));
+
+    public static final RegistryObject<Item> LIVING_SQUID_SPAWN_EGG = ITEMS.register("living_squid_spawn_egg",
+            () -> new ForgeSpawnEggItem(ModEntities.LIVING_SQUID, 0x315B70, 0xD89BBD, new Item.Properties().rarity(Rarity.RARE)));
+
+    public static final RegistryObject<Item> LIVING_GLOW_SQUID_SPAWN_EGG = ITEMS.register("living_glow_squid_spawn_egg",
+            () -> new ForgeSpawnEggItem(ModEntities.LIVING_GLOW_SQUID, 0x071C38, 0x38F4FF, new Item.Properties().rarity(Rarity.RARE)));
+
+    public static final RegistryObject<Item> LIVING_POLAR_BEAR_SPAWN_EGG = ITEMS.register("living_polar_bear_spawn_egg",
+            () -> new ForgeSpawnEggItem(ModEntities.LIVING_POLAR_BEAR, 0xE8EEF0, 0x66767D, new Item.Properties().rarity(Rarity.RARE)));
+
+    public static final RegistryObject<Item> LIVING_AXOLOTL_SPAWN_EGG = ITEMS.register("living_axolotl_spawn_egg",
+            () -> new ForgeSpawnEggItem(ModEntities.LIVING_AXOLOTL, 0x102B3B, 0x73DCE8, new Item.Properties().rarity(Rarity.RARE)));
+
+    public static final RegistryObject<Item> LIVING_OCELOT_SPAWN_EGG = ITEMS.register("living_ocelot_spawn_egg",
+            () -> new ForgeSpawnEggItem(ModEntities.LIVING_OCELOT, 0xD88919, 0x33200F, new Item.Properties().rarity(Rarity.RARE)));
+
+    public static final RegistryObject<Item> LIVING_BAT_SPAWN_EGG = ITEMS.register("living_bat_spawn_egg",
+            () -> new ForgeSpawnEggItem(ModEntities.LIVING_BAT, 0x27452E, 0x91D16E, new Item.Properties().rarity(Rarity.RARE)));
+
+    public static final RegistryObject<Item> ROOTED_HUSK_SPAWN_EGG = ITEMS.register("rooted_husk_spawn_egg",
+            () -> new ForgeSpawnEggItem(ModEntities.ROOTED_HUSK, 0x4B3826, 0x77914A, new Item.Properties().rarity(Rarity.RARE)));
+
     private static RegistryObject<Item> registerBlockItem(String name, RegistryObject<Block> block, Item.Properties properties) {
         return ITEMS.register(name, () -> new BlockItem(block.get(), properties));
     }

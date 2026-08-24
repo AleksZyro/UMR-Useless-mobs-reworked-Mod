@@ -55,6 +55,22 @@ MOB_SPECS: Mapping[str, MobSpec] = {
         fit_axis=0,
         fit_span=14.4,
     ),
+    "squid": MobSpec(
+        ("body",)
+        + tuple(f"arm{index}" for index in range(8))
+        + ("catching_tentacle0", "catching_tentacle1"),
+        "squid",
+        fit_axis=2,
+        fit_span=22.4,
+    ),
+    "glow_squid": MobSpec(
+        ("body",)
+        + tuple(f"arm{index}" for index in range(8))
+        + ("catching_tentacle0", "catching_tentacle1"),
+        "glow_squid",
+        fit_axis=1,
+        fit_span=24.0,
+    ),
     "witch_boss": MobSpec(
         ("body", "head", "right_arm", "left_arm", "right_leg", "left_leg"),
         "humanoid",
@@ -88,6 +104,36 @@ MOB_SPECS: Mapping[str, MobSpec] = {
         "allay",
         fit_axis=1,
         fit_span=10.4,
+    ),
+    "polar_bear": MobSpec(
+        ("body", "head", "leg_front_left", "leg_front_right", "leg_rear_left", "leg_rear_right"),
+        "bear",
+        fit_axis=2,
+        fit_span=30.4,
+    ),
+    "frost_stray": MobSpec(
+        ("body", "head", "right_arm", "left_arm", "right_leg", "left_leg"),
+        "humanoid",
+        fit_axis=1,
+        fit_span=31.2,
+    ),
+    "coral_drowned": MobSpec(
+        ("body", "head", "right_arm", "left_arm", "right_leg", "left_leg"),
+        "humanoid",
+        fit_axis=1,
+        fit_span=31.2,
+    ),
+    "axolotl": MobSpec(
+        ("body", "head", "tail", "leg_front_left", "leg_front_right", "leg_rear_left", "leg_rear_right"),
+        "axolotl",
+        fit_axis=2,
+        fit_span=20.8,
+    ),
+    "ocelot": MobSpec(
+        ("body", "head", "tail", "leg_front_left", "leg_front_right", "leg_rear_left", "leg_rear_right"),
+        "ocelot",
+        fit_axis=2,
+        fit_span=23.2,
     ),
 }
 
@@ -160,6 +206,55 @@ def _classify_quadruped(points: np.ndarray) -> str:
     return "body"
 
 
+def _classify_bear(points: np.ndarray) -> str:
+    """Split the generated bear along its verified -Z forward axis."""
+
+    x = points[:, 0] - 0.5
+    y = points[:, 1]
+    z = points[:, 2]
+    if float(y.max()) < 0.48 and np.all(np.abs(x) > 0.12):
+        station = "front" if float(z.mean()) < 0.52 else "rear"
+        side = "left" if float(x.mean()) < 0 else "right"
+        return f"leg_{station}_{side}"
+    if float(z.mean()) < 0.30 and float(y.mean()) > 0.34:
+        return "head"
+    return "body"
+
+
+def _classify_axolotl(points: np.ndarray) -> str:
+    """Split the verified -Z-facing Axolotl while retaining every source face."""
+
+    x = points[:, 0] - 0.5
+    y = points[:, 1]
+    z = points[:, 2]
+    if float(y.max()) < 0.44 and np.all(np.abs(x) > 0.16):
+        station = "front" if float(z.mean()) < 0.48 else "rear"
+        side = "left" if float(x.mean()) < 0 else "right"
+        return f"leg_{station}_{side}"
+    if float(z.mean()) < 0.30:
+        return "head"
+    if float(z.mean()) > 0.68:
+        return "tail"
+    return "body"
+
+
+def _classify_ocelot(points: np.ndarray) -> str:
+    """Split the -Z-facing Ocelot into continuous feline motion regions."""
+
+    x = points[:, 0] - 0.5
+    y = points[:, 1]
+    z = points[:, 2]
+    if float(y.max()) < 0.46 and np.all(np.abs(x) > 0.12):
+        station = "front" if float(z.mean()) < 0.50 else "rear"
+        side = "left" if float(x.mean()) < 0 else "right"
+        return f"leg_{station}_{side}"
+    if float(z.mean()) < 0.30 and float(y.mean()) > 0.34:
+        return "head"
+    if float(z.mean()) > 0.72 and float(y.mean()) > 0.25:
+        return "tail"
+    return "body"
+
+
 def _classify_spider(points: np.ndarray) -> str:
     x = points[:, 0] - 0.5
     if np.all(np.abs(x) > 0.19):
@@ -178,6 +273,92 @@ def _classify_octopus(points: np.ndarray) -> str:
         sector = int(math.floor((angle + math.pi) * 8.0 / (2.0 * math.pi))) % 8
         return f"tentacle{sector}"
     return "body"
+
+
+def _classify_squid_regions(units: np.ndarray, triangles: np.ndarray) -> Dict[str, list[int]]:
+    """Split the longitudinal Tripo squid into eight arms and two long tentacles.
+
+    The source swims along Z.  Appendages are grouped around that axis; the two
+    sectors reaching furthest towards negative Z are the catching tentacles.
+    """
+
+    centroids = units[triangles].mean(axis=1)
+    radial = np.sqrt((centroids[:, 0] - 0.5) ** 2 + (centroids[:, 1] - 0.5) ** 2)
+    appendage = (centroids[:, 2] < 0.58) & (radial > 0.075)
+    angles = (np.arctan2(centroids[:, 1] - 0.5, centroids[:, 0] - 0.5) + math.pi) % (2.0 * math.pi)
+    sectors = np.floor(angles * 10.0 / (2.0 * math.pi)).astype(np.int64) % 10
+
+    reaches = []
+    for sector in range(10):
+        sector_faces = np.flatnonzero(appendage & (sectors == sector))
+        reach = float(np.quantile(centroids[sector_faces, 2], 0.08)) if len(sector_faces) else math.inf
+        reaches.append((reach, sector))
+    catching_sectors = {sector for _, sector in sorted(reaches)[:2]}
+    arm_sectors = [sector for sector in range(10) if sector not in catching_sectors]
+    arm_names = {sector: f"arm{index}" for index, sector in enumerate(arm_sectors)}
+    catching_names = {
+        sector: f"catching_tentacle{index}"
+        for index, sector in enumerate(sorted(catching_sectors))
+    }
+
+    regions: Dict[str, list[int]] = {
+        "body": [],
+        **{f"arm{index}": [] for index in range(8)},
+        "catching_tentacle0": [],
+        "catching_tentacle1": [],
+    }
+    for face_index in range(len(triangles)):
+        if not appendage[face_index]:
+            regions["body"].append(face_index)
+            continue
+        sector = int(sectors[face_index])
+        bone = catching_names[sector] if sector in catching_names else arm_names[sector]
+        regions[bone].append(face_index)
+    return regions
+
+
+def _classify_glow_squid_regions(units: np.ndarray, triangles: np.ndarray) -> Dict[str, list[int]]:
+    """Split the upright glow squid into eight arms and two catching tentacles.
+
+    Unlike the longitudinal normal squid, this source has its mantle on +Y and
+    all appendages extend towards -Y.  Angular sectors around Y preserve the
+    visibly separate limbs; the two sectors reaching furthest down become the
+    catching tentacles.
+    """
+
+    centroids = units[triangles].mean(axis=1)
+    radial = np.sqrt((centroids[:, 0] - 0.5) ** 2 + (centroids[:, 2] - 0.5) ** 2)
+    appendage = (centroids[:, 1] < 0.48) & (radial > 0.075)
+    angles = (np.arctan2(centroids[:, 2] - 0.5, centroids[:, 0] - 0.5) + math.pi) % (2.0 * math.pi)
+    sectors = np.floor(angles * 10.0 / (2.0 * math.pi)).astype(np.int64) % 10
+
+    reaches = []
+    for sector in range(10):
+        sector_faces = np.flatnonzero(appendage & (sectors == sector))
+        reach = float(np.quantile(centroids[sector_faces, 1], 0.08)) if len(sector_faces) else math.inf
+        reaches.append((reach, sector))
+    catching_sectors = {sector for _, sector in sorted(reaches)[:2]}
+    arm_sectors = [sector for sector in range(10) if sector not in catching_sectors]
+    arm_names = {sector: f"arm{index}" for index, sector in enumerate(arm_sectors)}
+    catching_names = {
+        sector: f"catching_tentacle{index}"
+        for index, sector in enumerate(sorted(catching_sectors))
+    }
+
+    regions: Dict[str, list[int]] = {
+        "body": [],
+        **{f"arm{index}": [] for index in range(8)},
+        "catching_tentacle0": [],
+        "catching_tentacle1": [],
+    }
+    for face_index in range(len(triangles)):
+        if not appendage[face_index]:
+            regions["body"].append(face_index)
+            continue
+        sector = int(sectors[face_index])
+        bone = catching_names[sector] if sector in catching_names else arm_names[sector]
+        regions[bone].append(face_index)
+    return regions
 
 
 def _classify_bat(points: np.ndarray) -> str:
@@ -213,10 +394,13 @@ def _classify_allay(points: np.ndarray) -> str:
 CLASSIFIERS: Mapping[str, Callable[[np.ndarray], str]] = {
     "humanoid": _classify_humanoid,
     "quadruped": _classify_quadruped,
+    "bear": _classify_bear,
     "spider": _classify_spider,
     "octopus": _classify_octopus,
     "bat": _classify_bat,
     "allay": _classify_allay,
+    "axolotl": _classify_axolotl,
+    "ocelot": _classify_ocelot,
 }
 
 
@@ -238,6 +422,23 @@ def _pivots(spec: MobSpec, positions: np.ndarray) -> Dict[str, tuple[float, floa
         for station, z in (("front", -depth * 0.27), ("rear", depth * 0.27)):
             result[f"leg_{station}_left"] = (-width * 0.27, 24.0 - height * 0.34, z)
             result[f"leg_{station}_right"] = (width * 0.27, 24.0 - height * 0.34, z)
+    elif spec.classifier == "bear":
+        result["head"] = (0.0, 24.0 - height * 0.62, -depth * 0.31)
+        for station, z in (("front", -depth * 0.25), ("rear", depth * 0.29)):
+            result[f"leg_{station}_left"] = (-width * 0.25, 24.0 - height * 0.42, z)
+            result[f"leg_{station}_right"] = (width * 0.25, 24.0 - height * 0.42, z)
+    elif spec.classifier == "axolotl":
+        result["head"] = (0.0, 24.0 - height * 0.55, -depth * 0.31)
+        result["tail"] = (0.0, 24.0 - height * 0.50, depth * 0.24)
+        for station, z in (("front", -depth * 0.20), ("rear", depth * 0.19)):
+            result[f"leg_{station}_left"] = (-width * 0.24, 24.0 - height * 0.25, z)
+            result[f"leg_{station}_right"] = (width * 0.24, 24.0 - height * 0.25, z)
+    elif spec.classifier == "ocelot":
+        result["head"] = (0.0, 24.0 - height * 0.68, -depth * 0.32)
+        result["tail"] = (0.0, 24.0 - height * 0.56, depth * 0.29)
+        for station, z in (("front", -depth * 0.23), ("rear", depth * 0.24)):
+            result[f"leg_{station}_left"] = (-width * 0.24, 24.0 - height * 0.34, z)
+            result[f"leg_{station}_right"] = (width * 0.24, 24.0 - height * 0.34, z)
     elif spec.classifier == "spider":
         for index in range(8):
             side = -1.0 if index < 4 else 1.0
@@ -254,6 +455,15 @@ def _pivots(spec: MobSpec, positions: np.ndarray) -> Dict[str, tuple[float, floa
                 math.cos(angle) * width * 0.18,
                 24.0 - height * 0.30,
                 math.sin(angle) * depth * 0.18,
+            )
+    elif spec.classifier in ("squid", "glow_squid"):
+        appendage_names = (*tuple(f"arm{index}" for index in range(8)), "catching_tentacle0", "catching_tentacle1")
+        for index, name in enumerate(appendage_names):
+            angle = -math.pi + (index + 0.5) * 2.0 * math.pi / 10.0
+            result[name] = (
+                math.cos(angle) * width * 0.13,
+                24.0 - height * (0.50 + math.sin(angle) * 0.13),
+                -depth * 0.08,
             )
     elif spec.classifier == "bat":
         result["head"] = (0.0, 24.0 - height * 0.66, -depth * 0.12)
@@ -302,13 +512,18 @@ def build_runtime_assets(name: str, mesh: MeshData) -> tuple[bytes, bytes, dict]
     if not np.isfinite(uvs).all():
         raise ValueError("Mesh UVs must be finite")
 
-    classifier = CLASSIFIERS[spec.classifier]
-    regions: Dict[str, list[int]] = {bone: [] for bone in spec.bones}
-    for face_index, triangle in enumerate(triangles):
-        bone = classifier(units[triangle])
-        if bone not in regions:
-            raise ValueError(f"Classifier returned an undeclared bone: {bone}")
-        regions[bone].append(face_index)
+    if spec.classifier == "squid":
+        regions = _classify_squid_regions(units, triangles)
+    elif spec.classifier == "glow_squid":
+        regions = _classify_glow_squid_regions(units, triangles)
+    else:
+        classifier = CLASSIFIERS[spec.classifier]
+        regions = {bone: [] for bone in spec.bones}
+        for face_index, triangle in enumerate(triangles):
+            bone = classifier(units[triangle])
+            if bone not in regions:
+                raise ValueError(f"Classifier returned an undeclared bone: {bone}")
+            regions[bone].append(face_index)
     if sum(map(len, regions.values())) != len(triangles):
         raise AssertionError("Exact mesh classification lost triangles")
 

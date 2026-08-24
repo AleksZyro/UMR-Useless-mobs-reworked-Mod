@@ -22,7 +22,7 @@ import java.util.Set;
 
 /** Loads and renders the approved Tripo triangles inside GeckoLib bone transforms. */
 final class CorruptedSilverfishMesh {
-    static final ResourceLocation RESOURCE = new ResourceLocation(
+    static final ResourceLocation RESOURCE = ResourceLocation.tryBuild(
             "usless_mobs", "meshes/entity/corrupted_silverfish.mesh");
     private static final byte[] MAGIC = new byte[]{'C', 'S', 'M', 'E', 'S', 'H', '1', 0};
     private static final int EXPECTED_FACE_COUNT = 101_723;

@@ -261,7 +261,7 @@ public class OctopusEntity extends Squid {
         Vec3 probeCenter = this.position().add(look.x * 0.45D, 0.24D, look.z * 0.45D);
         AABB squeezedProbe = AABB.ofSize(probeCenter, 0.62D, 0.48D, 0.62D);
         AABB normalProbe = AABB.ofSize(this.position().add(0.0D, 0.60D, 0.0D),
-                1.15D, 1.20D, 1.15D);
+                1.50D, 1.40D, 1.50D);
         boolean squeeze = isSqueezing()
                 ? !this.level().noCollision(this, normalProbe)
                 : this.isInWater() && this.horizontalCollision

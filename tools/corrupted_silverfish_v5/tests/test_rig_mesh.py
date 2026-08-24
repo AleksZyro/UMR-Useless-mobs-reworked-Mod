@@ -7,6 +7,7 @@ import unittest
 from unittest import mock
 
 from tools.corrupted_silverfish_v5.rig_mesh import (
+    DEFAULT_OUTPUT,
     build_rig_document,
     canonical_faces,
     classify_centroid,
@@ -145,15 +146,33 @@ class RegionClassificationTests(unittest.TestCase):
         })
         self.assertEqual(canonical_faces(rigged), canonical_faces(source))
 
-    def test_only_cross_region_seam_vertices_are_duplicated(self):
+    def test_bridge_faces_stay_on_body_instead_of_opening_a_seam(self):
         source = make_shared_seam_fixture()
 
         rigged, report = build_rig_document(source)
 
         self.assertEqual(report["source_vertices"], 5)
-        self.assertEqual(report["output_vertices"], 6)
-        self.assertEqual(report["duplicated_boundary_vertices"], 1)
+        self.assertEqual(report["output_vertices"], 5)
+        self.assertEqual(report["duplicated_boundary_vertices"], 0)
+        self.assertEqual(report["regions"], {"body": 2})
         self.assertEqual(canonical_faces(rigged), canonical_faces(source))
+
+    def test_committed_rig_never_splits_one_visible_seam_between_two_leg_bones(self):
+        document = json.loads(DEFAULT_OUTPUT.read_text(encoding="utf-8-sig"))
+        regions_by_position = {}
+        for element in document["elements"]:
+            region = element["name"].removesuffix("_mesh")
+            for point in element["vertices"].values():
+                position = tuple(round(float(value), 5) for value in point)
+                regions_by_position.setdefault(position, set()).add(region)
+
+        unsafe = {
+            tuple(sorted(regions))
+            for regions in regions_by_position.values()
+            if len(regions) > 1
+            and "body" not in regions
+        }
+        self.assertEqual(unsafe, set())
 
     def test_serialized_rig_bytes_are_deterministic(self):
         source = make_two_triangle_fixture()

@@ -2,6 +2,7 @@ package com.Momik.usless_mobs.entity;
 
 import com.Momik.usless_mobs.allegiance.AllegiancePath;
 import com.Momik.usless_mobs.allegiance.AllegianceUtil;
+import com.Momik.usless_mobs.entity.boss.BossDifficultyProfile;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
@@ -10,7 +11,6 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.Difficulty;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -34,7 +34,9 @@ public class LivingBossEntity extends Ravager {
     private static final int HEART_PULSE_COOLDOWN = 130;
     private static final int ROOT_SPIRIT_COOLDOWN = 190;
     private static final int THORN_COUNTER_COOLDOWN = 75;
-    private static final int MAX_ROOT_SPIRITS = 4;
+    private static final int ROOT_WAVE_WARMUP_TICKS = 32;
+    private static final int GROUND_RUPTURE_WARMUP_TICKS = 38;
+    private static final double SAFE_CORRIDOR_HALF_ANGLE = Math.toRadians(28.0D);
 
     private final ServerBossEvent bossEvent = new ServerBossEvent(
             Component.translatable("entity.usless_mobs.living_boss"),
@@ -47,6 +49,13 @@ public class LivingBossEntity extends Ravager {
     private int heartPulseCooldown = 80;
     private int rootSpiritCooldown = 150;
     private int thornCounterCooldown = 0;
+    private int rootWaveCooldown = 120;
+    private int rootWaveWarmup;
+    private double rootWaveSafeAngle;
+    private int groundRuptureCooldown = 180;
+    private int groundRuptureWarmup;
+    private Vec3 groundRuptureCenter;
+    private double groundRuptureSafeAngle;
     private boolean awakenedRoots = false;
 
     public LivingBossEntity(EntityType<? extends Ravager> entityType, Level level) {
@@ -64,6 +73,10 @@ public class LivingBossEntity extends Ravager {
                 .add(Attributes.FOLLOW_RANGE, 42.0D);
     }
 
+    private BossDifficultyProfile difficultyProfile() {
+        return BossDifficultyProfile.forDifficulty(this.level().getDifficulty());
+    }
+
     @Override
     public void aiStep() {
         super.aiStep();
@@ -72,9 +85,15 @@ public class LivingBossEntity extends Ravager {
             return;
         }
 
+        if (this.tickCount % 20 == 1) {
+            syncDifficultyAttackDamage();
+        }
+
         this.bossEvent.setProgress(Math.max(0.0F, this.getHealth() / this.getMaxHealth()));
         tickCooldowns();
         tickRootCageWarmup();
+        tickRootWaveWarmup();
+        tickGroundRuptureWarmup();
         if (this.getTarget() instanceof Player player && AllegianceUtil.hasPath(player, AllegiancePath.LIVING)) {
             this.setTarget(null);
             player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 80, 0, true, false, true));
@@ -97,14 +116,26 @@ public class LivingBossEntity extends Ravager {
             this.rootPulse();
         }
         LivingEntity target = this.getTarget();
+        if (target != null && target.isAlive() && this.rootWaveCooldown <= 0
+                && this.rootWaveWarmup <= 0 && this.groundRuptureWarmup <= 0
+                && this.distanceToSqr(target) <= 18.0D * 18.0D) {
+            startRootWave(target);
+            this.rootWaveCooldown = difficultyProfile().cooldown(165);
+        }
+        if (target != null && target.isAlive() && this.awakenedRoots && this.groundRuptureCooldown <= 0
+                && this.groundRuptureWarmup <= 0 && this.rootWaveWarmup <= 0
+                && this.distanceToSqr(target) <= 20.0D * 20.0D) {
+            startGroundRupture(target);
+            this.groundRuptureCooldown = difficultyProfile().cooldown(220);
+        }
         if (target != null && target.isAlive() && this.rootCageCooldown <= 0 && this.rootCageWarmup <= 0
                 && this.distanceToSqr(target) <= 14.0D * 14.0D) {
             this.startRootCage(target);
-            this.rootCageCooldown = this.level().getDifficulty() == Difficulty.HARD ? 115 : ROOT_CAGE_COOLDOWN;
+            this.rootCageCooldown = difficultyProfile().cooldown(ROOT_CAGE_COOLDOWN);
         }
         if (this.heartPulseCooldown <= 0 && this.getHealth() < this.getMaxHealth()) {
             this.heartPulse();
-            this.heartPulseCooldown = this.awakenedRoots ? 95 : HEART_PULSE_COOLDOWN;
+            this.heartPulseCooldown = difficultyProfile().cooldown(this.awakenedRoots ? 95 : HEART_PULSE_COOLDOWN);
         }
         if (this.rootSpiritCooldown <= 0 && this.getHealth() <= this.getMaxHealth() * 0.65F) {
             if (this.awakenedRoots) {
@@ -112,10 +143,10 @@ public class LivingBossEntity extends Ravager {
             } else {
                 this.callLivingSwarm();
             }
-            this.rootSpiritCooldown = this.level().getDifficulty() == Difficulty.HARD ? 145 : ROOT_SPIRIT_COOLDOWN;
+            this.rootSpiritCooldown = difficultyProfile().cooldown(ROOT_SPIRIT_COOLDOWN);
         }
         if (this.tickCount % 60 == 0 && this.getHealth() < this.getMaxHealth()) {
-            this.heal(this.level().getDifficulty() == Difficulty.HARD ? 3.0F : 2.0F);
+            this.heal(1.5F + difficultyProfile().rewardTier() * 0.75F);
         }
     }
 
@@ -132,6 +163,132 @@ public class LivingBossEntity extends Ravager {
         if (this.thornCounterCooldown > 0) {
             this.thornCounterCooldown--;
         }
+        if (this.rootWaveCooldown > 0) {
+            this.rootWaveCooldown--;
+        }
+        if (this.groundRuptureCooldown > 0) {
+            this.groundRuptureCooldown--;
+        }
+    }
+
+    private void syncDifficultyAttackDamage() {
+        var attackDamage = this.getAttribute(Attributes.ATTACK_DAMAGE);
+        double scaledDamage = 15.0D * difficultyProfile().damageMultiplier();
+        if (attackDamage != null && Math.abs(attackDamage.getBaseValue() - scaledDamage) > 0.001D) {
+            attackDamage.setBaseValue(scaledDamage);
+        }
+    }
+
+    private void startRootWave(LivingEntity target) {
+        this.rootWaveWarmup = ROOT_WAVE_WARMUP_TICKS;
+        this.rootWaveSafeAngle = this.random.nextDouble() * Math.PI * 2.0D;
+        if (this.level() instanceof ServerLevel serverLevel) {
+            serverLevel.playSound(null, this.blockPosition(), SoundEvents.BEACON_ACTIVATE,
+                    SoundSource.HOSTILE, 1.15F, 0.55F);
+        }
+    }
+
+    private void tickRootWaveWarmup() {
+        if (this.rootWaveWarmup <= 0 || !(this.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        this.rootWaveWarmup--;
+        double progress = 1.0D - this.rootWaveWarmup / (double) ROOT_WAVE_WARMUP_TICKS;
+        double radius = 2.0D + progress * 8.0D;
+        for (int index = 0; index < 36; index++) {
+            double angle = Math.PI * 2.0D * index / 36.0D;
+            boolean safe = isInsideSafeCorridor(angle, this.rootWaveSafeAngle);
+            serverLevel.sendParticles(safe
+                            ? net.minecraft.core.particles.ParticleTypes.HAPPY_VILLAGER
+                            : net.minecraft.core.particles.ParticleTypes.COMPOSTER,
+                    this.getX() + Math.cos(angle) * radius,
+                    this.getY() + 0.12D,
+                    this.getZ() + Math.sin(angle) * radius,
+                    1, 0.02D, 0.02D, 0.02D, 0.0D);
+        }
+        if (this.rootWaveWarmup == 0) {
+            releaseRootWave(serverLevel);
+        }
+    }
+
+    private void releaseRootWave(ServerLevel serverLevel) {
+        double radius = this.awakenedRoots ? 11.0D : 9.0D;
+        float damage = difficultyProfile().damage(7.0F);
+        for (LivingEntity living : serverLevel.getEntitiesOfClass(LivingEntity.class,
+                this.getBoundingBox().inflate(radius, 2.0D, radius), this::isLivingBossTarget)) {
+            Vec3 offset = living.position().subtract(this.position());
+            double angle = Math.atan2(offset.z, offset.x);
+            if (isInsideSafeCorridor(angle, this.rootWaveSafeAngle)) {
+                continue;
+            }
+            living.hurt(this.damageSources().mobAttack(this), damage);
+            living.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 65, 1));
+            Vec3 push = offset.multiply(1.0D, 0.0D, 1.0D).normalize().scale(0.9D);
+            living.push(push.x, 0.35D, push.z);
+            living.hurtMarked = true;
+        }
+        serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.SPORE_BLOSSOM_AIR,
+                this.getX(), this.getY(0.2D), this.getZ(), 130, radius * 0.45D, 0.2D, radius * 0.45D, 0.06D);
+        serverLevel.playSound(null, this.blockPosition(), SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 1.45F, 0.62F);
+    }
+
+    private void startGroundRupture(LivingEntity target) {
+        this.groundRuptureWarmup = GROUND_RUPTURE_WARMUP_TICKS;
+        this.groundRuptureCenter = target.position();
+        this.groundRuptureSafeAngle = this.random.nextDouble() * Math.PI * 2.0D;
+        if (this.level() instanceof ServerLevel serverLevel) {
+            serverLevel.playSound(null, target.blockPosition(), SoundEvents.ROOTED_DIRT_PLACE,
+                    SoundSource.HOSTILE, 1.3F, 0.4F);
+        }
+    }
+
+    private void tickGroundRuptureWarmup() {
+        if (this.groundRuptureWarmup <= 0 || this.groundRuptureCenter == null
+                || !(this.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        this.groundRuptureWarmup--;
+        for (int index = 0; index < 32; index++) {
+            double angle = Math.PI * 2.0D * index / 32.0D;
+            boolean safe = isInsideSafeCorridor(angle, this.groundRuptureSafeAngle);
+            double radius = 1.2D + (index % 4) * 1.25D;
+            serverLevel.sendParticles(safe
+                            ? net.minecraft.core.particles.ParticleTypes.HAPPY_VILLAGER
+                            : net.minecraft.core.particles.ParticleTypes.FALLING_SPORE_BLOSSOM,
+                    this.groundRuptureCenter.x + Math.cos(angle) * radius,
+                    this.groundRuptureCenter.y + 0.08D,
+                    this.groundRuptureCenter.z + Math.sin(angle) * radius,
+                    1, 0.03D, 0.02D, 0.03D, 0.0D);
+        }
+        if (this.groundRuptureWarmup == 0) {
+            releaseGroundRupture(serverLevel);
+        }
+    }
+
+    private void releaseGroundRupture(ServerLevel serverLevel) {
+        Vec3 center = this.groundRuptureCenter;
+        this.groundRuptureCenter = null;
+        float damage = difficultyProfile().damage(8.0F);
+        AABB area = new AABB(center, center).inflate(6.2D, 2.0D, 6.2D);
+        for (LivingEntity living : serverLevel.getEntitiesOfClass(LivingEntity.class, area, this::isLivingBossTarget)) {
+            Vec3 offset = living.position().subtract(center);
+            if (isInsideSafeCorridor(Math.atan2(offset.z, offset.x), this.groundRuptureSafeAngle)) {
+                continue;
+            }
+            living.hurt(this.damageSources().mobAttack(this), damage);
+            living.addEffect(new MobEffectInstance(MobEffects.POISON, 90, 1));
+            living.push(0.0D, 0.7D, 0.0D);
+            living.hurtMarked = true;
+        }
+        serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.COMPOSTER,
+                center.x, center.y + 0.15D, center.z, 150, 2.6D, 0.25D, 2.6D, 0.08D);
+        serverLevel.playSound(null, net.minecraft.core.BlockPos.containing(center),
+                SoundEvents.GENERIC_EXPLODE, SoundSource.HOSTILE, 1.1F, 0.55F);
+    }
+
+    private static boolean isInsideSafeCorridor(double angle, double safeAngle) {
+        double difference = Math.atan2(Math.sin(angle - safeAngle), Math.cos(angle - safeAngle));
+        return Math.abs(difference) <= SAFE_CORRIDOR_HALF_ANGLE;
     }
 
     private void startRootCage(LivingEntity target) {
@@ -175,7 +332,7 @@ public class LivingBossEntity extends Ravager {
         target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, this.awakenedRoots ? 150 : 110, this.awakenedRoots ? 3 : 2));
         target.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, 120, 1));
         target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 0));
-        target.hurt(this.damageSources().mobAttack(this), this.level().getDifficulty() == Difficulty.HARD ? 8.0F : 5.5F);
+        target.hurt(this.damageSources().mobAttack(this), difficultyProfile().damage(5.5F));
         serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.COMPOSTER,
                 target.getX(), target.getY(0.35D), target.getZ(),
                 56, 0.75D, 0.3D, 0.75D, 0.07D);
@@ -224,7 +381,7 @@ public class LivingBossEntity extends Ravager {
         for (LivingEntity living : this.level().getEntitiesOfClass(LivingEntity.class, area, this::isLivingBossTarget)) {
             living.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 120, 2));
             living.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 0));
-            if (living.hurt(this.damageSources().mobAttack(this), this.level().getDifficulty() == Difficulty.HARD ? 7.0F : 5.0F)) {
+            if (living.hurt(this.damageSources().mobAttack(this), difficultyProfile().damage(5.0F))) {
                 hits++;
             }
         }
@@ -244,7 +401,8 @@ public class LivingBossEntity extends Ravager {
         }
 
         LivingEntity target = this.getTarget();
-        for (int i = 0; i < 2; i++) {
+        int summonCount = Math.max(1, difficultyProfile().livingSummonCap() / 2);
+        for (int i = 0; i < summonCount; i++) {
             WebCaveSpiderEntity spider = com.Momik.usless_mobs.registry.ModEntities.WEB_CAVE_SPIDER.get().create(serverLevel);
             if (spider == null) {
                 continue;
@@ -269,7 +427,8 @@ public class LivingBossEntity extends Ravager {
 
         int existing = serverLevel.getEntitiesOfClass(Vex.class, this.getBoundingBox().inflate(18.0D),
                 vex -> vex.isAlive() && vex.getPersistentData().getBoolean(WitchBossEntity.ROOT_SPIRIT_KEY)).size();
-        int toSpawn = Math.max(0, Math.min(2, MAX_ROOT_SPIRITS - existing));
+        int summonCap = difficultyProfile().livingSummonCap();
+        int toSpawn = Math.max(0, Math.min(Math.max(1, summonCap / 2), summonCap - existing));
         LivingEntity target = this.getTarget();
         for (int index = 0; index < toSpawn; index++) {
             Vex spirit = EntityType.VEX.create(serverLevel);
@@ -321,15 +480,17 @@ public class LivingBossEntity extends Ravager {
     protected void dropCustomDeathLoot(DamageSource damageSource, int looting, boolean recentlyHit) {
         super.dropCustomDeathLoot(damageSource, looting, recentlyHit);
         int safeLooting = Math.min(5, Math.max(0, looting));
+        int rewardTier = difficultyProfile().rewardTier();
         this.spawnAtLocation(new ItemStack(com.Momik.usless_mobs.registry.ModItems.LIVING_CORE.get()));
-        this.spawnAtLocation(new ItemStack(com.Momik.usless_mobs.registry.ModItems.LIVING_TISSUE.get(), 4 + this.random.nextInt(3 + safeLooting)));
-        if (this.random.nextFloat() < Math.min(0.65F, 0.25F + safeLooting * 0.08F)) {
-            this.spawnAtLocation(new ItemStack(com.Momik.usless_mobs.registry.ModItems.NATURE_CRYSTAL.get()));
+        this.spawnAtLocation(new ItemStack(com.Momik.usless_mobs.registry.ModItems.LIVING_TISSUE.get(),
+                4 + rewardTier * 2 + this.random.nextInt(3 + safeLooting)));
+        if (this.random.nextFloat() < Math.min(0.90F, 0.25F + rewardTier * 0.20F + safeLooting * 0.08F)) {
+            this.spawnAtLocation(new ItemStack(com.Momik.usless_mobs.registry.ModItems.NATURE_CRYSTAL.get(), 1 + rewardTier / 2));
         }
-        if (this.random.nextFloat() < Math.min(0.20F, 0.08F + (0.03F * safeLooting))) {
+        if (this.random.nextFloat() < Math.min(0.55F, 0.08F + rewardTier * 0.16F + (0.03F * safeLooting))) {
             this.spawnAtLocation(new ItemStack(com.Momik.usless_mobs.registry.ModItems.LIVING_TALISMAN.get()));
         }
-        if (this.random.nextFloat() < Math.min(0.12F, 0.04F + (0.01F * safeLooting))) {
+        if (this.random.nextFloat() < Math.min(0.35F, 0.04F + rewardTier * 0.11F + (0.01F * safeLooting))) {
             this.spawnAtLocation(new ItemStack(com.Momik.usless_mobs.registry.ModItems.LIVING_CRYSTAL_BLOCK_ITEM.get(),
                     1 + this.random.nextInt(2)));
         }
@@ -340,8 +501,8 @@ public class LivingBossEntity extends Ravager {
         boolean hurt = super.hurt(source, amount);
         if (hurt && !this.level().isClientSide && this.thornCounterCooldown <= 0 && source.getEntity() instanceof LivingEntity attacker
                 && attacker.isAlive() && attacker.distanceToSqr(this) <= 7.0D * 7.0D) {
-            this.thornCounterCooldown = THORN_COUNTER_COOLDOWN;
-            attacker.hurt(this.damageSources().thorns(this), this.level().getDifficulty() == Difficulty.HARD ? 5.0F : 3.0F);
+            this.thornCounterCooldown = difficultyProfile().cooldown(THORN_COUNTER_COOLDOWN);
+            attacker.hurt(this.damageSources().thorns(this), difficultyProfile().damage(3.0F));
             attacker.addEffect(new MobEffectInstance(MobEffects.POISON, 70, 0));
             attacker.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 55, 1));
             if (this.level() instanceof ServerLevel serverLevel) {

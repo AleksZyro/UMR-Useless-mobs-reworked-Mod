@@ -1,0 +1,9 @@
+{
+  "source": "tripo_multiview",
+  "project_id": "b3347f03-f887-448b-a491-783bfc546935",
+  "project_url": "https://studio.tripo3d.ai/workspace/generate/b3347f03-f887-448b-a491-783bfc546935",
+  "sha256": "5EFB7EB9F75494BE92C695C55A414D038666B21595E44DEA15626722B4A5699D",
+  "texture": "4096x4096",
+  "front_axis": "-Z",
+  "approved_concept": "../concept/ocelot_multiview.png"
+}
