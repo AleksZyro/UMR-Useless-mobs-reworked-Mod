@@ -8,6 +8,7 @@ Alle wichtigen Änderungen an Useless Mobs Reworked werden hier dokumentiert. Da
 
 - Client-Renderer, Modell-Layer, Tastenbelegung und Item-Properties aus dem gemeinsamen Mod-Einstiegspunkt in eine strikt clientseitige Eventklasse ausgelagert
 - Entity-Attribute und Spawnplatzierungen aus dem Mod-Einstiegspunkt in eine gemeinsame Mod-Eventklasse ausgelagert
+- Braurezepte in eine eigene Registry-Hilfsklasse ausgelagert
 - GitHub Actions auf Node-24-basierte Versionen aktualisiert
 
 ### Added

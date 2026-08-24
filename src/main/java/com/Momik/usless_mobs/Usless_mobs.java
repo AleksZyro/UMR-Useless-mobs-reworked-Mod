@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import com.Momik.usless_mobs.network.ModNetwork;
 import com.Momik.usless_mobs.registry.ModBlockEntities;
 import com.Momik.usless_mobs.registry.ModBlocks;
+import com.Momik.usless_mobs.registry.ModBrewingRecipes;
 import com.Momik.usless_mobs.registry.ModCreativeTabs;
 import com.Momik.usless_mobs.registry.ModEffects;
 import com.Momik.usless_mobs.registry.ModEntities;
@@ -12,14 +13,7 @@ import com.Momik.usless_mobs.registry.ModItems;
 import com.Momik.usless_mobs.registry.ModPotions;
 import com.Momik.usless_mobs.registry.ModRecipeSerializers;
 import com.Momik.usless_mobs.registry.ModSounds;
-import net.minecraft.world.item.alchemy.Potion;
-import net.minecraft.world.item.alchemy.Potions;
-import net.minecraft.world.item.alchemy.PotionUtils;
-import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.CreativeModeTabs;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.common.brewing.BrewingRecipeRegistry;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -68,22 +62,7 @@ public class Usless_mobs {
     private void commonSetup(final FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
             ModNetwork.register();
-            BrewingRecipeRegistry.addRecipe(
-                    Ingredient.of(potionStack(Potions.AWKWARD)),
-                    Ingredient.of(ModItems.BLAUER_SCHLEIMBALL.get()),
-                    potionStack(ModPotions.ELASTICITY_POTION.get()));
-            BrewingRecipeRegistry.addRecipe(
-                    Ingredient.of(potionStack(ModPotions.ELASTICITY_POTION.get())),
-                    Ingredient.of(Items.REDSTONE),
-                    potionStack(ModPotions.LONG_ELASTICITY_POTION.get()));
-            BrewingRecipeRegistry.addRecipe(
-                    Ingredient.of(potionStack(Potions.AWKWARD)),
-                    Ingredient.of(ModItems.GOLDENER_SCHLEIMBALL.get()),
-                    potionStack(ModPotions.GOLDEN_FLOW_POTION.get()));
-            BrewingRecipeRegistry.addRecipe(
-                    Ingredient.of(potionStack(ModPotions.GOLDEN_FLOW_POTION.get())),
-                    Ingredient.of(Items.GLOWSTONE_DUST),
-                    potionStack(ModPotions.STRONG_GOLDEN_FLOW_POTION.get()));
+            ModBrewingRecipes.register();
         });
         LOGGER.info("Registered slime content: entity {}, blocks {}, {}, core {}",
                 ModEntities.BLAUER_SCHLEIM.getId(),
@@ -240,7 +219,4 @@ public class Usless_mobs {
         com.Momik.usless_mobs.command.UmrCommand.register(event.getDispatcher());
     }
 
-    private static ItemStack potionStack(Potion potion) {
-        return PotionUtils.setPotion(new ItemStack(Items.POTION), potion);
-    }
 }
