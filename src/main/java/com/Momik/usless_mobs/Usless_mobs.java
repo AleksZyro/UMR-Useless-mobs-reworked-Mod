@@ -1,24 +1,6 @@
 package com.Momik.usless_mobs;
 
 import com.mojang.logging.LogUtils;
-import com.Momik.usless_mobs.entity.BlueSlimeEntity;
-import com.Momik.usless_mobs.entity.CelestialSlimeEntity;
-import com.Momik.usless_mobs.entity.CoralDrownedEntity;
-import com.Momik.usless_mobs.entity.EnderSlimeEntity;
-import com.Momik.usless_mobs.entity.FrostStrayEntity;
-import com.Momik.usless_mobs.entity.HelpingAllayEntity;
-import com.Momik.usless_mobs.entity.KingSlimeEntity;
-import com.Momik.usless_mobs.entity.LivingBossEntity;
-import com.Momik.usless_mobs.entity.LivingBatEntity;
-import com.Momik.usless_mobs.entity.LivingSquidEntity;
-import com.Momik.usless_mobs.entity.LivingGlowSquidEntity;
-import com.Momik.usless_mobs.entity.LivingPolarBearEntity;
-import com.Momik.usless_mobs.entity.LivingAxolotlEntity;
-import com.Momik.usless_mobs.entity.LivingOcelotEntity;
-import com.Momik.usless_mobs.entity.OctopusEntity;
-import com.Momik.usless_mobs.entity.RootedHuskEntity;
-import com.Momik.usless_mobs.entity.WebCaveSpiderEntity;
-import com.Momik.usless_mobs.entity.WitchBossEntity;
 import com.Momik.usless_mobs.network.ModNetwork;
 import com.Momik.usless_mobs.registry.ModBlockEntities;
 import com.Momik.usless_mobs.registry.ModBlocks;
@@ -30,7 +12,6 @@ import com.Momik.usless_mobs.registry.ModItems;
 import com.Momik.usless_mobs.registry.ModPotions;
 import com.Momik.usless_mobs.registry.ModRecipeSerializers;
 import com.Momik.usless_mobs.registry.ModSounds;
-import net.minecraft.world.entity.SpawnPlacements;
 import net.minecraft.world.item.alchemy.Potion;
 import net.minecraft.world.item.alchemy.Potions;
 import net.minecraft.world.item.alchemy.PotionUtils;
@@ -38,12 +19,9 @@ import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraftforge.common.brewing.BrewingRecipeRegistry;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
-import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
-import net.minecraftforge.event.entity.SpawnPlacementRegisterEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -52,7 +30,6 @@ import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.ModList;
 import net.mysith.MySithMod;
-import net.mysith.silverfish.CorruptedSilverfishEntity;
 import org.slf4j.Logger;
 
 @Mod(Usless_mobs.MODID)
@@ -261,77 +238,6 @@ public class Usless_mobs {
     @SubscribeEvent
     public void onRegisterCommands(net.minecraftforge.event.RegisterCommandsEvent event) {
         com.Momik.usless_mobs.command.UmrCommand.register(event.getDispatcher());
-    }
-
-    @Mod.EventBusSubscriber(modid = MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
-    public static class ModEvents {
-
-        @SubscribeEvent
-        public static void registerAttributes(EntityAttributeCreationEvent event) {
-            event.put(ModEntities.BLAUER_SCHLEIM.get(), BlueSlimeEntity.createAttributes().build());
-            event.put(ModEntities.KING_SCHLEIM.get(), KingSlimeEntity.createAttributes().build());
-            event.put(ModEntities.ENDER_SCHLEIM.get(), EnderSlimeEntity.createAttributes().build());
-            event.put(ModEntities.CELESTIAL_SLIME.get(), CelestialSlimeEntity.createAttributes().build());
-            event.put(ModEntities.CORRUPTED_SILVERFISH.get(), CorruptedSilverfishEntity.createAttributes().build());
-            event.put(ModEntities.LIVING_BOSS.get(), LivingBossEntity.createAttributes().build());
-            event.put(ModEntities.FROST_STRAY.get(), FrostStrayEntity.createAttributes().build());
-            event.put(ModEntities.WEB_CAVE_SPIDER.get(), WebCaveSpiderEntity.createAttributes().build());
-            event.put(ModEntities.CORAL_DROWNED.get(), CoralDrownedEntity.createAttributes().build());
-            event.put(ModEntities.OCTOPUS.get(), OctopusEntity.createAttributes().build());
-            event.put(ModEntities.WITCH_BOSS.get(), WitchBossEntity.createAttributes().build());
-            event.put(ModEntities.HELPING_ALLAY.get(), HelpingAllayEntity.createAttributes().build());
-            event.put(ModEntities.LIVING_SQUID.get(), LivingSquidEntity.createAttributes().build());
-            event.put(ModEntities.LIVING_GLOW_SQUID.get(), LivingGlowSquidEntity.createAttributes().build());
-            event.put(ModEntities.LIVING_POLAR_BEAR.get(), LivingPolarBearEntity.createAttributes().build());
-            event.put(ModEntities.LIVING_AXOLOTL.get(), LivingAxolotlEntity.createAttributes().build());
-            event.put(ModEntities.LIVING_OCELOT.get(), LivingOcelotEntity.createAttributes().build());
-            event.put(ModEntities.LIVING_BAT.get(), LivingBatEntity.createAttributes().build());
-            event.put(ModEntities.ROOTED_HUSK.get(), RootedHuskEntity.createAttributes().build());
-        }
-
-        @SubscribeEvent
-        public static void registerSpawnPlacements(SpawnPlacementRegisterEvent event) {
-            event.register(ModEntities.BLAUER_SCHLEIM.get(),
-                    SpawnPlacements.Type.ON_GROUND,
-                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                    BlueSlimeEntity::checkBlueSlimeSpawnRules,
-                    SpawnPlacementRegisterEvent.Operation.OR);
-            event.register(ModEntities.KING_SCHLEIM.get(),
-                    SpawnPlacements.Type.ON_GROUND,
-                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                    KingSlimeEntity::checkKingSlimeSpawnRules,
-                    SpawnPlacementRegisterEvent.Operation.OR);
-            event.register(ModEntities.ENDER_SCHLEIM.get(),
-                    SpawnPlacements.Type.ON_GROUND,
-                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                    EnderSlimeEntity::checkEnderSlimeSpawnRules,
-                    SpawnPlacementRegisterEvent.Operation.OR);
-            event.register(ModEntities.CELESTIAL_SLIME.get(),
-                    SpawnPlacements.Type.ON_GROUND,
-                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                    CelestialSlimeEntity::checkCelestialSlimeSpawnRules,
-                    SpawnPlacementRegisterEvent.Operation.OR);
-            event.register(ModEntities.CORRUPTED_SILVERFISH.get(),
-                    SpawnPlacements.Type.ON_GROUND,
-                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                    CorruptedSilverfishEntity::checkCorruptedSilverfishSpawnRules,
-                    SpawnPlacementRegisterEvent.Operation.OR);
-            event.register(ModEntities.FROST_STRAY.get(),
-                    SpawnPlacements.Type.ON_GROUND,
-                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                    net.minecraft.world.entity.monster.Monster::checkMonsterSpawnRules,
-                    SpawnPlacementRegisterEvent.Operation.OR);
-            event.register(ModEntities.WEB_CAVE_SPIDER.get(),
-                    SpawnPlacements.Type.ON_GROUND,
-                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                    net.minecraft.world.entity.monster.Monster::checkMonsterSpawnRules,
-                    SpawnPlacementRegisterEvent.Operation.OR);
-            event.register(ModEntities.CORAL_DROWNED.get(),
-                    SpawnPlacements.Type.IN_WATER,
-                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                    CoralDrownedEntity::checkCoralDrownedSpawnRules,
-                    SpawnPlacementRegisterEvent.Operation.OR);
-        }
     }
 
     private static ItemStack potionStack(Potion potion) {

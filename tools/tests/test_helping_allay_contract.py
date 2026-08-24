@@ -24,7 +24,7 @@ class HelpingAllayContractTests(unittest.TestCase):
             ROOT / "src/main/java/com/Momik/usless_mobs/registry/ModEntities.java"
         ).read_text(encoding="utf-8")
         setup = (
-            ROOT / "src/main/java/com/Momik/usless_mobs/Usless_mobs.java"
+            ROOT / "src/main/java/com/Momik/usless_mobs/event/CommonModEvents.java"
         ).read_text(encoding="utf-8")
         self.assertIn('register("helping_allay"', entities)
         self.assertIn("ModEntities.HELPING_ALLAY.get()", setup)
