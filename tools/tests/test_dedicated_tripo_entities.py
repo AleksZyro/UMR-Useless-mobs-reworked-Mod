@@ -6,13 +6,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 JAVA = ROOT / "src/main/java/com/Momik/usless_mobs"
 ASSETS = ROOT / "src/main/resources/assets/usless_mobs"
+CLIENT_EVENTS = JAVA / "client/ClientModEvents.java"
 
 
 class DedicatedTripoEntityContract(unittest.TestCase):
     def test_squid_is_a_dedicated_large_entity_not_a_vanilla_renderer_override(self):
         entity = (JAVA / "entity/LivingSquidEntity.java").read_text(encoding="utf-8")
         entities = (JAVA / "registry/ModEntities.java").read_text(encoding="utf-8")
-        setup = (JAVA / "Usless_mobs.java").read_text(encoding="utf-8")
+        setup = CLIENT_EVENTS.read_text(encoding="utf-8")
         renderer = (JAVA / "client/LivingSquidRenderer.java").read_text(encoding="utf-8")
 
         self.assertIn("class LivingSquidEntity extends Squid", entity)
@@ -38,7 +39,7 @@ class DedicatedTripoEntityContract(unittest.TestCase):
         entity = (JAVA / "entity/LivingGlowSquidEntity.java").read_text(encoding="utf-8")
         entities = (JAVA / "registry/ModEntities.java").read_text(encoding="utf-8")
         items = (JAVA / "registry/ModItems.java").read_text(encoding="utf-8")
-        setup = (JAVA / "Usless_mobs.java").read_text(encoding="utf-8")
+        setup = CLIENT_EVENTS.read_text(encoding="utf-8")
         renderer = (JAVA / "client/LivingGlowSquidRenderer.java").read_text(encoding="utf-8")
 
         self.assertIn("class LivingGlowSquidEntity extends GlowSquid", entity)
@@ -52,7 +53,7 @@ class DedicatedTripoEntityContract(unittest.TestCase):
         entity = (JAVA / "entity/LivingPolarBearEntity.java").read_text(encoding="utf-8")
         entities = (JAVA / "registry/ModEntities.java").read_text(encoding="utf-8")
         items = (JAVA / "registry/ModItems.java").read_text(encoding="utf-8")
-        setup = (JAVA / "Usless_mobs.java").read_text(encoding="utf-8")
+        setup = CLIENT_EVENTS.read_text(encoding="utf-8")
         renderer = (JAVA / "client/LivingPolarBearRenderer.java").read_text(encoding="utf-8")
 
         self.assertIn("class LivingPolarBearEntity extends PolarBear", entity)
@@ -77,7 +78,7 @@ class DedicatedTripoEntityContract(unittest.TestCase):
         entity = (JAVA / "entity/LivingAxolotlEntity.java").read_text(encoding="utf-8")
         entities = (JAVA / "registry/ModEntities.java").read_text(encoding="utf-8")
         items = (JAVA / "registry/ModItems.java").read_text(encoding="utf-8")
-        setup = (JAVA / "Usless_mobs.java").read_text(encoding="utf-8")
+        setup = CLIENT_EVENTS.read_text(encoding="utf-8")
         renderer = (JAVA / "client/LivingAxolotlRenderer.java").read_text(encoding="utf-8")
 
         self.assertIn("class LivingAxolotlEntity extends Axolotl", entity)
@@ -92,7 +93,7 @@ class DedicatedTripoEntityContract(unittest.TestCase):
         entity = (JAVA / "entity/LivingOcelotEntity.java").read_text(encoding="utf-8")
         entities = (JAVA / "registry/ModEntities.java").read_text(encoding="utf-8")
         items = (JAVA / "registry/ModItems.java").read_text(encoding="utf-8")
-        setup = (JAVA / "Usless_mobs.java").read_text(encoding="utf-8")
+        setup = CLIENT_EVENTS.read_text(encoding="utf-8")
         renderer = (JAVA / "client/LivingOcelotRenderer.java").read_text(encoding="utf-8")
 
         self.assertIn("class LivingOcelotEntity extends Ocelot", entity)
@@ -113,7 +114,7 @@ class DedicatedTripoEntityContract(unittest.TestCase):
     def test_every_exact_vanilla_subclass_has_its_own_registry_id_and_spawn_egg(self):
         entities = (JAVA / "registry/ModEntities.java").read_text(encoding="utf-8")
         items = (JAVA / "registry/ModItems.java").read_text(encoding="utf-8")
-        setup = (JAVA / "Usless_mobs.java").read_text(encoding="utf-8")
+        setup = CLIENT_EVENTS.read_text(encoding="utf-8")
 
         for java_name, base_name, registry_name, constant, egg in (
             ("LivingBatEntity", "Bat", "living_bat", "LIVING_BAT", "LIVING_BAT_SPAWN_EGG"),

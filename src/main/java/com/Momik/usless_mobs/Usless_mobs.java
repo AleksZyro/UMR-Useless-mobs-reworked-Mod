@@ -1,26 +1,6 @@
 package com.Momik.usless_mobs;
 
 import com.mojang.logging.LogUtils;
-import com.Momik.usless_mobs.client.BlueSlimeRenderer;
-import com.Momik.usless_mobs.client.CelestialSlimeRenderer;
-import com.Momik.usless_mobs.client.CoralDrownedRenderer;
-import com.Momik.usless_mobs.client.CustomMob3DModel;
-import com.Momik.usless_mobs.client.CustomMobModelLayers;
-import com.Momik.usless_mobs.client.EnderSlimeRenderer;
-import com.Momik.usless_mobs.client.FrostStrayRenderer;
-import com.Momik.usless_mobs.client.HelpingAllayRenderer;
-import com.Momik.usless_mobs.client.KingSlimeRenderer;
-import com.Momik.usless_mobs.client.LivingBatRenderer;
-import com.Momik.usless_mobs.client.LivingBossRenderer;
-import com.Momik.usless_mobs.client.LivingSquidRenderer;
-import com.Momik.usless_mobs.client.LivingGlowSquidRenderer;
-import com.Momik.usless_mobs.client.LivingPolarBearRenderer;
-import com.Momik.usless_mobs.client.LivingAxolotlRenderer;
-import com.Momik.usless_mobs.client.LivingOcelotRenderer;
-import com.Momik.usless_mobs.client.OctopusRenderer;
-import com.Momik.usless_mobs.client.RootedHuskRenderer;
-import com.Momik.usless_mobs.client.WebCaveSpiderRenderer;
-import com.Momik.usless_mobs.client.WitchBossRenderer;
 import com.Momik.usless_mobs.entity.BlueSlimeEntity;
 import com.Momik.usless_mobs.entity.CelestialSlimeEntity;
 import com.Momik.usless_mobs.entity.CoralDrownedEntity;
@@ -50,10 +30,6 @@ import com.Momik.usless_mobs.registry.ModItems;
 import com.Momik.usless_mobs.registry.ModPotions;
 import com.Momik.usless_mobs.registry.ModRecipeSerializers;
 import com.Momik.usless_mobs.registry.ModSounds;
-import net.minecraft.client.renderer.entity.ThrownItemRenderer;
-import net.minecraft.client.renderer.item.ItemProperties;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.SpawnPlacements;
 import net.minecraft.world.item.alchemy.Potion;
 import net.minecraft.world.item.alchemy.Potions;
@@ -63,9 +39,6 @@ import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.levelgen.Heightmap;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.EntityRenderersEvent;
-import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.common.brewing.BrewingRecipeRegistry;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
@@ -75,11 +48,9 @@ import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.ModList;
-import net.mysith.client.CorruptedSilverfishRenderer;
 import net.mysith.MySithMod;
 import net.mysith.silverfish.CorruptedSilverfishEntity;
 import org.slf4j.Logger;
@@ -360,85 +331,6 @@ public class Usless_mobs {
                     Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                     CoralDrownedEntity::checkCoralDrownedSpawnRules,
                     SpawnPlacementRegisterEvent.Operation.OR);
-        }
-    }
-
-    @Mod.EventBusSubscriber(modid = MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
-    public static class ClientModEvents {
-
-        @SubscribeEvent
-        public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
-            event.registerEntityRenderer(ModEntities.BLAUER_SCHLEIM.get(), BlueSlimeRenderer::createRenderer);
-            event.registerEntityRenderer(ModEntities.KING_SCHLEIM.get(), KingSlimeRenderer::createRenderer);
-            event.registerEntityRenderer(ModEntities.ENDER_SCHLEIM.get(), EnderSlimeRenderer::createRenderer);
-            event.registerEntityRenderer(ModEntities.CELESTIAL_SLIME.get(), CelestialSlimeRenderer::createRenderer);
-            event.registerEntityRenderer(ModEntities.CORRUPTED_SILVERFISH.get(), CorruptedSilverfishRenderer::createRenderer);
-            event.registerEntityRenderer(ModEntities.LIVING_BOSS.get(), LivingBossRenderer::new);
-            event.registerEntityRenderer(ModEntities.FROST_STRAY.get(), FrostStrayRenderer::new);
-            event.registerEntityRenderer(ModEntities.WEB_CAVE_SPIDER.get(), WebCaveSpiderRenderer::new);
-            event.registerEntityRenderer(ModEntities.CORAL_DROWNED.get(), CoralDrownedRenderer::new);
-            event.registerEntityRenderer(ModEntities.OCTOPUS.get(), OctopusRenderer::new);
-            event.registerEntityRenderer(ModEntities.WITCH_BOSS.get(), WitchBossRenderer::new);
-            event.registerEntityRenderer(ModEntities.HELPING_ALLAY.get(), HelpingAllayRenderer::new);
-            event.registerEntityRenderer(ModEntities.LIVING_SQUID.get(), LivingSquidRenderer::new);
-            event.registerEntityRenderer(ModEntities.LIVING_GLOW_SQUID.get(), LivingGlowSquidRenderer::new);
-            event.registerEntityRenderer(ModEntities.LIVING_POLAR_BEAR.get(), LivingPolarBearRenderer::new);
-            event.registerEntityRenderer(ModEntities.LIVING_AXOLOTL.get(), LivingAxolotlRenderer::new);
-            event.registerEntityRenderer(ModEntities.LIVING_OCELOT.get(), LivingOcelotRenderer::new);
-            event.registerEntityRenderer(ModEntities.LIVING_BAT.get(), LivingBatRenderer::new);
-            event.registerEntityRenderer(ModEntities.ROOTED_HUSK.get(), RootedHuskRenderer::new);
-            event.registerEntityRenderer(ModEntities.SLIME_SPIKE.get(), ThrownItemRenderer::new);
-        }
-
-        @SubscribeEvent
-        public static void registerLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
-            event.registerLayerDefinition(CustomMobModelLayers.LIVING_BOSS,
-                    () -> CustomMob3DModel.createLayer(CustomMob3DModel.Variant.LIVING_BOSS));
-            event.registerLayerDefinition(CustomMobModelLayers.FROST_STRAY,
-                    () -> CustomMob3DModel.createLayer(CustomMob3DModel.Variant.FROST_STRAY));
-            event.registerLayerDefinition(CustomMobModelLayers.WEB_CAVE_SPIDER,
-                    () -> CustomMob3DModel.createLayer(CustomMob3DModel.Variant.WEB_CAVE_SPIDER));
-            event.registerLayerDefinition(CustomMobModelLayers.CORAL_DROWNED,
-                    () -> CustomMob3DModel.createLayer(CustomMob3DModel.Variant.CORAL_DROWNED));
-            event.registerLayerDefinition(CustomMobModelLayers.OCTOPUS,
-                    () -> CustomMob3DModel.createLayer(CustomMob3DModel.Variant.OCTOPUS));
-            event.registerLayerDefinition(CustomMobModelLayers.WITCH_BOSS,
-                    () -> CustomMob3DModel.createLayer(CustomMob3DModel.Variant.WITCH_BOSS));
-            event.registerLayerDefinition(CustomMobModelLayers.LIVING_BAT,
-                    () -> CustomMob3DModel.createLayer(CustomMob3DModel.Variant.LIVING_BAT));
-            event.registerLayerDefinition(CustomMobModelLayers.ROOTED_HUSK,
-                    () -> CustomMob3DModel.createLayer(CustomMob3DModel.Variant.ROOTED_HUSK));
-        }
-
-        @SubscribeEvent
-        public static void registerKeyMappings(RegisterKeyMappingsEvent event) {
-            event.register(com.Momik.usless_mobs.client.ModKeyMappings.TOGGLE_SLIME_EFFECTS);
-        }
-
-        @SubscribeEvent
-        public static void onClientSetup(FMLClientSetupEvent event) {
-            event.enqueueWork(() -> {
-                ItemProperties.register(ModItems.SLIME_KOMPASS.get(), ResourceLocation.tryBuild(MODID, "slime_kompass_angle"),
-                        (stack, level, livingEntity, seed) -> {
-                            if (livingEntity == null || stack.getTag() == null
-                                    || !stack.getTag().contains("TargetX") || !stack.getTag().contains("TargetZ")) {
-                                return 0.0F;
-                            }
-
-                            double dx = stack.getTag().getInt("TargetX") + 0.5D - livingEntity.getX();
-                            double dz = stack.getTag().getInt("TargetZ") + 0.5D - livingEntity.getZ();
-                            if (dx * dx + dz * dz < 0.0001D) {
-                                return 0.0F;
-                            }
-
-                            double targetYaw = Math.toDegrees(Math.atan2(dz, dx)) - 90.0D;
-                            double relativeAngle = Mth.wrapDegrees(targetYaw - livingEntity.getYRot()) / 360.0D;
-                            if (relativeAngle < 0.0D) {
-                                relativeAngle += 1.0D;
-                            }
-                            return (float) relativeAngle;
-                        });
-            });
         }
     }
 
