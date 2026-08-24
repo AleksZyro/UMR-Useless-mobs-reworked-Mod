@@ -121,7 +121,7 @@ class HelpingAllayContractTests(unittest.TestCase):
 
     def test_renderer_is_registered_for_the_dedicated_entity(self):
         setup = (
-            ROOT / "src/main/java/com/Momik/usless_mobs/Usless_mobs.java"
+            ROOT / "src/main/java/com/Momik/usless_mobs/client/ClientModEvents.java"
         ).read_text(encoding="utf-8")
         self.assertIn("HelpingAllayRenderer::new", setup)
 

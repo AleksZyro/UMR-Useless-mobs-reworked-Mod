@@ -4,6 +4,16 @@ Alle wichtigen Änderungen an Useless Mobs Reworked werden hier dokumentiert. Da
 
 ## [Unreleased]
 
+### Changed
+
+- Client-Renderer, Modell-Layer, Tastenbelegung und Item-Properties aus dem gemeinsamen Mod-Einstiegspunkt in eine strikt clientseitige Eventklasse ausgelagert
+- GitHub Actions auf Node-24-basierte Versionen aktualisiert
+
+### Added
+
+- monatliche Dependabot-Prüfungen für Gradle und GitHub Actions
+- Regressionstest gegen versehentliche Client-Klassenverknüpfungen im Dedicated-Server-Einstiegspunkt
+
 ## [1.0.0-alpha.2] – 2026-08-24
 
 ### Changed
