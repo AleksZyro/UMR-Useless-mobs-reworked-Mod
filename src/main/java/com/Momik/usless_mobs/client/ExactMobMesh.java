@@ -760,9 +760,10 @@ final class ExactMobMesh {
 
         // Six external gills around the rear of the head flutter independently
         // while remaining part of the exact continuous surface.
-        float gillWeight = Mth.clamp((-z - 0.24F) / 0.30F, 0.0F, 1.0F)
-                * Mth.clamp((1.31F - y) / 0.24F, 0.0F, 1.0F)
-                * Mth.clamp((Math.abs(x) - 0.14F) / 0.25F, 0.0F, 1.0F);
+        float gillWeight = Mth.clamp((Math.abs(x) - 0.24F) / 0.09F, 0.0F, 1.0F)
+                * Mth.clamp((z + 0.38F) / 0.10F, 0.0F, 1.0F)
+                * Mth.clamp((-z - 0.12F) / 0.10F, 0.0F, 1.0F)
+                * Mth.clamp((y - 1.02F) / 0.12F, 0.0F, 1.0F);
         float gillSide = x < 0.0F ? -1.0F : 1.0F;
         x += gillSide * Mth.sin(ageInTicks * 0.31F + y * 8.0F) * 0.035F * gillWeight;
         y += Mth.cos(ageInTicks * 0.27F + z * 7.0F) * 0.018F * gillWeight;

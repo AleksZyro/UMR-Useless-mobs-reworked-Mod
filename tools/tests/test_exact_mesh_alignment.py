@@ -228,6 +228,42 @@ def test_axolotl_uses_continuous_tail_leg_and_gill_deformation():
     assert "CustomMob3DModel.Variant.AXOLOTL" in layer
 
 
+def test_axolotl_gill_field_reaches_the_six_external_head_branches():
+    source = (ROOT / "src/main/java/com/Momik/usless_mobs/client/ExactMobMesh.java").read_text()
+    parts = decode_mesh((MESH_ROOT / "axolotl.mesh").read_bytes())
+    positions = [
+        tuple(coordinate / 16.0 for coordinate in corner[0])
+        for part in parts.values()
+        for face in part["faces"]
+        for corner in face
+    ]
+
+    def clamp(value):
+        return max(0.0, min(1.0, value))
+
+    # The generated model's six gills are its farthest lateral surfaces in a
+    # narrow band at the head/body junction. The runtime field must strongly
+    # reach those branches while excluding the face in front of z=-0.36.
+    weights = [
+        clamp((abs(x) - 0.24) / 0.09)
+        * clamp((z + 0.38) / 0.10)
+        * clamp((-z - 0.12) / 0.10)
+        * clamp((y - 1.02) / 0.12)
+        for x, y, z in positions
+    ]
+
+    strongly_animated = [
+        position for position, weight in zip(positions, weights) if weight >= 0.75
+    ]
+    assert max(weights) == 1.0
+    assert len(strongly_animated) >= len(positions) * 0.05
+    assert all(position[2] > -0.36 for position in strongly_animated)
+    assert "(Math.abs(x) - 0.24F) / 0.09F" in source
+    assert "(z + 0.38F) / 0.10F" in source
+    assert "(-z - 0.12F) / 0.10F" in source
+    assert "(y - 1.02F) / 0.12F" in source
+
+
 def test_ocelot_has_continuous_leg_tail_head_and_pounce_deformation():
     mesh = (ROOT / "src/main/java/com/Momik/usless_mobs/client/ExactMobMesh.java").read_text()
     layer = (ROOT / "src/main/java/com/Momik/usless_mobs/client/ExactMobMeshLayer.java").read_text()
