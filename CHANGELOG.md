@@ -7,6 +7,7 @@ Alle wichtigen Änderungen an Useless Mobs Reworked werden hier dokumentiert. Da
 ### Fixed
 
 - Dependabot no longer proposes isolated Gradle or ForgeGradle major upgrades that cannot build together; compatible minor, patch, and security updates remain enabled.
+- GitHub Actions cancels superseded builds for the same branch or pull request instead of producing multiple obsolete 276 MB artifacts in parallel.
 
 ### Changed
 
