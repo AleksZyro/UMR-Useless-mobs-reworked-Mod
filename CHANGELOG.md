@@ -4,6 +4,10 @@ Alle wichtigen Änderungen an Useless Mobs Reworked werden hier dokumentiert. Da
 
 ## [Unreleased]
 
+### Fixed
+
+- Dependabot no longer proposes isolated Gradle or ForgeGradle major upgrades that cannot build together; compatible minor, patch, and security updates remain enabled.
+
 ### Changed
 
 - Client-Renderer, Modell-Layer, Tastenbelegung und Item-Properties aus dem gemeinsamen Mod-Einstiegspunkt in eine strikt clientseitige Eventklasse ausgelagert

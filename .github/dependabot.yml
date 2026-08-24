@@ -5,6 +5,15 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 5
+    # ForgeGradle 6 rejects Gradle 9, while ForgeGradle 7 requires Gradle 9.3+.
+    # Keep compatible minor/patch and security updates until both are migrated together.
+    ignore:
+      - dependency-name: gradle-wrapper
+        update-types:
+          - version-update:semver-major
+      - dependency-name: net.minecraftforge.gradle
+        update-types:
+          - version-update:semver-major
     labels:
       - dependencies
 
