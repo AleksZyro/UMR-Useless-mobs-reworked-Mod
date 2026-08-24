@@ -1,0 +1,17 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "FFF",
+        "F F",
+        "FFF"
+    ],
+    "key": {
+        "F": {
+            "item": "usless_mobs:soul_fragment"
+        }
+    },
+    "result": {
+        "item": "usless_mobs:soul_crystal",
+        "count": 1
+    }
+}

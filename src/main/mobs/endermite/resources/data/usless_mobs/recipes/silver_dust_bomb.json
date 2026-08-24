@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "minecraft:gunpowder"
+    },
+    {
+      "item": "usless_mobs:silver_dust"
+    },
+    {
+      "item": "usless_mobs:infested_stone_fragment"
+    }
+  ],
+  "result": {
+    "item": "usless_mobs:silver_dust_bomb",
+    "count": 2
+  }
+}

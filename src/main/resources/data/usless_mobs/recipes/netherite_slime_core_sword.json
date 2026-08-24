@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "usless_mobs:schleimkern_schwert" },
+    { "item": "usless_mobs:netherite_schleimkern" },
+    { "item": "minecraft:netherite_ingot" },
+    { "item": "usless_mobs:void_schleimball" }
+  ],
+  "result": {
+    "item": "usless_mobs:netherite_slime_core_sword",
+    "count": 1
+  }
+}

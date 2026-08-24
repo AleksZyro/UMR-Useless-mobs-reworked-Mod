@@ -1,0 +1,15 @@
+{
+  "replace": false,
+  "values": [
+    "usless_mobs:king_slime_krone",
+    "usless_mobs:netherite_kings_krone",
+    "usless_mobs:void_reaper_king",
+    "usless_mobs:god_king",
+    "usless_mobs:living_king",
+    "usless_mobs:true_crown",
+    "usless_mobs:royal_void_crown",
+    "usless_mobs:royal_celestial_crown",
+    "usless_mobs:royal_living_crown",
+    "usless_mobs:royal_balance_crown"
+  ]
+}

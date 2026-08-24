@@ -1,0 +1,114 @@
+{
+  "converted": 15,
+  "pending": [
+    "true_void/helmet"
+  ],
+  "resolution": 24,
+  "results": [
+    {
+      "family": "armor_of_balance",
+      "piece": "boots",
+      "voxels": 3121,
+      "cuboids": 2162,
+      "palette": 256
+    },
+    {
+      "family": "armor_of_balance",
+      "piece": "chestplate",
+      "voxels": 1362,
+      "cuboids": 1053,
+      "palette": 256
+    },
+    {
+      "family": "armor_of_balance",
+      "piece": "helmet",
+      "voxels": 3253,
+      "cuboids": 2061,
+      "palette": 256
+    },
+    {
+      "family": "armor_of_balance",
+      "piece": "leggings",
+      "voxels": 1964,
+      "cuboids": 1448,
+      "palette": 256
+    },
+    {
+      "family": "true_celestial",
+      "piece": "boots",
+      "voxels": 2786,
+      "cuboids": 1948,
+      "palette": 256
+    },
+    {
+      "family": "true_celestial",
+      "piece": "chestplate",
+      "voxels": 929,
+      "cuboids": 756,
+      "palette": 256
+    },
+    {
+      "family": "true_celestial",
+      "piece": "helmet",
+      "voxels": 2724,
+      "cuboids": 1851,
+      "palette": 256
+    },
+    {
+      "family": "true_celestial",
+      "piece": "leggings",
+      "voxels": 1756,
+      "cuboids": 1363,
+      "palette": 256
+    },
+    {
+      "family": "true_living",
+      "piece": "boots",
+      "voxels": 2955,
+      "cuboids": 2194,
+      "palette": 229
+    },
+    {
+      "family": "true_living",
+      "piece": "chestplate",
+      "voxels": 1539,
+      "cuboids": 1135,
+      "palette": 178
+    },
+    {
+      "family": "true_living",
+      "piece": "helmet",
+      "voxels": 2427,
+      "cuboids": 1778,
+      "palette": 244
+    },
+    {
+      "family": "true_living",
+      "piece": "leggings",
+      "voxels": 1686,
+      "cuboids": 1282,
+      "palette": 160
+    },
+    {
+      "family": "true_void",
+      "piece": "boots",
+      "voxels": 2790,
+      "cuboids": 1537,
+      "palette": 256
+    },
+    {
+      "family": "true_void",
+      "piece": "chestplate",
+      "voxels": 1243,
+      "cuboids": 783,
+      "palette": 139
+    },
+    {
+      "family": "true_void",
+      "piece": "leggings",
+      "voxels": 1688,
+      "cuboids": 1104,
+      "palette": 202
+    }
+  ]
+}

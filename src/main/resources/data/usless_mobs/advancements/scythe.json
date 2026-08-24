@@ -1,0 +1,29 @@
+{
+    "parent": "usless_mobs:crystal",
+    "display": {
+        "icon": {
+            "item": "usless_mobs:sith_scythe"
+        },
+        "title": {
+            "translate": "advancement.usless_mobs.scythe.title"
+        },
+        "description": {
+            "translate": "advancement.usless_mobs.scythe.desc"
+        },
+        "frame": "goal",
+        "show_toast": true,
+        "announce_to_chat": true
+    },
+    "criteria": {
+        "has_scythe": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "items": ["usless_mobs:sith_scythe"]
+                    }
+                ]
+            }
+        }
+    }
+}

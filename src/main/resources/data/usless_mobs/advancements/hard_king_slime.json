@@ -1,0 +1,31 @@
+{
+  "parent": "usless_mobs:summon_king_slime",
+  "display": {
+    "icon": {
+      "item": "usless_mobs:king_slime_krone"
+    },
+    "title": {
+      "translate": "advancements.usless_mobs.hard_king_slime.title"
+    },
+    "description": {
+      "translate": "advancements.usless_mobs.hard_king_slime.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "trigger": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "trigger"
+    ]
+  ],
+  "rewards": {
+    "experience": 500
+  }
+}

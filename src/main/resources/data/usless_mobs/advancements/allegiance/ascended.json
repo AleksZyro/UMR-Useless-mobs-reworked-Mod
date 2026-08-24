@@ -1,0 +1,13 @@
+{
+  "parent": "usless_mobs:allegiance/path_chosen",
+  "display": {
+    "icon": { "item": "usless_mobs:true_crown" },
+    "title": { "translate": "advancement.usless_mobs.allegiance.ascended.title" },
+    "description": { "translate": "advancement.usless_mobs.allegiance.ascended.desc" },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": { "impossible": { "trigger": "minecraft:impossible" } }
+}

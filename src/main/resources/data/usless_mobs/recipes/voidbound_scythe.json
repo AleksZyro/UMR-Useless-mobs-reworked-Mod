@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "usless_mobs:sith_scythe" },
+    { "item": "usless_mobs:void_core" }
+  ],
+  "result": {
+    "item": "usless_mobs:voidbound_scythe",
+    "count": 1
+  }
+}

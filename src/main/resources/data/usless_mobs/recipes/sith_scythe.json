@@ -1,0 +1,26 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "N*N",
+        "NCN",
+        " S "
+    ],
+    "key": {
+        "N": {
+            "item": "minecraft:netherite_ingot"
+        },
+        "C": {
+            "item": "usless_mobs:soul_crystal"
+        },
+        "*": {
+            "item": "minecraft:nether_star"
+        },
+        "S": {
+            "item": "minecraft:stick"
+        }
+    },
+    "result": {
+        "item": "usless_mobs:sith_scythe",
+        "count": 1
+    }
+}

@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "VCB",
+    "LKL",
+    "ANA"
+  ],
+  "key": {
+    "V": { "item": "usless_mobs:awakened_void_crystal" },
+    "C": { "item": "usless_mobs:awakened_celestial_crystal" },
+    "B": { "item": "usless_mobs:awakened_bearclaw_necklace" },
+    "L": { "item": "usless_mobs:awakened_living_crystal" },
+    "K": { "item": "usless_mobs:netherite_kings_krone" },
+    "A": { "item": "minecraft:netherite_ingot" },
+    "N": { "item": "usless_mobs:living_core" }
+  },
+  "result": {
+    "item": "usless_mobs:true_crown",
+    "count": 1
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "bones": {
+    "body": 18151,
+    "tentacle0": 8642,
+    "tentacle1": 12771,
+    "tentacle2": 12281,
+    "tentacle3": 8242,
+    "tentacle4": 6995,
+    "tentacle5": 11156,
+    "tentacle6": 10249,
+    "tentacle7": 7459
+  },
+  "cubes": 0,
+  "fit_axis": 0,
+  "fit_span": 14.4,
+  "mob": "octopus",
+  "output_triangles": 95946,
+  "source_triangles": 95946,
+  "texture_height": 4096,
+  "texture_width": 4096
+}

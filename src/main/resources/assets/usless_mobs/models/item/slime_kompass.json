@@ -1,0 +1,39 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "usless_mobs:item/slime_kompass_00"
+  },
+  "overrides": [
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.03125 }, "model": "usless_mobs:item/slime_kompass_01" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.0625 }, "model": "usless_mobs:item/slime_kompass_02" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.09375 }, "model": "usless_mobs:item/slime_kompass_03" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.125 }, "model": "usless_mobs:item/slime_kompass_04" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.15625 }, "model": "usless_mobs:item/slime_kompass_05" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.1875 }, "model": "usless_mobs:item/slime_kompass_06" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.21875 }, "model": "usless_mobs:item/slime_kompass_07" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.25 }, "model": "usless_mobs:item/slime_kompass_08" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.28125 }, "model": "usless_mobs:item/slime_kompass_09" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.3125 }, "model": "usless_mobs:item/slime_kompass_10" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.34375 }, "model": "usless_mobs:item/slime_kompass_11" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.375 }, "model": "usless_mobs:item/slime_kompass_12" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.40625 }, "model": "usless_mobs:item/slime_kompass_13" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.4375 }, "model": "usless_mobs:item/slime_kompass_14" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.46875 }, "model": "usless_mobs:item/slime_kompass_15" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.5 }, "model": "usless_mobs:item/slime_kompass_16" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.53125 }, "model": "usless_mobs:item/slime_kompass_17" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.5625 }, "model": "usless_mobs:item/slime_kompass_18" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.59375 }, "model": "usless_mobs:item/slime_kompass_19" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.625 }, "model": "usless_mobs:item/slime_kompass_20" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.65625 }, "model": "usless_mobs:item/slime_kompass_21" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.6875 }, "model": "usless_mobs:item/slime_kompass_22" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.71875 }, "model": "usless_mobs:item/slime_kompass_23" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.75 }, "model": "usless_mobs:item/slime_kompass_24" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.78125 }, "model": "usless_mobs:item/slime_kompass_25" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.8125 }, "model": "usless_mobs:item/slime_kompass_26" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.84375 }, "model": "usless_mobs:item/slime_kompass_27" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.875 }, "model": "usless_mobs:item/slime_kompass_28" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.90625 }, "model": "usless_mobs:item/slime_kompass_29" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.9375 }, "model": "usless_mobs:item/slime_kompass_30" },
+    { "predicate": { "usless_mobs:slime_kompass_angle": 0.96875 }, "model": "usless_mobs:item/slime_kompass_31" }
+  ]
+}

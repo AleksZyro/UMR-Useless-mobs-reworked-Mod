@@ -1,0 +1,6 @@
+{
+  "type": "forge:add_features",
+  "biomes": "#minecraft:is_end",
+  "features": "usless_mobs:void_shrine",
+  "step": "surface_structures"
+}

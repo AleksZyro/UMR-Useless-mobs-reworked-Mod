@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "SCS",
+    "BNB",
+    " S "
+  ],
+  "key": {
+    "S": {
+      "item": "minecraft:string"
+    },
+    "C": {
+      "item": "usless_mobs:nature_crystal"
+    },
+    "B": {
+      "item": "usless_mobs:bear_claw"
+    },
+    "N": {
+      "item": "minecraft:gold_nugget"
+    }
+  },
+  "result": {
+    "item": "usless_mobs:bearclaw_necklace"
+  }
+}

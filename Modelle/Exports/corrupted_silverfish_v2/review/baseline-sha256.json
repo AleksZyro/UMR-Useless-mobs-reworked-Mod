@@ -1,0 +1,18 @@
+[
+  {
+    "Path": "slime/Modelle/Editierbar/Corrupted Silverfish.bbmodel",
+    "Sha256": "c759630dfb94de95eb24bcfa106a083e3eb21e2203955351a595a3651e03d277"
+  },
+  {
+    "Path": "slime/src/main/mobs/endermite/resources/assets/usless_mobs/geo/corrupted_silverfish.geo.json",
+    "Sha256": "ee0854aceeb94e938c972dd4a91c49877e9c12b0223c35ed548744d098e2e43b"
+  },
+  {
+    "Path": "slime/src/main/mobs/endermite/resources/assets/usless_mobs/textures/entity/corrupted_silverfish.png",
+    "Sha256": "e6604bf233bd592cc6c328e4d012ce613819b11ceb8c1e5be8dd2d7f565d2405"
+  },
+  {
+    "Path": "slime/src/main/mobs/endermite/resources/assets/usless_mobs/animations/corrupted_silverfish.animation.json",
+    "Sha256": "5606078638d3d55f11bc5e4bb11c75e250af98b651e70d4528ef50909cdef068"
+  }
+]

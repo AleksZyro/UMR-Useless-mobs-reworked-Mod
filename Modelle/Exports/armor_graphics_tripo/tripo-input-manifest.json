@@ -1,0 +1,765 @@
+{
+  "schema": 1,
+  "purpose": "Tripo multiview input; top is an extra review view and is not uploaded to a directional slot.",
+  "official_upload_order": [
+    "front",
+    "left",
+    "back",
+    "right"
+  ],
+  "asset_count": 16,
+  "assets": [
+    {
+      "family": "true_void",
+      "piece": "helmet",
+      "tripo_upload_order": [
+        "front",
+        "left",
+        "back",
+        "right"
+      ],
+      "views": {
+        "front": {
+          "file": "true_void/helmet/front.png",
+          "sha256": "f1090059a65c1e0d363c0b6368cd5e289055a9a11dbb3a2af7da623b6be578d4",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "left": {
+          "file": "true_void/helmet/left.png",
+          "sha256": "372ea83aa933f188bebaed1ab287f9a4f9425f4e09692736ae17d66f69253f3e",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "back": {
+          "file": "true_void/helmet/back.png",
+          "sha256": "35466fc79df12c14be193c0b055b1a699c45f771ae9112a3cf67db5a74e7cbad",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "right": {
+          "file": "true_void/helmet/right.png",
+          "sha256": "150d5e49218847237bfa8083426a3385c4e7b8c7e94cc88b7c484072734adbe4",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "top": {
+          "file": "true_void/helmet/top.png",
+          "sha256": "99e41f0a4e7c5911a8e0212b5104158eaf6e1ed6afb59780b7c6aa7027a30f40",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        }
+      }
+    },
+    {
+      "family": "true_void",
+      "piece": "chestplate",
+      "tripo_upload_order": [
+        "front",
+        "left",
+        "back",
+        "right"
+      ],
+      "views": {
+        "front": {
+          "file": "true_void/chestplate/front.png",
+          "sha256": "c5db859e9ab05dfef3e027f0f137e44aa63922a51fad5cdb22294021feeecdd2",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "left": {
+          "file": "true_void/chestplate/left.png",
+          "sha256": "fcb43224ab70dc5c35fafbcba438940262fcb916b353a0b8f4f0631743abd19d",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "back": {
+          "file": "true_void/chestplate/back.png",
+          "sha256": "a2ed750d156d2ac5de299b39a7a706a4211fe77819d2a332a3a091f3d81a6aff",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "right": {
+          "file": "true_void/chestplate/right.png",
+          "sha256": "4d46bcc1fb9f6f37f8b37a565b7c5421b968108ff59d42aad151fd4de46e4621",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "top": {
+          "file": "true_void/chestplate/top.png",
+          "sha256": "22e3119e764d4539fc26af618915949f9d1e9380c1cca7a968bed99302b101c3",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        }
+      }
+    },
+    {
+      "family": "true_void",
+      "piece": "leggings",
+      "tripo_upload_order": [
+        "front",
+        "left",
+        "back",
+        "right"
+      ],
+      "views": {
+        "front": {
+          "file": "true_void/leggings/front.png",
+          "sha256": "107806aac72e130227da5f4185bc92395e710da205d14683434a7852ab1dd7cf",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "left": {
+          "file": "true_void/leggings/left.png",
+          "sha256": "93dbfaa10ba7d5ba6ee6f95681e687d4a435026ecabc950f0bd1a46982095275",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "back": {
+          "file": "true_void/leggings/back.png",
+          "sha256": "006577882bcf3919ce03aff198be137472123df5352aca3a4220fef94104e978",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "right": {
+          "file": "true_void/leggings/right.png",
+          "sha256": "6e8ceb901a2f862853dd2987201287b90a703318b8e6f057021a5e8b3b3171a1",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "top": {
+          "file": "true_void/leggings/top.png",
+          "sha256": "50a977432377903317e65e975c7e955fea4d125ee5b9e6a5ff4338e33e7588b9",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        }
+      }
+    },
+    {
+      "family": "true_void",
+      "piece": "boots",
+      "tripo_upload_order": [
+        "front",
+        "left",
+        "back",
+        "right"
+      ],
+      "views": {
+        "front": {
+          "file": "true_void/boots/front.png",
+          "sha256": "a70417619bbc5d77a8c0c2ba12dcd30c523144064feb9662ca5259e0f6494e35",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "left": {
+          "file": "true_void/boots/left.png",
+          "sha256": "ddb0048d5ee28a8ea26943c941b34753739e5ace0a03d51295d9f43a4aadd630",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "back": {
+          "file": "true_void/boots/back.png",
+          "sha256": "bf91ef231597e9d407f5ae1889eb1ff75307d1f864ffab25424b393637c0902e",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "right": {
+          "file": "true_void/boots/right.png",
+          "sha256": "8f579b57b717de60e5b0797b23a2cd11331326fe885c9a9618c00341b28df490",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "top": {
+          "file": "true_void/boots/top.png",
+          "sha256": "923ad97af96d0abeb0379778237ee9aadff925c777cfb3aff2e802f9085c4bd9",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        }
+      }
+    },
+    {
+      "family": "true_celestial",
+      "piece": "helmet",
+      "tripo_upload_order": [
+        "front",
+        "left",
+        "back",
+        "right"
+      ],
+      "views": {
+        "front": {
+          "file": "true_celestial/helmet/front.png",
+          "sha256": "1127296a6932a398e682d8a2a3e7fec099ae6615cc48c1a5b3c9be7499c08fee",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "left": {
+          "file": "true_celestial/helmet/left.png",
+          "sha256": "2ea4caac5e98573f667728db78301ff9671ab3d7b311c1af87d976e8100d7cf1",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "back": {
+          "file": "true_celestial/helmet/back.png",
+          "sha256": "309ffdadaab660e6d2a21add707192d4b29a62795b29c05d2d49f46b534b0cff",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "right": {
+          "file": "true_celestial/helmet/right.png",
+          "sha256": "4c42c92c60734d9518effff87a0ee4ba80f69ee11a284e86b8accb809b39ed7d",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "top": {
+          "file": "true_celestial/helmet/top.png",
+          "sha256": "0547c6827fde500f6418d8298ea96675f07ca1b6a82be091f376afe4e8a2916a",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        }
+      }
+    },
+    {
+      "family": "true_celestial",
+      "piece": "chestplate",
+      "tripo_upload_order": [
+        "front",
+        "left",
+        "back",
+        "right"
+      ],
+      "views": {
+        "front": {
+          "file": "true_celestial/chestplate/front.png",
+          "sha256": "00cf449f1cc0a2278d265502bc824fa0ba5a39a425b9de8af606f873b8315727",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "left": {
+          "file": "true_celestial/chestplate/left.png",
+          "sha256": "0fc51777bd1a727e1ad9940d5d9ea1aca4821dc659c5a1ab7dbd19b77297d2fe",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "back": {
+          "file": "true_celestial/chestplate/back.png",
+          "sha256": "e87325861065bd2dc0cad6b341d57cf7930a52fdb1c8bb04e61a70617f5504e6",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "right": {
+          "file": "true_celestial/chestplate/right.png",
+          "sha256": "5153fa414e161712ad8ae5894ac4cddc8f0457bce608eed17d95b0704c57a1b7",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "top": {
+          "file": "true_celestial/chestplate/top.png",
+          "sha256": "f36245f01d96e767c56277924a83099fe7a1992979ccb208db03e424118231e6",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        }
+      }
+    },
+    {
+      "family": "true_celestial",
+      "piece": "leggings",
+      "tripo_upload_order": [
+        "front",
+        "left",
+        "back",
+        "right"
+      ],
+      "views": {
+        "front": {
+          "file": "true_celestial/leggings/front.png",
+          "sha256": "5fbf8cfcfcdf4a45eb2bcda4f92acb70355127f8b4b11a7bccd790f9ff982b93",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "left": {
+          "file": "true_celestial/leggings/left.png",
+          "sha256": "19c85bd29d25d8b52e5c49262a1ad6a9f1c33a7683f9b6df42000e099a5db688",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "back": {
+          "file": "true_celestial/leggings/back.png",
+          "sha256": "41bf4fbecaeb817a723e899717486e0b94a7e0d236d75edce3c692da8af7e924",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "right": {
+          "file": "true_celestial/leggings/right.png",
+          "sha256": "aea66e1ea06aeb4a1c8050579897b302ccc012960bc8486c5fa2336e60f7d159",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "top": {
+          "file": "true_celestial/leggings/top.png",
+          "sha256": "66f68975137b62c7786e20e443254d8a91b14c7e91ca38f227da35ef906dfc8d",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        }
+      }
+    },
+    {
+      "family": "true_celestial",
+      "piece": "boots",
+      "tripo_upload_order": [
+        "front",
+        "left",
+        "back",
+        "right"
+      ],
+      "views": {
+        "front": {
+          "file": "true_celestial/boots/front.png",
+          "sha256": "c9717ebfd4c93ee58489b2e99143ed4895cd3f50a48dd358ea1d9796ce64b792",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "left": {
+          "file": "true_celestial/boots/left.png",
+          "sha256": "7c9b509573fa73abc09b296f47624bf5c61e5486b5460239b60bb95c073e5fd8",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "back": {
+          "file": "true_celestial/boots/back.png",
+          "sha256": "dab751d55010412e40cbabdb88aff3a34151b7d9c75bd4c4ca7597f20518cc32",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "right": {
+          "file": "true_celestial/boots/right.png",
+          "sha256": "7b09a800fd833f4e50f1c6dc2e75727bcf35b44a822a4f519d39a7daead76394",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "top": {
+          "file": "true_celestial/boots/top.png",
+          "sha256": "4b99de258e09e2ddbb4228192e5e2b7cc4a15ead297784189064beac829152d7",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        }
+      }
+    },
+    {
+      "family": "true_living",
+      "piece": "helmet",
+      "tripo_upload_order": [
+        "front",
+        "left",
+        "back",
+        "right"
+      ],
+      "views": {
+        "front": {
+          "file": "true_living/helmet/front.png",
+          "sha256": "9d85aee3989dd573079931484ca17582263012005923165514a6facb06a71feb",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "left": {
+          "file": "true_living/helmet/left.png",
+          "sha256": "1c5bd8597860217e905c39fca062168b09060cdcbec446664e1f2619a80edb6b",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "back": {
+          "file": "true_living/helmet/back.png",
+          "sha256": "6688030cd74ee50e775fc3a2043ec4ff7c69cfc1b12340610c3c2b0da9c2dc97",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "right": {
+          "file": "true_living/helmet/right.png",
+          "sha256": "1b44ec3a555ebcfcede38a30ecd097cacf46f85331a5a8a89318ebbf8103f2e5",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "top": {
+          "file": "true_living/helmet/top.png",
+          "sha256": "275c3c0af4122f85595bdc0de640feb063572be4f2bb6d2429589e98b2187f0a",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        }
+      }
+    },
+    {
+      "family": "true_living",
+      "piece": "chestplate",
+      "tripo_upload_order": [
+        "front",
+        "left",
+        "back",
+        "right"
+      ],
+      "views": {
+        "front": {
+          "file": "true_living/chestplate/front.png",
+          "sha256": "24dc079a5b8c94b2cd80f18f7a51f7632c0f14c2dbb0d9b786f856f1beab1d65",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "left": {
+          "file": "true_living/chestplate/left.png",
+          "sha256": "b7837ca8862d2368b2e4dc3421131b7e9243ac07a50b7e9a4cc9a55f52c3aa9f",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "back": {
+          "file": "true_living/chestplate/back.png",
+          "sha256": "4c45304a31355895d88d81f90d316a1025cf1c64e479b960bbf55754f6118fd8",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "right": {
+          "file": "true_living/chestplate/right.png",
+          "sha256": "2e9249ed7fdab535d3d740e7d2f30ddaa3369fcfe66ca3109519c53942bc2327",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "top": {
+          "file": "true_living/chestplate/top.png",
+          "sha256": "e74d22a79271cda653ea0211af2a49b3b3e49bcb5450aaa57d662f4bf83eecec",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        }
+      }
+    },
+    {
+      "family": "true_living",
+      "piece": "leggings",
+      "tripo_upload_order": [
+        "front",
+        "left",
+        "back",
+        "right"
+      ],
+      "views": {
+        "front": {
+          "file": "true_living/leggings/front.png",
+          "sha256": "387acffc84e90093abe42ae78abcfa5792acad126237a9cde73baffd87cd0550",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "left": {
+          "file": "true_living/leggings/left.png",
+          "sha256": "8483a860567a69e9f0e4e01fa83add85291741bb7efd85904f28c77a9485b312",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "back": {
+          "file": "true_living/leggings/back.png",
+          "sha256": "b72e315f3451b2c6f791a12ec6d8f888908915a96d1876e9cea974d31f13066b",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "right": {
+          "file": "true_living/leggings/right.png",
+          "sha256": "3691c6f7da98f6e010c027e805d98c4a85473b9193d1a042de9361d9f57cb316",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "top": {
+          "file": "true_living/leggings/top.png",
+          "sha256": "53e25e5620e5067f64176767ae291f312e2f7c7627d9d12924b51376d9fe8eec",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        }
+      }
+    },
+    {
+      "family": "true_living",
+      "piece": "boots",
+      "tripo_upload_order": [
+        "front",
+        "left",
+        "back",
+        "right"
+      ],
+      "views": {
+        "front": {
+          "file": "true_living/boots/front.png",
+          "sha256": "3e498daf8fb2989dfaf1445b2a36e72066c0c7d75f5db424af74a2c7e1e6370a",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "left": {
+          "file": "true_living/boots/left.png",
+          "sha256": "a180786ac9551ae288bfbbb47897ea148ece058c47d0ec9547d4cb1994f677b5",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "back": {
+          "file": "true_living/boots/back.png",
+          "sha256": "d5068ea2dcc94f6b35902c4a144ca893d5c7d22479e38226e24a5bd32c7498d3",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "right": {
+          "file": "true_living/boots/right.png",
+          "sha256": "2965f8c6407ae5a9a36bef963d45fc3954956dc4f87f6f457a29d6907d22fba9",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "top": {
+          "file": "true_living/boots/top.png",
+          "sha256": "b813a28160f466647ee3ee609b2a9889262e54d5dfdf78a6029fe730186e62d1",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        }
+      }
+    },
+    {
+      "family": "armor_of_balance",
+      "piece": "helmet",
+      "tripo_upload_order": [
+        "front",
+        "left",
+        "back",
+        "right"
+      ],
+      "views": {
+        "front": {
+          "file": "armor_of_balance/helmet/front.png",
+          "sha256": "dc31bbc1e4a539e563839658b792acc7c073f72fbadb1c396a3bc3c5fd9936e3",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "left": {
+          "file": "armor_of_balance/helmet/left.png",
+          "sha256": "b4d5f32cc9b4b80f202dac7f81278aff18a9d0eacf64a09a1b366d0c971b0554",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "back": {
+          "file": "armor_of_balance/helmet/back.png",
+          "sha256": "df73cf6a10bbbbe165536c59600829284fd95feefb557a18575f84215de3b8e8",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "right": {
+          "file": "armor_of_balance/helmet/right.png",
+          "sha256": "137bc32beb331128c10362e024ae13ce91c93da6347cee4df784e520f5345c78",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "top": {
+          "file": "armor_of_balance/helmet/top.png",
+          "sha256": "43191fa4e312695dddf342434c6a0c495c1b02f9ce495622d1e0058e189799b1",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        }
+      }
+    },
+    {
+      "family": "armor_of_balance",
+      "piece": "chestplate",
+      "tripo_upload_order": [
+        "front",
+        "left",
+        "back",
+        "right"
+      ],
+      "views": {
+        "front": {
+          "file": "armor_of_balance/chestplate/front.png",
+          "sha256": "b7c6a1a97b2e8b75ccd2439f9aa71c68e313033707c26695d9105d0016812fe2",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "left": {
+          "file": "armor_of_balance/chestplate/left.png",
+          "sha256": "b7ef830fcfa10b9db12f8141237109a2c8b5491c22cacc0d6386870e1eaeafc7",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "back": {
+          "file": "armor_of_balance/chestplate/back.png",
+          "sha256": "4812cb9a4f5c9cf7839ecd676c67355ec6acc09c0e5c9ec130094b6b796d38ba",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "right": {
+          "file": "armor_of_balance/chestplate/right.png",
+          "sha256": "e2289eab47cf24b96338e4548e2c393a81775a7624c946009056ab09343e1b51",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "top": {
+          "file": "armor_of_balance/chestplate/top.png",
+          "sha256": "b3aa41a7f42dfbf96c12cbb16f46cf96d8c1fc89c6ea78bb2f0ac1fda1345905",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        }
+      }
+    },
+    {
+      "family": "armor_of_balance",
+      "piece": "leggings",
+      "tripo_upload_order": [
+        "front",
+        "left",
+        "back",
+        "right"
+      ],
+      "views": {
+        "front": {
+          "file": "armor_of_balance/leggings/front.png",
+          "sha256": "0bbf5f20bd26e4ff100a9a44961bd234e6677ff0671f90641f22ad3f521547ec",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "left": {
+          "file": "armor_of_balance/leggings/left.png",
+          "sha256": "91fa22d07fe1f0d172f0ea8f5c69cc60c5d09a9dc35c58d6c090c6828d12b2b9",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "back": {
+          "file": "armor_of_balance/leggings/back.png",
+          "sha256": "910281ea1dbeb2e969d74f3d8f9b14dfd299a258947b5b08446e079803dbe3ed",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "right": {
+          "file": "armor_of_balance/leggings/right.png",
+          "sha256": "f560e0792507a4afac78c571aaeb66bd1b7ac81a0f269925da783d9bdbebb562",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "top": {
+          "file": "armor_of_balance/leggings/top.png",
+          "sha256": "4973a4adaf413f58a9973bff4931f6acfc39938d3d054e3720b58c9a53d2b991",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        }
+      }
+    },
+    {
+      "family": "armor_of_balance",
+      "piece": "boots",
+      "tripo_upload_order": [
+        "front",
+        "left",
+        "back",
+        "right"
+      ],
+      "views": {
+        "front": {
+          "file": "armor_of_balance/boots/front.png",
+          "sha256": "f888dbf02782e18b3ef26f43a503c827dc76cd061ffd013823af0d80110ecb3b",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "left": {
+          "file": "armor_of_balance/boots/left.png",
+          "sha256": "95004df416acbb0a27c14c6cef4465361ef13532b486e6d4bc7dac4060a51a8c",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "back": {
+          "file": "armor_of_balance/boots/back.png",
+          "sha256": "0783c6c2c55c3a0ae676ebf17b255fe59965e23f0a5e98a2113c9ecba916b845",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "right": {
+          "file": "armor_of_balance/boots/right.png",
+          "sha256": "eceb9ad9e85579fb8a2ec086c683c0f243cc46f933832ee6fe05bb79129d6994",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        },
+        "top": {
+          "file": "armor_of_balance/boots/top.png",
+          "sha256": "08befc4e215520276703154cd36123f8debb0f03ff2d0347d6062bbcd4e29d6a",
+          "width": 768,
+          "height": 768,
+          "mode": "RGBA"
+        }
+      }
+    }
+  ]
+}

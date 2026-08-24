@@ -1,0 +1,9 @@
+{
+  "credit": "Netherite King's Crown — same geometry as gold crown, dark netherite band, blue diamond gems",
+  "parent": "usless_mobs:item/king_slime_krone",
+  "textures": {
+    "band": "usless_mobs:item/netherite_crown_band",
+    "gem": "usless_mobs:item/crown_gem",
+    "particle": "usless_mobs:item/netherite_crown_band"
+  }
+}

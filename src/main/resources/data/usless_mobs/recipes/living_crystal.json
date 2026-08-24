@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "NPN",
+    "TCT",
+    "NFN"
+  ],
+  "key": {
+    "N": { "item": "usless_mobs:nature_crystal" },
+    "P": { "item": "usless_mobs:potion_of_life" },
+    "T": { "item": "usless_mobs:living_tissue" },
+    "C": { "item": "usless_mobs:living_core" },
+    "F": { "item": "usless_mobs:frost_core" }
+  },
+  "result": {
+    "item": "usless_mobs:living_crystal",
+    "count": 1
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "parent": "usless_mobs:item/template/armor_helmet_3d",
+  "textures": {
+    "main": "usless_mobs:item/true_living_helmet",
+    "particle": "usless_mobs:item/true_living_helmet"
+  }
+}

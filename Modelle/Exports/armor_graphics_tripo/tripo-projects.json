@@ -1,0 +1,23 @@
+{
+  "generated_at": "2026-08-16",
+  "generation_mode": "multiview_single_mesh",
+  "input_views": ["front", "left", "right", "back"],
+  "projects": [
+    {"family": "true_void", "piece": "helmet", "url": "https://studio.tripo3d.ai/workspace/generate/fca8b35e-9ee7-473a-a700-9d61009a8829"},
+    {"family": "true_void", "piece": "chestplate", "url": "https://studio.tripo3d.ai/workspace/generate/bb3c8bf6-a337-4f48-87af-16ed7847970c"},
+    {"family": "true_void", "piece": "leggings", "url": "https://studio.tripo3d.ai/workspace/generate/2bbe968f-6d35-4c19-bd6f-1c9ee2647242"},
+    {"family": "true_void", "piece": "boots", "url": "https://studio.tripo3d.ai/workspace/generate/2f576f31-49a7-4699-a862-4f2a737d95ec"},
+    {"family": "true_celestial", "piece": "helmet", "url": "https://studio.tripo3d.ai/workspace/generate/a6682116-2ba3-4d2f-9ec5-999ef02e66d9"},
+    {"family": "true_celestial", "piece": "chestplate", "url": "https://studio.tripo3d.ai/workspace/generate/8d9b60d1-16f1-4244-9846-67d18e878a0c"},
+    {"family": "true_celestial", "piece": "leggings", "url": "https://studio.tripo3d.ai/workspace/generate/0dc7c623-3e5f-4e5d-aa4a-7e18cb953d09"},
+    {"family": "true_celestial", "piece": "boots", "url": "https://studio.tripo3d.ai/workspace/generate/1cc98f06-2045-432d-b09c-759f6f96dd47"},
+    {"family": "true_living", "piece": "helmet", "url": "https://studio.tripo3d.ai/workspace/generate/6ccc83f0-3d84-45d4-9e11-75fab6189b09"},
+    {"family": "true_living", "piece": "chestplate", "url": "https://studio.tripo3d.ai/workspace/generate/6de6fd66-81c5-4c90-bca9-2c03071216c4"},
+    {"family": "true_living", "piece": "leggings", "url": "https://studio.tripo3d.ai/workspace/generate/3a6197cd-799f-48e9-8e44-2526d2a577e1"},
+    {"family": "true_living", "piece": "boots", "url": "https://studio.tripo3d.ai/workspace/generate/8e7dc895-ef29-4521-8138-0eb96d8d36c0"},
+    {"family": "armor_of_balance", "piece": "helmet", "url": "https://studio.tripo3d.ai/workspace/generate/f1599b7a-2c95-4ab0-b35d-7f161d85483e"},
+    {"family": "armor_of_balance", "piece": "chestplate", "url": "https://studio.tripo3d.ai/workspace/generate/16120382-331d-41e1-abbc-75a25285dcba"},
+    {"family": "armor_of_balance", "piece": "leggings", "url": "https://studio.tripo3d.ai/workspace/generate/412617a0-ea64-4368-b18f-f58554652fef"},
+    {"family": "armor_of_balance", "piece": "boots", "url": "https://studio.tripo3d.ai/workspace/generate/3aa73b4f-7ad1-4d73-b852-2f6b57e34b79"}
+  ]
+}

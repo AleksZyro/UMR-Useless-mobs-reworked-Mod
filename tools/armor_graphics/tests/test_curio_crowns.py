@@ -1,0 +1,1878 @@
+from __future__ import annotations
+
+import json
+import importlib.util
+import math
+import os
+import operator
+import re
+import subprocess
+import sys
+import tempfile
+import time
+import unittest
+import warnings
+from collections import Counter
+from pathlib import Path
+from unittest import mock
+
+from PIL import Image, UnidentifiedImageError
+
+
+ROOT = Path(__file__).resolve().parents[3]
+MOD_ITEMS = ROOT / "src/main/java/com/Momik/usless_mobs/registry/ModItems.java"
+PATH_CROWN_ITEM = ROOT / "src/main/java/com/Momik/usless_mobs/item/PathCrownItem.java"
+TRUE_CROWN_ITEM = ROOT / "src/main/java/com/Momik/usless_mobs/item/TrueCrownItem.java"
+CROWN_FORM = ROOT / "src/main/java/com/Momik/usless_mobs/item/CrownForm.java"
+TRUE_CROWN_CRAFT_HANDLER = (
+    ROOT / "src/main/java/com/Momik/usless_mobs/event/TrueCrownCraftHandler.java"
+)
+RECIPES = ROOT / "src/main/resources/data/usless_mobs/recipes"
+MODELS = ROOT / "src/main/resources/assets/usless_mobs/models/item"
+TEXTURES = ROOT / "src/main/resources/assets/usless_mobs/textures/item"
+LANG = ROOT / "src/main/resources/assets/usless_mobs/lang"
+CROWN_TAG = ROOT / "src/main/resources/data/curios/tags/items/crown.json"
+CROWN_GENERATOR = ROOT / "tools/armor_graphics/build_curio_crowns.py"
+CROWN_CONTACT = ROOT / "Modelle/Exports/armor_crowns/review/crown_forms_contact.png"
+
+ROYAL_IDS = {
+    "royal_void_crown": "void_reaper_king",
+    "royal_celestial_crown": "god_king",
+    "royal_living_crown": "living_king",
+    "royal_balance_crown": "true_crown",
+}
+REGISTRATION_CONTRACT = {
+    "true_crown": ("TrueCrownItem", "TrueCrownItem.Path.BALANCED", "CrownForm.COMBAT"),
+    "void_reaper_king": ("PathCrownItem", "PathCrownItem.Path.VOID", "CrownForm.COMBAT"),
+    "god_king": ("PathCrownItem", "PathCrownItem.Path.CELESTIAL", "CrownForm.COMBAT"),
+    "living_king": ("PathCrownItem", "PathCrownItem.Path.LIVING", "CrownForm.COMBAT"),
+    "royal_void_crown": ("PathCrownItem", "PathCrownItem.Path.VOID", "CrownForm.ROYAL"),
+    "royal_celestial_crown": ("PathCrownItem", "PathCrownItem.Path.CELESTIAL", "CrownForm.ROYAL"),
+    "royal_living_crown": ("PathCrownItem", "PathCrownItem.Path.LIVING", "CrownForm.ROYAL"),
+    "royal_balance_crown": ("TrueCrownItem", "TrueCrownItem.Path.BALANCED", "CrownForm.ROYAL"),
+}
+ALL_IDS = set(ROYAL_IDS) | set(ROYAL_IDS.values())
+CROWN_ASSET_CONTRACT = {
+    "void_reaper_king": ("void", "combat"),
+    "god_king": ("celestial", "combat"),
+    "living_king": ("living", "combat"),
+    "true_crown": ("balance", "combat"),
+    "royal_void_crown": ("void", "royal"),
+    "royal_celestial_crown": ("celestial", "royal"),
+    "royal_living_crown": ("living", "royal"),
+    "royal_balance_crown": ("balance", "royal"),
+}
+VALID_FACE_DIRECTIONS = {"down", "up", "north", "south", "west", "east"}
+BUILTIN_ITEM_PARENTS = {"minecraft:item/generated", "minecraft:item/handheld"}
+BUILTIN_ITEM_ELEMENTS = [
+    {
+        "from": [0, 0, 0],
+        "to": [16, 16, 0.1],
+        "faces": {"north": {"texture": "#layer0"}},
+    }
+]
+BASELINE_CROWN_TAG_VALUES = {
+    "usless_mobs:king_slime_krone",
+    "usless_mobs:netherite_kings_krone",
+    "usless_mobs:void_reaper_king",
+    "usless_mobs:god_king",
+    "usless_mobs:living_king",
+}
+
+
+def load_crown_generator():
+    if not CROWN_GENERATOR.is_file():
+        raise AssertionError(
+            f"missing deterministic crown generator: {CROWN_GENERATOR.relative_to(ROOT)}"
+        )
+    module_name = "tools.armor_graphics.build_curio_crowns"
+    spec = importlib.util.spec_from_file_location(module_name, CROWN_GENERATOR)
+    if spec is None or spec.loader is None:
+        raise AssertionError("cannot load deterministic crown generator")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def boxes_touch(left: dict, right: dict, tolerance: float = 1e-6) -> bool:
+    return all(
+        min(left["to"][axis], right["to"][axis])
+        - max(left["from"][axis], right["from"][axis])
+        > 0.05 - tolerance
+        for axis in range(3)
+    )
+
+
+def detached_element_names(elements: list[dict]) -> set[str]:
+    if not elements:
+        return set()
+    visited = {0}
+    pending = [0]
+    while pending:
+        current = pending.pop()
+        for index, element in enumerate(elements):
+            if index not in visited and boxes_touch(elements[current], element):
+                visited.add(index)
+                pending.append(index)
+    return {
+        elements[index].get("name", f"elements[{index}]")
+        for index in range(len(elements))
+        if index not in visited
+    }
+
+
+def load_json_object(path: Path, problems: list[str]) -> dict | None:
+    """Load a JSON object while turning I/O/schema problems into test diagnostics."""
+    try:
+        exact_path = exact_case_file(path, ROOT)
+        if exact_path is None:
+            problems.append(f"missing exact-case JSON file: {path.relative_to(ROOT)}")
+            return None
+        document = json.loads(exact_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        problems.append(f"missing JSON file: {path.relative_to(ROOT)}")
+        return None
+    except (OSError, UnicodeError) as error:
+        problems.append(f"cannot read {path.relative_to(ROOT)}: {error}")
+        return None
+    except json.JSONDecodeError as error:
+        problems.append(
+            f"invalid JSON in {path.relative_to(ROOT)} at line {error.lineno}, "
+            f"column {error.colno}: {error.msg}"
+        )
+        return None
+    if not isinstance(document, dict):
+        problems.append(
+            f"{path.relative_to(ROOT)} must contain a JSON object, got "
+            f"{type(document).__name__}"
+        )
+        return None
+    return document
+
+
+def java_tokens(source: str):
+    """Yield identifiers, punctuation, and decoded strings outside Java comments."""
+    index = 0
+    length = len(source)
+    while index < length:
+        char = source[index]
+        if char.isspace():
+            index += 1
+            continue
+        if source.startswith("//", index):
+            newline = source.find("\n", index + 2)
+            index = length if newline < 0 else newline + 1
+            continue
+        if source.startswith("/*", index):
+            end = source.find("*/", index + 2)
+            index = length if end < 0 else end + 2
+            continue
+        if char == '"':
+            start = index
+            index += 1
+            escaped = False
+            while index < length:
+                current = source[index]
+                index += 1
+                if escaped:
+                    escaped = False
+                elif current == "\\":
+                    escaped = True
+                elif current == '"':
+                    break
+            literal = source[start:index]
+            try:
+                yield ("string", json.loads(literal))
+            except json.JSONDecodeError:
+                yield ("invalid_string", literal)
+            continue
+        if char.isalpha() or char in "_$":
+            start = index
+            index += 1
+            while index < length and (source[index].isalnum() or source[index] in "_$"):
+                index += 1
+            yield ("identifier", source[start:index])
+            continue
+        yield ("punctuation", char)
+        index += 1
+
+
+def legacy_constructor_delegates_to_combat(source: str, class_name: str) -> bool:
+    """Return whether the public legacy constructor delegates to the combat form."""
+    expected = [
+        ("identifier", "public"),
+        ("identifier", class_name),
+        ("punctuation", "("),
+        ("identifier", "Path"),
+        ("identifier", "path"),
+        ("punctuation", ","),
+        ("identifier", "Properties"),
+        ("identifier", "properties"),
+        ("punctuation", ")"),
+        ("punctuation", "{"),
+        ("identifier", "this"),
+        ("punctuation", "("),
+        ("identifier", "path"),
+        ("punctuation", ","),
+        ("identifier", "CrownForm"),
+        ("punctuation", "."),
+        ("identifier", "COMBAT"),
+        ("punctuation", ","),
+        ("identifier", "properties"),
+        ("punctuation", ")"),
+        ("punctuation", ";"),
+        ("punctuation", "}"),
+    ]
+    tokens = list(java_tokens(source))
+    return any(
+        tokens[index : index + len(expected)] == expected
+        for index in range(len(tokens) - len(expected) + 1)
+    )
+
+
+def contains_token_sequence(tokens, expected) -> bool:
+    return any(
+        tokens[index : index + len(expected)] == expected
+        for index in range(len(tokens) - len(expected) + 1)
+    )
+
+
+def token_sequence_index(tokens, expected) -> int:
+    for index in range(len(tokens) - len(expected) + 1):
+        if tokens[index : index + len(expected)] == expected:
+            return index
+    return -1
+
+
+def java_expression_tokens(expression: str):
+    return list(java_tokens(expression))
+
+
+def method_body_tokens(source: str, method_name: str):
+    """Return the first named Java method body using comment/string-aware tokens."""
+    tokens = list(java_tokens(source))
+    for name_index, token in enumerate(tokens):
+        if token != ("identifier", method_name):
+            continue
+        if name_index + 1 >= len(tokens) or tokens[name_index + 1] != ("punctuation", "("):
+            continue
+        paren_depth = 0
+        body_start = None
+        for index in range(name_index + 1, len(tokens)):
+            if tokens[index] == ("punctuation", "("):
+                paren_depth += 1
+            elif tokens[index] == ("punctuation", ")"):
+                paren_depth -= 1
+            elif tokens[index] == ("punctuation", "{") and paren_depth == 0:
+                body_start = index
+                break
+            elif tokens[index] == ("punctuation", ";") and paren_depth == 0:
+                break
+        if body_start is None:
+            continue
+        brace_depth = 1
+        for index in range(body_start + 1, len(tokens)):
+            if tokens[index] == ("punctuation", "{"):
+                brace_depth += 1
+            elif tokens[index] == ("punctuation", "}"):
+                brace_depth -= 1
+                if brace_depth == 0:
+                    return tokens[body_start + 1 : index]
+    return []
+
+
+def registration_tokens_by_id(source: str) -> dict[str, list[tuple[str, str]]]:
+    """Return each canonical item field initializer, ignoring comments and strings."""
+    tokens = list(java_tokens(source))
+    registrations = {}
+    for index in range(len(tokens) - 14):
+        window = tokens[index : index + 14]
+        if not (
+            window[:7]
+            == [
+                ("identifier", "public"),
+                ("identifier", "static"),
+                ("identifier", "final"),
+                ("identifier", "RegistryObject"),
+                ("punctuation", "<"),
+                ("identifier", "Item"),
+                ("punctuation", ">"),
+            ]
+            and window[7][0] == "identifier"
+            and window[8:] == [
+                ("punctuation", "="),
+                ("identifier", "ITEMS"),
+                ("punctuation", "."),
+                ("identifier", "register"),
+                ("punctuation", "("),
+                window[13],
+            ]
+            and window[13][0] == "string"
+            and window[7][1] == window[13][1].upper()
+        ):
+            continue
+        depth = 0
+        for end in range(index, len(tokens)):
+            if tokens[end] in (("punctuation", "("), ("punctuation", "{"), ("punctuation", "[")):
+                depth += 1
+            elif tokens[end] in (("punctuation", ")"), ("punctuation", "}"), ("punctuation", "]")):
+                depth -= 1
+            elif tokens[end] == ("punctuation", ";") and depth == 0:
+                registrations[window[13][1]] = tokens[index : end + 1]
+                break
+    return registrations
+
+
+def registered_item_ids(source: str) -> list[str]:
+    tokens = list(java_tokens(source))
+    depths = []
+    depth = 0
+    for token in tokens:
+        depths.append(depth)
+        if token == ("punctuation", "{"):
+            depth += 1
+        elif token == ("punctuation", "}"):
+            depth -= 1
+
+    class_open = None
+    for index in range(len(tokens) - 2):
+        if tokens[index][0:2] == ("identifier", "class"):
+            for candidate in range(index + 1, len(tokens)):
+                if tokens[candidate] == ("punctuation", "{"):
+                    class_open = candidate
+                    break
+            break
+    if class_open is None:
+        return []
+
+    class_depth = depths[class_open] + 1
+    registrations = []
+    for index in range(class_open + 1, len(tokens) - 14):
+        if depths[index] != class_depth:
+            continue
+        window = tokens[index : index + 15]
+        if (
+            window[0] == ("identifier", "public")
+            and window[1] == ("identifier", "static")
+            and window[2] == ("identifier", "final")
+            and window[3] == ("identifier", "RegistryObject")
+            and window[4] == ("punctuation", "<")
+            and window[5] == ("identifier", "Item")
+            and window[6] == ("punctuation", ">")
+            and window[7][0] == "identifier"
+            and window[8] == ("punctuation", "=")
+            and window[9] == ("identifier", "ITEMS")
+            and window[10] == ("punctuation", ".")
+            and window[11] == ("identifier", "register")
+            and window[12] == ("punctuation", "(")
+            and window[13][0] == "string"
+        ):
+            field_name = window[7][1]
+            item_id = window[13][1]
+            if field_name == item_id.upper():
+                registrations.append(item_id)
+    return registrations
+
+
+def all_registered_royal_ids(source: str) -> list[str]:
+    tokens = list(java_tokens(source))
+    registrations = []
+    for index in range(len(tokens) - 4):
+        window = tokens[index : index + 5]
+        if (
+            window[0] == ("identifier", "ITEMS")
+            and window[1] == ("punctuation", ".")
+            and window[2] == ("identifier", "register")
+            and window[3] == ("punctuation", "(")
+            and window[4][0] == "string"
+            and window[4][1].startswith("royal_")
+        ):
+            registrations.append(window[4][1])
+    return registrations
+
+
+def royal_registration_problems(source: str) -> list[str]:
+    problems = []
+    expected = set(ROYAL_IDS)
+    canonical_counts = Counter(registered_item_ids(source))
+    canonical_royal_counts = Counter(
+        {
+            item_id: count
+            for item_id, count in canonical_counts.items()
+            if item_id.startswith("royal_")
+        }
+    )
+    global_counts = Counter(all_registered_royal_ids(source))
+    actual_canonical = set(canonical_royal_counts)
+    missing = sorted(expected - actual_canonical)
+    unexpected = sorted(actual_canonical - expected)
+    wrong_canonical_counts = {
+        item_id: canonical_royal_counts[item_id]
+        for item_id in expected
+        if canonical_counts[item_id] != 1
+    }
+    if missing:
+        problems.append(f"missing Royal canonical fields: {missing}")
+    if unexpected:
+        problems.append(f"unexpected canonical royal_ fields: {unexpected}")
+    if wrong_canonical_counts or sum(canonical_royal_counts.values()) != 4:
+        problems.append(
+            "each Royal ID must have exactly one canonical public static final field; "
+            f"observed {dict(sorted(canonical_royal_counts.items()))}"
+        )
+
+    unexpected_global = sorted(set(global_counts) - expected)
+    wrong_global_counts = {
+        item_id: global_counts[item_id]
+        for item_id in expected
+        if global_counts[item_id] != 1
+    }
+    if unexpected_global:
+        problems.append(
+            f"unexpected executable royal_ registrations anywhere in source: {unexpected_global}"
+        )
+    if wrong_global_counts or sum(global_counts.values()) != 4:
+        problems.append(
+            "source must contain exactly four executable Royal registrations globally; "
+            f"observed {dict(sorted(global_counts.items()))}"
+        )
+    return problems
+
+
+RESOURCE_LOCATION = re.compile(r"[a-z0-9_.-]+:[a-z0-9_.\-/]+")
+TEXTURE_ALIAS = re.compile(r"[a-z0-9_.-]+")
+ALLOWED_BUILTIN_FACE_TEXTURES = frozenset()
+
+
+def resource_location_parts(value: str) -> tuple[str, str] | None:
+    if not isinstance(value, str) or not RESOURCE_LOCATION.fullmatch(value):
+        return None
+    namespace, resource_path = value.split(":", 1)
+    segments = resource_path.split("/")
+    if not segments or any(segment in {"", ".", ".."} for segment in segments):
+        return None
+    return namespace, resource_path
+
+
+def display_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
+def resolved_within(path: Path, root: Path) -> bool:
+    try:
+        path.resolve(strict=True).relative_to(root.resolve(strict=True))
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def exact_case_file(path: Path, root: Path) -> Path | None:
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        return None
+    current = root
+    for component in relative.parts:
+        if not current.is_dir():
+            return None
+        matches = [candidate for candidate in current.iterdir() if candidate.name == component]
+        if len(matches) != 1:
+            return None
+        current = matches[0]
+    if not current.is_file() or not resolved_within(current, root):
+        return None
+    return current
+
+
+def exact_case_directory(path: Path, root: Path) -> Path | None:
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        return None
+    current = root
+    for component in relative.parts:
+        if not current.is_dir():
+            return None
+        matches = [candidate for candidate in current.iterdir() if candidate.name == component]
+        if len(matches) != 1:
+            return None
+        current = matches[0]
+    if not current.is_dir() or not resolved_within(current, root):
+        return None
+    return current
+
+
+def exact_asset_file(assets_root: Path, parts: tuple[str, ...]) -> Path | None:
+    current = assets_root
+    for index, part in enumerate(parts):
+        if not current.is_dir():
+            return None
+        matches = [path for path in current.iterdir() if path.name == part]
+        if len(matches) != 1:
+            return None
+        current = matches[0]
+        if index < len(parts) - 1 and not current.is_dir():
+            return None
+    if not current.is_file() or not resolved_within(current, assets_root):
+        return None
+    return current
+
+
+def png_decode_problem(path: Path) -> str | None:
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(path) as image:
+                image.load()
+                if image.format != "PNG":
+                    return f"must be PNG, got {image.format!r}"
+    except Exception as error:
+        return f"is not a decodable PNG: {type(error).__name__}: {error}"
+    return None
+
+
+def item_model_problems(model_path: Path, item_id: str) -> list[str]:
+    problems = []
+
+    def report(message: str) -> None:
+        if message not in problems:
+            problems.append(message)
+
+    assets_root = next((parent for parent in model_path.parents if parent.name == "assets"), None)
+    if assets_root is None:
+        return [f"{display_path(model_path)} is not below an assets directory"]
+
+    resolved_assets_root = assets_root.resolve()
+    if not resolved_within(model_path, assets_root):
+        return [f"model {display_path(model_path)} resolves outside its assets root"]
+    cache = {}
+
+    def read_model(path: Path) -> dict | None:
+        try:
+            document = json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            report(f"missing parent model: {display_path(path)}")
+            return None
+        except (OSError, UnicodeError) as error:
+            report(f"cannot read model {display_path(path)}: {error}")
+            return None
+        except json.JSONDecodeError as error:
+            report(
+                f"invalid JSON in model {display_path(path)} at line {error.lineno}, "
+                f"column {error.colno}: {error.msg}"
+            )
+            return None
+        if not isinstance(document, dict):
+            report(f"model {display_path(path)} must contain a JSON object")
+            return None
+        return document
+
+    def local_parent_path(resource: str, owner: Path) -> Path | None:
+        parts = resource_location_parts(resource)
+        if parts is None:
+            report(f"{display_path(owner)} has invalid parent ResourceLocation {resource!r}")
+            return None
+        namespace, resource_path = parts
+        parent_path = assets_root / namespace / "models" / f"{resource_path}.json"
+        try:
+            parent_path.resolve().relative_to(resolved_assets_root)
+        except ValueError:
+            report(f"{display_path(owner)} parent escapes assets root: {resource!r}")
+            return None
+        exact_matches = exact_resource_matches(parent_path.parent, parent_path.stem, ".json")
+        if len(exact_matches) != 1:
+            report(
+                f"{display_path(owner)} parent {resource!r} must resolve to exactly one "
+                f"repo-local model at {display_path(parent_path)}; found {len(exact_matches)}"
+            )
+            return None
+        if not resolved_within(exact_matches[0], assets_root):
+            report(f"{display_path(owner)} parent resolves outside its assets root")
+            return None
+        return exact_matches[0]
+
+    def effective_model(path: Path, stack: tuple[Path, ...]):
+        canonical = path.resolve()
+        if canonical in stack:
+            cycle = " -> ".join(display_path(entry) for entry in (*stack, canonical))
+            report(f"model parent cycle detected: {cycle}")
+            return {}, None
+        if canonical in cache:
+            return cache[canonical]
+
+        document = read_model(path)
+        if document is None:
+            return {}, None
+        parent = document.get("parent")
+        has_parent = isinstance(parent, str) and bool(parent.strip())
+        owns_elements = "elements" in document
+        if not has_parent and not owns_elements:
+            report(
+                f"{display_path(path)} must define a non-empty parent and/or elements"
+            )
+
+        inherited_textures = {}
+        inherited_elements = None
+        if "parent" in document:
+            if not has_parent:
+                report(f"{display_path(path)} parent must be a non-empty ResourceLocation")
+            else:
+                if parent in BUILTIN_ITEM_PARENTS:
+                    inherited_elements = BUILTIN_ITEM_ELEMENTS
+                else:
+                    parent_path = local_parent_path(parent, path)
+                    if parent_path is not None:
+                        inherited_textures, inherited_elements = effective_model(
+                            parent_path, (*stack, canonical)
+                        )
+
+        textures = document.get("textures", {})
+        if not isinstance(textures, dict):
+            report(f"{display_path(path)} textures must be a JSON object")
+            textures = {}
+        valid_textures = {}
+        for alias, value in textures.items():
+            if not isinstance(alias, str) or not TEXTURE_ALIAS.fullmatch(alias):
+                report(f"{display_path(path)} has invalid texture alias {alias!r}")
+                continue
+            if not isinstance(value, str) or not value:
+                report(f"{display_path(path)} texture {alias!r} must be a non-empty string")
+                continue
+            valid_textures[alias] = value
+
+        combined_textures = dict(inherited_textures)
+        combined_textures.update(valid_textures)
+        elements = document.get("elements") if owns_elements else inherited_elements
+        if owns_elements and (not isinstance(elements, list) or not elements):
+            report(f"{display_path(path)} elements must be a non-empty list when present")
+        result = combined_textures, elements
+        cache[canonical] = result
+        return result
+
+    texture_mapping, elements = effective_model(model_path, ())
+    resolved_mapping = {}
+
+    def resolve_texture(reference: str, aliases: tuple[str, ...] = ()) -> str | None:
+        if reference.startswith("#"):
+            alias = reference[1:]
+            if not TEXTURE_ALIAS.fullmatch(alias):
+                report(f"invalid texture alias reference {reference!r}")
+                return None
+            if alias in aliases:
+                report(f"texture alias cycle detected: {' -> '.join((*aliases, alias))}")
+                return None
+            if alias not in texture_mapping:
+                report(f"unresolved texture alias {reference!r}")
+                return None
+            return resolve_texture(texture_mapping[alias], (*aliases, alias))
+        if resource_location_parts(reference) is None:
+            report(f"invalid texture ResourceLocation {reference!r}")
+            return None
+        return reference
+
+    for alias in sorted(texture_mapping):
+        resolved_mapping[alias] = resolve_texture(f"#{alias}")
+
+    resolved_faces = []
+    if elements is BUILTIN_ITEM_ELEMENTS:
+        layer_aliases = sorted(
+            (
+                alias
+                for alias in texture_mapping
+                if re.fullmatch(r"layer[0-9]+", alias)
+            ),
+            key=lambda alias: int(alias[5:]),
+        )
+        if not layer_aliases:
+            report("builtin item parent requires at least one layerN texture")
+        for alias in layer_aliases:
+            resolved = resolve_texture(f"#{alias}")
+            if resolved is not None:
+                resolved_faces.append(resolved)
+    elif not isinstance(elements, list) or not elements:
+        report("effective model must provide non-empty elements with textured faces")
+    else:
+        for element_index, element in enumerate(elements):
+            if not isinstance(element, dict):
+                report(f"elements[{element_index}] must be a JSON object")
+                continue
+            coordinates_by_corner = {}
+            for corner in ("from", "to"):
+                coordinates = element.get(corner)
+                if not (
+                    isinstance(coordinates, list)
+                    and len(coordinates) == 3
+                    and all(
+                        isinstance(value, (int, float))
+                        and not isinstance(value, bool)
+                        and math.isfinite(float(value))
+                        for value in coordinates
+                    )
+                ):
+                    report(
+                        f"elements[{element_index}].{corner} must contain three finite numbers"
+                    )
+                else:
+                    coordinates_by_corner[corner] = coordinates
+            faces = element.get("faces")
+            if not isinstance(faces, dict) or not faces:
+                report(f"elements[{element_index}].faces must be a non-empty object")
+                continue
+            for face_name, face in faces.items():
+                if face_name not in VALID_FACE_DIRECTIONS:
+                    report(
+                        f"elements[{element_index}].faces has invalid direction {face_name!r}"
+                    )
+                    continue
+                if len(coordinates_by_corner) != 2:
+                    continue
+                plane_axes = {
+                    "north": (0, 1),
+                    "south": (0, 1),
+                    "west": (2, 1),
+                    "east": (2, 1),
+                    "down": (0, 2),
+                    "up": (0, 2),
+                }[face_name]
+                start = coordinates_by_corner["from"]
+                end = coordinates_by_corner["to"]
+                dimensions = tuple(end[axis] - start[axis] for axis in plane_axes)
+                if not all(dimension > 0 for dimension in dimensions):
+                    report(
+                        f"elements[{element_index}].faces.{face_name} is degenerate; "
+                        f"plane dimensions must be strictly positive, got {dimensions}"
+                    )
+                    continue
+                if not isinstance(face, dict):
+                    report(f"elements[{element_index}].faces.{face_name} must be an object")
+                    continue
+                texture = face.get("texture")
+                if not isinstance(texture, str) or not texture:
+                    report(
+                        f"elements[{element_index}].faces.{face_name}.texture must be non-empty"
+                    )
+                    continue
+                resolved = resolve_texture(texture)
+                if resolved is not None:
+                    resolved_faces.append(resolved)
+
+    expected_texture = f"usless_mobs:item/{item_id}"
+    if not resolved_faces:
+        report("effective model must contain at least one renderable valid-direction face")
+    if expected_texture not in resolved_faces:
+        report(
+            f"effective faces must reference own texture {expected_texture!r}; "
+            f"resolved {sorted(set(resolved_faces))!r}"
+        )
+    for texture_resource in sorted(set(resolved_faces)):
+        parts = resource_location_parts(texture_resource)
+        if parts is None:
+            continue
+        namespace, texture_path = parts
+        local_texture = exact_asset_file(
+            assets_root,
+            (
+                namespace,
+                "textures",
+                *texture_path.split("/")[:-1],
+                f"{texture_path.split('/')[-1]}.png",
+            ),
+        )
+        if local_texture is None:
+            if (
+                namespace == "minecraft"
+                and texture_resource in ALLOWED_BUILTIN_FACE_TEXTURES
+            ):
+                continue
+            report(
+                f"active face texture {texture_resource!r} must resolve to an exactly "
+                "lowercase repo-local PNG"
+            )
+            continue
+        if not resolved_within(local_texture, assets_root):
+            report(
+                f"active face texture {texture_resource!r} resolves outside its assets root"
+            )
+            continue
+        decode_problem = png_decode_problem(local_texture)
+        if decode_problem is not None:
+            report(f"active face texture {display_path(local_texture)} {decode_problem}")
+    return problems
+
+
+def exact_resource_matches(directory: Path, item_id: str, extension: str) -> list[Path]:
+    try:
+        directory.relative_to(ROOT)
+        anchor = ROOT
+    except ValueError:
+        anchor = next(
+            (candidate for candidate in (directory, *directory.parents) if candidate.name == "assets"),
+            directory,
+        )
+    exact_directory = exact_case_directory(directory, anchor)
+    if exact_directory is None:
+        return []
+    expected_name = f"{item_id}{extension}"
+    return [
+        path
+        for path in exact_directory.iterdir()
+        if path.is_file()
+        and path.name == expected_name
+        and resolved_within(path, anchor)
+    ]
+
+
+def append_mismatch(
+    problems: list[str], path: Path, field: str, actual, expected
+) -> None:
+    if actual != expected:
+        problems.append(
+            f"{path.relative_to(ROOT)}: {field} must be {expected!r}, got {actual!r}"
+        )
+
+
+class CurioCrownContract(unittest.TestCase):
+    def assert_no_problems(self, problems: list[str]) -> None:
+        self.assertFalse(problems, "\n- " + "\n- ".join(problems))
+
+    def test_java_crown_contracts(self):
+        try:
+            source = MOD_ITEMS.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as error:
+            self.fail(f"cannot read {MOD_ITEMS.relative_to(ROOT)}: {error}")
+        self.assert_no_problems(royal_registration_problems(source))
+        for path, class_name in (
+            (PATH_CROWN_ITEM, "PathCrownItem"),
+            (TRUE_CROWN_ITEM, "TrueCrownItem"),
+        ):
+            with self.subTest(class_name=class_name):
+                try:
+                    crown_source = path.read_text(encoding="utf-8")
+                except (OSError, UnicodeError) as error:
+                    self.fail(f"cannot read {path.relative_to(ROOT)}: {error}")
+                self.assertTrue(
+                    legacy_constructor_delegates_to_combat(crown_source, class_name),
+                    f"{path.relative_to(ROOT)} must preserve the public "
+                    f"{class_name}(Path, Properties) constructor and delegate it "
+                    "to CrownForm.COMBAT",
+                )
+
+        true_crown_source = TRUE_CROWN_ITEM.read_text(encoding="utf-8")
+        self.assertTrue(
+            contains_token_sequence(
+                list(java_tokens(true_crown_source)),
+                java_expression_tokens(
+                    "public TrueCrownItem(Properties properties) "
+                    "{ this(Path.BALANCED, properties); }"
+                ),
+            ),
+            "TrueCrownItem(Properties) must remain public and preserve its balanced combat behavior",
+        )
+
+        registrations = registration_tokens_by_id(source)
+        self.assertEqual(set(REGISTRATION_CONTRACT), set(registrations) & set(ALL_IDS))
+        for item_id, (class_name, path, form) in REGISTRATION_CONTRACT.items():
+            with self.subTest(item_id=item_id):
+                expected = java_expression_tokens(
+                    f"new {class_name}({path}, {form}, crownProperties())"
+                )
+                self.assertTrue(
+                    contains_token_sequence(registrations.get(item_id, []), expected),
+                    f"{item_id} must use exactly {class_name}, {path}, {form}, and crownProperties()",
+                )
+
+    def test_crown_form_is_metadata_not_an_effect_switch(self):
+        enum_tokens = list(java_tokens(CROWN_FORM.read_text(encoding="utf-8")))
+        self.assertTrue(
+            contains_token_sequence(
+                enum_tokens,
+                java_expression_tokens("enum CrownForm { COMBAT, ROYAL }"),
+            )
+        )
+        source = TRUE_CROWN_ITEM.read_text(encoding="utf-8")
+        for method_name in ("inventoryTick", "applyPathAura", "applyPathGuard", "sendAuraParticles"):
+            with self.subTest(method_name=method_name):
+                body = method_body_tokens(source, method_name)
+                self.assertTrue(body, f"missing TrueCrownItem.{method_name}")
+                self.assertNotIn(("identifier", "form"), body)
+                self.assertNotIn(("identifier", "CrownForm"), body)
+
+    def test_balance_reversion_returns_before_progression_and_cap_logic(self):
+        source = TRUE_CROWN_CRAFT_HANDLER.read_text(encoding="utf-8")
+        body = method_body_tokens(source, "onCraft")
+        ordered_contract = [
+            "event.getCrafting()",
+            "crafted.is(com.Momik.usless_mobs.registry.ModItems.TRUE_CROWN.get())",
+            "isBalanceCrownConversion(crafted, event.getInventory())",
+            "event.getEntity() instanceof ServerPlayer player",
+            "player.getServer()",
+            "TrueCrownTracker.get(server)",
+            "countTrueCrowns(server)",
+            "crafted.shrink(crafted.getCount())",
+            "tracker.markCrafted(player.getUUID(), player.getGameProfile().getName())",
+            "spawnAllegianceAltars(player)",
+        ]
+        positions = [
+            token_sequence_index(body, java_expression_tokens(expression))
+            for expression in ordered_contract
+        ]
+        self.assertNotIn(-1, positions, f"missing handler contract expression: {positions}")
+        self.assertEqual(sorted(positions), positions)
+
+        conversion_call = java_expression_tokens(
+            "if (isBalanceCrownConversion(crafted, event.getInventory())) { return; }"
+        )
+        self.assertTrue(
+            contains_token_sequence(body, conversion_call),
+            "Royal Balance reversion must return immediately before server/tracker/cap side effects",
+        )
+
+    def test_balance_reversion_is_identified_from_output_and_crafting_input(self):
+        source = TRUE_CROWN_CRAFT_HANDLER.read_text(encoding="utf-8")
+        body = method_body_tokens(source, "isBalanceCrownConversion")
+        for expression in (
+            "crafted.is(com.Momik.usless_mobs.registry.ModItems.TRUE_CROWN.get())",
+            "inventory.getContainerSize()",
+            "inventory.getItem(i).is(com.Momik.usless_mobs.registry.ModItems.ROYAL_BALANCE_CROWN.get())",
+        ):
+            self.assertTrue(
+                contains_token_sequence(body, java_expression_tokens(expression)),
+                f"conversion helper must check {expression}",
+            )
+
+    def test_crown_limit_counts_combat_and_royal_balance_forms(self):
+        source = TRUE_CROWN_CRAFT_HANDLER.read_text(encoding="utf-8")
+        body = method_body_tokens(source, "isCrown")
+        expected = java_expression_tokens(
+            "return stack.is(com.Momik.usless_mobs.registry.ModItems.TRUE_CROWN.get()) "
+            "|| stack.is(com.Momik.usless_mobs.registry.ModItems.ROYAL_BALANCE_CROWN.get());"
+        )
+        self.assertTrue(contains_token_sequence(body, expected))
+
+    def test_upgrade_recipes_use_exact_nine_slot_pattern(self):
+        problems = []
+        for royal, combat in ROYAL_IDS.items():
+            path = RECIPES / f"{royal}.json"
+            recipe = load_json_object(path, problems)
+            if recipe is None:
+                continue
+            append_mismatch(problems, path, "type", recipe.get("type"), "minecraft:crafting_shaped")
+            append_mismatch(problems, path, "pattern", recipe.get("pattern"), ["DDD", "DCD", "DND"])
+            key = recipe.get("key")
+            if not isinstance(key, dict):
+                problems.append(f"{path.relative_to(ROOT)}: key must be a JSON object")
+            else:
+                append_mismatch(problems, path, "key symbols", set(key), {"D", "C", "N"})
+                for symbol, expected_item in {
+                    "D": "minecraft:diamond",
+                    "C": f"usless_mobs:{combat}",
+                    "N": "minecraft:netherite_ingot",
+                }.items():
+                    append_mismatch(
+                        problems,
+                        path,
+                        f"key.{symbol}",
+                        key.get(symbol),
+                        {"item": expected_item},
+                    )
+            append_mismatch(
+                problems,
+                path,
+                "result",
+                recipe.get("result"),
+                {"item": f"usless_mobs:{royal}", "count": 1},
+            )
+        self.assert_no_problems(problems)
+
+    def test_reversion_recipes_are_exactly_one_item_shapeless(self):
+        problems = []
+        for royal, combat in ROYAL_IDS.items():
+            path = RECIPES / f"{royal}_combat.json"
+            recipe = load_json_object(path, problems)
+            if recipe is None:
+                continue
+            append_mismatch(problems, path, "type", recipe.get("type"), "minecraft:crafting_shapeless")
+            append_mismatch(
+                problems,
+                path,
+                "ingredients",
+                recipe.get("ingredients"),
+                [{"item": f"usless_mobs:{royal}"}],
+            )
+            append_mismatch(
+                problems,
+                path,
+                "result",
+                recipe.get("result"),
+                {"item": f"usless_mobs:{combat}", "count": 1},
+            )
+        self.assert_no_problems(problems)
+
+    def test_curios_crown_tag_contains_all_eight_path_and_balance_ids(self):
+        problems = []
+        tag = load_json_object(CROWN_TAG, problems)
+        if tag is not None:
+            if tag.get("replace", False) is not False:
+                problems.append(
+                    f"{CROWN_TAG.relative_to(ROOT)}: replace must be false or omitted"
+                )
+            values = tag.get("values")
+            if not isinstance(values, list) or not all(isinstance(value, str) for value in values):
+                problems.append(
+                    f"{CROWN_TAG.relative_to(ROOT)}: values must be a list of item-ID strings"
+                )
+            else:
+                expected = {f"usless_mobs:{item_id}" for item_id in ALL_IDS}
+                value_set = set(values)
+                missing_contract = sorted(expected - value_set)
+                missing_baseline = sorted(BASELINE_CROWN_TAG_VALUES - value_set)
+                if missing_contract:
+                    problems.append(
+                        f"{CROWN_TAG.relative_to(ROOT)}: missing crown contract values: "
+                        f"{missing_contract}"
+                    )
+                if missing_baseline:
+                    problems.append(
+                        f"{CROWN_TAG.relative_to(ROOT)}: removed baseline crown values: "
+                        f"{missing_baseline}"
+                    )
+        self.assert_no_problems(problems)
+
+    def test_every_crown_has_exactly_one_valid_item_model(self):
+        problems = []
+        for item_id in sorted(ALL_IDS):
+            matches = exact_resource_matches(MODELS, item_id, ".json")
+            if len(matches) != 1:
+                problems.append(
+                    f"expected exactly one model at "
+                    f"{(MODELS / f'{item_id}.json').relative_to(ROOT)}, found {len(matches)}"
+                )
+                continue
+            problems.extend(item_model_problems(matches[0], item_id))
+        self.assert_no_problems(problems)
+
+    def test_every_crown_has_exactly_one_64x64_rgba_texture(self):
+        problems = []
+        for item_id in sorted(ALL_IDS):
+            expected = TEXTURES / f"{item_id}.png"
+            matches = exact_resource_matches(TEXTURES, item_id, ".png")
+            if len(matches) != 1:
+                problems.append(
+                    f"expected exactly one texture at {expected.relative_to(ROOT)}, found {len(matches)}"
+                )
+                continue
+            decode_problem = png_decode_problem(matches[0])
+            if decode_problem is not None:
+                problems.append(
+                    f"invalid texture {matches[0].relative_to(ROOT)}: {decode_problem}"
+                )
+                continue
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("error", Image.DecompressionBombWarning)
+                    with Image.open(matches[0]) as image:
+                        if image.mode != "RGBA":
+                            problems.append(
+                                f"{matches[0].relative_to(ROOT)} must use RGBA mode, "
+                                f"got {image.mode!r}"
+                            )
+                        if image.size != (64, 64):
+                            problems.append(
+                                f"{matches[0].relative_to(ROOT)} must be 64x64, got {image.size}"
+                            )
+            except Exception as error:
+                problems.append(
+                    f"invalid texture {matches[0].relative_to(ROOT)} during metadata read: "
+                    f"{type(error).__name__}: {error}"
+                )
+        self.assert_no_problems(problems)
+
+    def test_english_and_german_define_every_crown_translation_key(self):
+        problems = []
+        for locale in ("en_us", "de_de"):
+            path = LANG / f"{locale}.json"
+            translations = load_json_object(path, problems)
+            if translations is None:
+                continue
+            required_keys = {
+                *(f"item.usless_mobs.{item_id}" for item_id in ALL_IDS),
+                "item.usless_mobs.crown.form.combat",
+                "item.usless_mobs.crown.form.royal",
+            }
+            for key in sorted(required_keys):
+                value = translations.get(key)
+                if not isinstance(value, str) or not value.strip():
+                    problems.append(
+                        f"{path.relative_to(ROOT)}: missing non-empty translation for {key}"
+                    )
+        self.assert_no_problems(problems)
+
+
+class CrownAssetGeneratorContract(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.generator = load_crown_generator()
+
+    def test_models_have_connected_closed_ring_and_form_silhouette(self):
+        geometry_signatures = set()
+        for item_id, (family, form) in CROWN_ASSET_CONTRACT.items():
+            with self.subTest(item_id=item_id):
+                model = json.loads((MODELS / f"{item_id}.json").read_text(encoding="utf-8"))
+                elements = model["elements"]
+                minimum = 7 if form == "combat" else 11
+                self.assertGreaterEqual(len(elements), minimum)
+                self.assertEqual(len(elements), len({element["name"] for element in elements}))
+                ring = {element["name"] for element in elements if element["name"].startswith("ring_")}
+                self.assertTrue(
+                    {"ring_front", "ring_back", "ring_left", "ring_right"}.issubset(ring)
+                )
+                self.assertGreaterEqual(len(ring), 8)
+                ring_elements = [element for element in elements if element["name"].startswith("ring_")]
+                self.assertFalse(
+                    any(
+                        element["from"][0] < 8 < element["to"][0]
+                        and element["from"][2] < 8 < element["to"][2]
+                        for element in ring_elements
+                    ),
+                    "closed band must retain a wearable centre opening",
+                )
+                self.assertEqual(set(), detached_element_names(elements))
+                peaks = [element for element in elements if element["name"].startswith("peak_")]
+                self.assertEqual(3 if form == "combat" else 5, len(peaks))
+                self.assertTrue(any(element["name"] == "gem_central" for element in elements))
+                self.assertTrue(any(element["name"].startswith(f"ornament_{family}") for element in elements))
+                geometry_signatures.add(
+                    tuple(
+                        (element["name"], tuple(element["from"]), tuple(element["to"]))
+                        for element in elements
+                    )
+                )
+        self.assertEqual(8, len(geometry_signatures))
+
+    def test_royal_models_have_exact_unclipped_five_step_peak_extents(self):
+        expected_tops = (14.0, 15.5, 17.0, 15.5, 14.0)
+        for item_id, (family, form) in CROWN_ASSET_CONTRACT.items():
+            if form != "royal":
+                continue
+            with self.subTest(item_id=item_id):
+                model = self.generator.build_model(item_id, family, form)
+                peaks = sorted(
+                    (element for element in model["elements"] if element["name"].startswith("peak_")),
+                    key=lambda element: element["name"],
+                )
+                tops = tuple(element["to"][1] for element in peaks)
+                self.assertEqual(expected_tops, tops)
+                self.assertEqual(1, tops.count(max(tops)))
+                self.assertGreater(tops[2], tops[1])
+                self.assertGreater(tops[1], tops[0])
+
+    def test_balance_assets_independently_combine_three_paths_symmetrically(self):
+        expected_colours = {
+            "void_purple": (162, 83, 213, 255),
+            "celestial_cyan": (44, 189, 219, 255),
+            "celestial_gold": (218, 167, 47, 255),
+            "living_moss": (54, 111, 42, 255),
+            "living_lime": (213, 255, 112, 255),
+        }
+        texture = self.generator.build_texture("balance", "royal")
+        colours = Counter(texture.getdata())
+        for role, colour in expected_colours.items():
+            self.assertGreater(colours[colour], 0, role)
+
+        model = self.generator.build_model("royal_balance_crown", "balance", "royal")
+        by_name = {element["name"]: element for element in model["elements"]}
+        semantic_pairs = (
+            ("ornament_balance_left", "ornament_balance_right"),
+            ("ornament_balance_left_prism", "ornament_balance_right_prism"),
+        )
+        for left_name, right_name in semantic_pairs:
+            left, right = by_name[left_name], by_name[right_name]
+            self.assertEqual(left["from"][1:], right["from"][1:])
+            self.assertEqual(left["to"][1:], right["to"][1:])
+            self.assertAlmostEqual(16.0 - left["to"][0], right["from"][0])
+            self.assertAlmostEqual(16.0 - left["from"][0], right["to"][0])
+
+        preview_colours = set(self.generator.render_model(model, "balance", "royal").getdata())
+        expected_rendered_colours = {
+            (123, 63, 162, 255),
+            (37, 159, 184, 255),
+            (183, 140, 39, 255),
+            (45, 93, 35, 255),
+            (179, 214, 94, 255),
+        }
+        self.assertTrue(expected_rendered_colours.issubset(preview_colours))
+
+    def test_generator_specs_are_recursively_immutable(self):
+        mutations = (
+            lambda generator: operator.setitem(generator.FORMS, "royal", {}),
+            lambda generator: operator.setitem(generator.FORMS["royal"], "ring_height", 99),
+            lambda generator: operator.setitem(generator.FAMILY_SPECS, "balance", {}),
+            lambda generator: operator.setitem(
+                generator.FAMILY_SPECS["balance"]["palette"], "core", (0, 0, 0, 0)
+            ),
+        )
+        for mutate in mutations:
+            generator = load_crown_generator()
+            before = generator.build_payloads()
+            with self.subTest(mutate=mutate):
+                with self.assertRaises(TypeError):
+                    mutate(generator)
+                self.assertEqual(before, generator.build_payloads())
+
+    def test_every_face_is_visible_uv_bounded_and_uses_own_texture(self):
+        for item_id in sorted(CROWN_ASSET_CONTRACT):
+            with self.subTest(item_id=item_id):
+                model = json.loads((MODELS / f"{item_id}.json").read_text(encoding="utf-8"))
+                self.assertEqual(
+                    f"usless_mobs:item/{item_id}", model["textures"]["main"]
+                )
+                for element in model["elements"]:
+                    dimensions = [
+                        element["to"][axis] - element["from"][axis]
+                        for axis in range(3)
+                    ]
+                    self.assertTrue(
+                        all(dimension >= 0.4 for dimension in dimensions),
+                        f"{element['name']} is too thin to render reliably: {dimensions}",
+                    )
+                    self.assertEqual(VALID_FACE_DIRECTIONS, set(element["faces"]))
+                    for face in element["faces"].values():
+                        self.assertEqual("#main", face["texture"])
+                        u0, v0, u1, v1 = face["uv"]
+                        self.assertTrue(0 <= u0 < u1 <= 16)
+                        self.assertTrue(0 <= v0 < v1 <= 16)
+
+    def test_rotations_use_supported_angles_and_local_centre_pivots(self):
+        for item_id in sorted(CROWN_ASSET_CONTRACT):
+            model = json.loads((MODELS / f"{item_id}.json").read_text(encoding="utf-8"))
+            rotated = [element for element in model["elements"] if "rotation" in element]
+            self.assertTrue(rotated, item_id)
+            for element in rotated:
+                rotation = element["rotation"]
+                centre = [
+                    round((element["from"][axis] + element["to"][axis]) / 2, 6)
+                    for axis in range(3)
+                ]
+                self.assertEqual(centre, rotation["origin"])
+                self.assertIn(rotation["axis"], {"x", "y", "z"})
+                self.assertIn(rotation["angle"], {-45, -22.5, 22.5, 45})
+
+    def test_textures_have_transparency_material_depth_seams_and_core_pixels(self):
+        payloads = []
+        for item_id, (family, _form) in CROWN_ASSET_CONTRACT.items():
+            with self.subTest(item_id=item_id):
+                path = TEXTURES / f"{item_id}.png"
+                payloads.append(path.read_bytes())
+                with Image.open(path) as image:
+                    image.load()
+                    colours = Counter(image.getdata())
+                self.assertIn((0, 0, 0, 0), colours)
+                opaque = {colour for colour in colours if colour[3] == 255}
+                self.assertGreaterEqual(len(opaque), 8)
+                palette = self.generator.FAMILY_SPECS[family]["palette"]
+                for role in ("shadow", "base", "mid", "edge", "seam"):
+                    self.assertIn(tuple(palette[role]), opaque)
+                self.assertGreaterEqual(colours[tuple(palette["core"])], 3)
+        self.assertEqual(len(payloads), len(set(payloads)))
+
+    def test_two_fresh_generations_are_byte_identical(self):
+        with tempfile.TemporaryDirectory() as first_dir, tempfile.TemporaryDirectory() as second_dir:
+            first = Path(first_dir)
+            second = Path(second_dir)
+            self.generator.write_assets(first)
+            self.generator.write_assets(second)
+            relative_paths = sorted(self.generator.build_payloads())
+            self.assertEqual(16, len(relative_paths))
+            for relative in relative_paths:
+                self.assertEqual((first / relative).read_bytes(), (second / relative).read_bytes())
+
+    def test_candidate_publish_and_verify_failure_restore_all_original_bytes(self):
+        payloads = self.generator.build_payloads()
+        for failure in ("candidate:8", "publish:8", "verify:8"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                originals = {}
+                for relative in payloads:
+                    target = root / relative
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    original = f"original::{relative}".encode("utf-8")
+                    target.write_bytes(original)
+                    originals[relative] = original
+                with self.assertRaises(self.generator.InjectedFailure):
+                    self.generator.publish_payloads(root, payloads, failure=failure)
+                for relative, original in originals.items():
+                    self.assertEqual(original, (root / relative).read_bytes())
+                leftovers = [
+                    path for path in root.rglob("*")
+                    if path.is_file() and (".candidate" in path.name or ".backup" in path.name)
+                ]
+                self.assertEqual([], leftovers)
+
+    def test_publication_rejects_noncanonical_and_escaping_targets(self):
+        valid = self.generator.build_payloads()
+        legitimate = next(iter(valid))
+        attacks = (
+            "../" + legitimate,
+            "/tmp/royal_void_crown.json",
+            "C:/outside/royal_void_crown.json",
+            legitimate.replace("/", "\\"),
+            legitimate.upper(),
+        )
+        for attack in attacks:
+            with self.subTest(attack=attack), tempfile.TemporaryDirectory() as directory:
+                payloads = dict(valid)
+                payloads.pop(legitimate)
+                payloads[attack] = b"attack"
+                with self.assertRaises(ValueError):
+                    self.generator.publish_payloads(Path(directory), payloads)
+                self.assertFalse(any(Path(directory).rglob("*.candidate")))
+
+    def test_publication_rejects_reparse_parent_escape(self):
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside_dir:
+            root = Path(directory)
+            assets = root / "src/main/resources/assets/usless_mobs"
+            assets.parent.mkdir(parents=True)
+            try:
+                assets.symlink_to(Path(outside_dir), target_is_directory=True)
+            except OSError as error:
+                if os.name != "nt":
+                    self.skipTest(f"directory symlinks unavailable: {error}")
+                junction = subprocess.run(
+                    ["cmd", "/c", "mklink", "/J", str(assets), outside_dir],
+                    capture_output=True,
+                    text=True,
+                )
+                if junction.returncode:
+                    self.skipTest(f"directory reparse points unavailable: {junction.stderr}")
+            with self.assertRaises(ValueError):
+                self.generator.publish_payloads(root, self.generator.build_payloads())
+            self.assertEqual([], list(Path(outside_dir).rglob("*")))
+
+    def test_cross_process_lock_prevents_stale_failure_rollback_over_success(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payloads = self.generator.build_payloads()
+            for relative in payloads:
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(b"original")
+            ready = root / "publisher.ready"
+            release = root / "publisher.release"
+            script = r'''
+import importlib.util
+import os
+import sys
+import time
+from pathlib import Path
+
+generator_path, root_text, ready_text, release_text = sys.argv[1:]
+spec = importlib.util.spec_from_file_location("concurrent_crown_generator", generator_path)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+original_stage = module._stage_payload
+staged = 0
+def gated_stage(target, payload, suffix):
+    global staged
+    result = original_stage(target, payload, suffix)
+    staged += 1
+    if staged == 1:
+        Path(ready_text).write_text("ready", encoding="utf-8")
+        while not Path(release_text).exists():
+            time.sleep(0.01)
+    return result
+module._stage_payload = gated_stage
+try:
+    module.publish_payloads(Path(root_text), module.build_payloads(), failure="publish:8")
+except module.InjectedFailure:
+    sys.exit(0)
+sys.exit(3)
+'''
+            process = subprocess.Popen(
+                [sys.executable, "-c", script, str(CROWN_GENERATOR), str(root), str(ready), str(release)],
+                cwd=ROOT,
+            )
+            try:
+                deadline = time.monotonic() + 10
+                while not ready.exists() and process.poll() is None and time.monotonic() < deadline:
+                    time.sleep(0.02)
+                self.assertTrue(ready.exists(), "failing publisher never acquired transaction lock")
+                with self.assertRaises(self.generator.PublicationBusyError):
+                    self.generator.publish_payloads(root, payloads)
+                self.assertTrue(all((root / relative).read_bytes() == b"original" for relative in payloads))
+                release.write_text("release", encoding="utf-8")
+                self.assertEqual(0, process.wait(timeout=10))
+                self.generator.publish_payloads(root, payloads)
+                self.assertTrue(all((root / relative).read_bytes() == expected for relative, expected in payloads.items()))
+            finally:
+                release.touch(exist_ok=True)
+                if process.poll() is None:
+                    process.kill()
+                    process.wait()
+
+    def test_cleanup_failures_are_aggregated_instead_of_hidden(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(self.generator.PublicationError) as caught:
+                self.generator.publish_payloads(
+                    Path(directory),
+                    self.generator.build_payloads(),
+                    failure="cleanup:1,cleanup:2",
+                )
+            self.assertIn("cleanup:1", str(caught.exception))
+            self.assertIn("cleanup:2", str(caught.exception))
+
+    def test_contact_sheet_is_a_real_render_of_all_eight_models(self):
+        self.assertTrue(CROWN_CONTACT.is_file())
+        self.assertEqual(
+            self.generator.png_bytes(self.generator.build_contact_sheet()),
+            CROWN_CONTACT.read_bytes(),
+        )
+        with Image.open(CROWN_CONTACT) as image:
+            image.load()
+            self.assertEqual("RGBA", image.mode)
+            self.assertGreaterEqual(image.width, 1200)
+            self.assertGreaterEqual(image.height, 600)
+            self.assertGreater(len(set(image.getdata())), 32)
+
+
+class CrownContractParserRegression(unittest.TestCase):
+    def validate_fixture(
+        self,
+        model: dict,
+        parents: dict[str, dict] | None = None,
+        texture_payloads: dict[str, bytes] | None = None,
+    ):
+        with tempfile.TemporaryDirectory() as directory:
+            assets = Path(directory) / "assets"
+            model_path = assets / "usless_mobs/models/item/test_crown.json"
+            model_path.parent.mkdir(parents=True)
+            model_path.write_text(json.dumps(model), encoding="utf-8")
+            for resource, document in (parents or {}).items():
+                namespace, resource_path = resource.split(":", 1)
+                parent_path = assets / namespace / "models" / f"{resource_path}.json"
+                parent_path.parent.mkdir(parents=True, exist_ok=True)
+                parent_path.write_text(json.dumps(document), encoding="utf-8")
+            own_texture = assets / "usless_mobs/textures/item/test_crown.png"
+            own_texture.parent.mkdir(parents=True, exist_ok=True)
+            Image.new("RGBA", (2, 2), (255, 255, 255, 255)).save(own_texture)
+            for resource, payload in (texture_payloads or {}).items():
+                namespace, resource_path = resource.split(":", 1)
+                texture_path = assets / namespace / "textures" / f"{resource_path}.png"
+                texture_path.parent.mkdir(parents=True, exist_ok=True)
+                texture_path.write_bytes(payload)
+            return item_model_problems(model_path, "test_crown")
+
+    def test_registry_parser_rejects_method_local_and_unassigned_decoys(self):
+        source = r'''
+            public final class ModItems {
+                String text = "ITEMS.register(\"royal_string_decoy\", () -> create())";
+                // ITEMS.register("royal_comment_decoy", () -> create());
+                public static final RegistryObject<Item> ROYAL_VOID_CROWN =
+                    ITEMS.register("royal_void_crown", () -> create());
+
+                static {
+                    ITEMS.register("royal_celestial_crown", () -> create());
+                }
+
+                public static void addDecoys() {
+                    RegistryObject<Item> local =
+                        ITEMS.register("royal_living_crown", () -> create());
+                }
+            }
+        '''
+        self.assertEqual(["royal_void_crown"], registered_item_ids(source))
+        self.assertEqual(
+            ["royal_void_crown", "royal_celestial_crown", "royal_living_crown"],
+            all_registered_royal_ids(source),
+        )
+
+    def test_registry_parser_requires_public_static_final_registry_object_item(self):
+        source = r'''
+            public final class ModItems {
+                private static final RegistryObject<Item> PRIVATE_CROWN =
+                    ITEMS.register("royal_void_crown", () -> create());
+                public final RegistryObject<Item> INSTANCE_CROWN =
+                    ITEMS.register("royal_celestial_crown", () -> create());
+                public static final RegistryObject<Block> WRONG_REGISTRY =
+                    ITEMS.register("royal_living_crown", () -> create());
+                public static final RegistryObject<Item> UNUSED =
+                    ITEMS.register("royal_void_crown", () -> create());
+                public static final RegistryObject<Item> ROYAL_BALANCE_CROWN =
+                    ITEMS.register("royal_balance_crown", () -> create());
+            }
+        '''
+        self.assertEqual(["royal_balance_crown"], registered_item_ids(source))
+
+    def test_registry_contract_rejects_extra_global_royal_registration(self):
+        fields = "\n".join(
+            f"public static final RegistryObject<Item> {item_id.upper()} = "
+            f'ITEMS.register("{item_id}", () -> create());'
+            for item_id in ROYAL_IDS
+        )
+        source = f'''
+            public final class ModItems {{
+                {fields}
+                static {{
+                    ITEMS.register("royal_bonus_crown", () -> create());
+                }}
+                // ITEMS.register("royal_comment_crown", () -> create());
+                String decoy = "ITEMS.register(\\\"royal_string_crown\\\", ignored)";
+            }}
+        '''
+        problems = royal_registration_problems(source)
+        self.assertTrue(any("royal_bonus_crown" in problem for problem in problems))
+        self.assertFalse(any("comment_crown" in problem for problem in problems))
+        self.assertFalse(any("string_crown" in problem for problem in problems))
+
+    def test_model_validator_rejects_empty_and_untextured_template_models(self):
+        self.assertTrue(self.validate_fixture({}))
+        self.assertTrue(self.validate_fixture({"elements": []}))
+        self.assertTrue(self.validate_fixture({"parent": "minecraft:item/generated"}))
+        self.assertTrue(
+            self.validate_fixture(
+                {"textures": {"main": "usless_mobs:item/crown"}, "elements": [{}]}
+            )
+        )
+
+    def test_model_validator_rejects_missing_parent_model(self):
+        self.assertTrue(
+            self.validate_fixture({"parent": "usless_mobs:item/does_not_exist"})
+        )
+
+    def test_model_validator_rejects_invalid_parent_resource_location(self):
+        self.assertTrue(self.validate_fixture({"parent": "Not A Resource Location"}))
+
+    def test_model_validator_rejects_wrong_crown_texture(self):
+        self.assertTrue(
+            self.validate_fixture(
+                {
+                    "textures": {"main": "usless_mobs:item/wrong_crown"},
+                    "elements": [
+                        {
+                            "from": [1, 2, 3],
+                            "to": [4, 5, 6],
+                            "faces": {"north": {"texture": "#main"}},
+                        }
+                    ],
+                }
+            )
+        )
+
+    def test_model_validator_rejects_missing_secondary_face_texture(self):
+        self.assertTrue(
+            self.validate_fixture(
+                {
+                    "textures": {
+                        "main": "usless_mobs:item/test_crown",
+                        "missing": "usless_mobs:item/does_not_exist",
+                    },
+                    "elements": [
+                        {
+                            "from": [1, 2, 3],
+                            "to": [4, 5, 6],
+                            "faces": {
+                                "north": {"texture": "#main"},
+                                "south": {"texture": "#missing"},
+                            },
+                        }
+                    ],
+                }
+            )
+        )
+
+    def test_model_validator_rejects_invalid_face_direction(self):
+        model = {
+            "textures": {"main": "usless_mobs:item/test_crown"},
+            "elements": [
+                {
+                    "from": [1, 2, 3],
+                    "to": [4, 5, 6],
+                    "faces": {"banana": {"texture": "#main"}},
+                }
+            ],
+        }
+        self.assertTrue(self.validate_fixture(model))
+
+    def test_model_validator_rejects_degenerate_north_face(self):
+        model = {
+            "textures": {"main": "usless_mobs:item/test_crown"},
+            "elements": [
+                {
+                    "from": [4, 4, 4],
+                    "to": [4, 4, 4],
+                    "faces": {"north": {"texture": "#main"}},
+                }
+            ],
+        }
+        self.assertTrue(self.validate_fixture(model))
+        partially_degenerate = {
+            "textures": {"main": "usless_mobs:item/test_crown"},
+            "elements": [
+                {
+                    "from": [4, 1, 1],
+                    "to": [4, 8, 6],
+                    "faces": {"north": {"texture": "#main"}},
+                }
+            ],
+        }
+        self.assertTrue(self.validate_fixture(partially_degenerate))
+
+    def test_model_validator_accepts_vanilla_generated_and_handheld_parents(self):
+        for parent in ("minecraft:item/generated", "minecraft:item/handheld"):
+            with self.subTest(parent=parent):
+                self.assertEqual(
+                    [],
+                    self.validate_fixture(
+                        {
+                            "parent": parent,
+                            "textures": {"layer0": "usless_mobs:item/test_crown"},
+                        }
+                    ),
+                )
+        self.assertEqual(
+            [],
+            self.validate_fixture(
+                {
+                    "parent": "minecraft:item/generated",
+                    "textures": {
+                        "layer0": "usless_mobs:item/test_crown",
+                        "layer3": "usless_mobs:item/test_crown",
+                    },
+                }
+            ),
+        )
+
+    def test_builtin_parent_validates_every_present_layer_texture(self):
+        model = {
+            "parent": "minecraft:item/generated",
+            "textures": {
+                "layer0": "usless_mobs:item/test_crown",
+                "layer1": "usless_mobs:item/missing_overlay",
+            },
+        }
+        self.assertTrue(self.validate_fixture(model))
+
+    def test_model_validator_rejects_undecodable_active_texture(self):
+        model = {
+            "textures": {
+                "main": "usless_mobs:item/test_crown",
+                "corrupt": "usless_mobs:item/corrupt",
+            },
+            "elements": [
+                {
+                    "from": [1, 2, 3],
+                    "to": [4, 5, 6],
+                    "faces": {
+                        "north": {"texture": "#main"},
+                        "south": {"texture": "#corrupt"},
+                    },
+                }
+            ],
+        }
+        self.assertTrue(
+            self.validate_fixture(
+                model,
+                texture_payloads={"usless_mobs:item/corrupt": b"not a png"},
+            )
+        )
+
+    def test_model_validator_rejects_missing_texture_alias(self):
+        self.assertTrue(
+            self.validate_fixture(
+                {
+                    "textures": {"main": "#missing"},
+                    "elements": [
+                        {
+                            "from": [1, 2, 3],
+                            "to": [4, 5, 6],
+                            "faces": {"north": {"texture": "#main"}},
+                        }
+                    ],
+                }
+            )
+        )
+
+    def test_model_validator_accepts_generated_elements_templates_and_inheritance(self):
+        direct = {
+                "textures": {"main": "usless_mobs:item/test_crown"},
+                "elements": [
+                    {
+                        "from": [1, 2, 3],
+                        "to": [4, 5, 6],
+                        "faces": {"north": {"texture": "#main"}},
+                    }
+                ],
+            }
+        shared_geometry = {
+            "textures": {"main": "usless_mobs:item/parent_default"},
+            "elements": direct["elements"],
+        }
+        inherited = {
+            "parent": "usless_mobs:item/shared_crown_geometry",
+            "textures": {"main": "usless_mobs:item/test_crown"},
+        }
+        local_template = {
+            "parent": "minecraft:item/generated",
+            "textures": {"layer0": "usless_mobs:item/test_crown"},
+        }
+        generated_template = {
+            "elements": [
+                {
+                    "from": [0, 0, 0],
+                    "to": [16, 16, 0.1],
+                    "faces": {"north": {"texture": "#layer0"}},
+                }
+            ]
+        }
+        self.assertEqual([], self.validate_fixture(direct))
+        self.assertEqual(
+            [],
+            self.validate_fixture(
+                inherited,
+                {"usless_mobs:item/shared_crown_geometry": shared_geometry},
+            ),
+        )
+        self.assertEqual(
+            [],
+            self.validate_fixture(
+                local_template, {"minecraft:item/generated": generated_template}
+            ),
+        )
+
+    def test_model_validator_detects_parent_and_alias_cycles(self):
+        self.assertTrue(
+            self.validate_fixture(
+                {"parent": "usless_mobs:item/parent_a"},
+                {
+                    "usless_mobs:item/parent_a": {
+                        "parent": "usless_mobs:item/test_crown"
+                    }
+                },
+            )
+        )
+        cyclic_alias = {
+            "textures": {"a": "#b", "b": "#a"},
+            "elements": [
+                {
+                    "from": [1, 2, 3],
+                    "to": [4, 5, 6],
+                    "faces": {"north": {"texture": "#a"}},
+                }
+            ],
+        }
+        self.assertTrue(self.validate_fixture(cyclic_alias))
+
+    def test_resource_matcher_rejects_uppercase_extensions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            uppercase = root / "royal_void_crown.JSON"
+            uppercase.write_text("{}", encoding="utf-8")
+            self.assertEqual([], exact_resource_matches(root, "royal_void_crown", ".json"))
+            uppercase.unlink()
+            lowercase = root / "royal_void_crown.json"
+            lowercase.write_text("{}", encoding="utf-8")
+            self.assertEqual(
+                [lowercase], exact_resource_matches(root, "royal_void_crown", ".json")
+            )
+
+    def test_exact_path_checks_reject_uppercase_directory_components(self):
+        with tempfile.TemporaryDirectory() as directory:
+            assets = Path(directory) / "assets"
+            wrong_case = assets / "usless_mobs/Models/item"
+            wrong_case.mkdir(parents=True)
+            (wrong_case / "royal_void_crown.json").write_text("{}", encoding="utf-8")
+            expected = assets / "usless_mobs/models/item"
+            self.assertEqual(
+                [], exact_resource_matches(expected, "royal_void_crown", ".json")
+            )
+
+    def test_resolved_containment_rejects_outside_model_and_texture_targets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            assets = root / "assets"
+            assets.mkdir()
+            outside = root / "outside.png"
+            Image.new("RGBA", (2, 2), (255, 255, 255, 255)).save(outside)
+            self.assertFalse(resolved_within(outside, assets))
+
+            model_path = assets / "usless_mobs/models/item/test_crown.json"
+            model_path.parent.mkdir(parents=True)
+            model_path.write_text(
+                json.dumps(
+                    {
+                        "textures": {"main": "usless_mobs:item/test_crown"},
+                        "elements": [
+                            {
+                                "from": [1, 2, 3],
+                                "to": [4, 5, 6],
+                                "faces": {"north": {"texture": "#main"}},
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with mock.patch(
+                f"{__name__}.exact_asset_file", return_value=outside
+            ):
+                problems = item_model_problems(model_path, "test_crown")
+                self.assertTrue(any("outside" in problem for problem in problems))
+
+            own_texture = assets / "usless_mobs/textures/item/test_crown.png"
+            own_texture.parent.mkdir(parents=True)
+            Image.new("RGBA", (2, 2), (255, 255, 255, 255)).save(own_texture)
+            outside_model = root / "outside.json"
+            outside_model.write_text(
+                json.dumps(
+                    {
+                        "textures": {"main": "usless_mobs:item/test_crown"},
+                        "elements": [
+                            {
+                                "from": [1, 2, 3],
+                                "to": [4, 5, 6],
+                                "faces": {"north": {"texture": "#main"}},
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            model_path.write_text(
+                json.dumps({"parent": "usless_mobs:item/outside"}), encoding="utf-8"
+            )
+            with mock.patch(
+                f"{__name__}.exact_resource_matches", return_value=[outside_model]
+            ):
+                problems = item_model_problems(model_path, "test_crown")
+                self.assertTrue(any("outside" in problem for problem in problems))
+
+    def test_pillow_decode_exceptions_become_contract_problems(self):
+        errors = [
+            Image.DecompressionBombError("too large"),
+            Image.DecompressionBombWarning("suspicious"),
+            ValueError("decoder failed"),
+        ]
+        for error in errors:
+            with self.subTest(error=type(error).__name__):
+                with mock.patch.object(Image, "open", side_effect=error):
+                    self.assertTrue(
+                        self.validate_fixture(
+                            {
+                                "textures": {"main": "usless_mobs:item/test_crown"},
+                                "elements": [
+                                    {
+                                        "from": [1, 2, 3],
+                                        "to": [4, 5, 6],
+                                        "faces": {"north": {"texture": "#main"}},
+                                    }
+                                ],
+                            }
+                        )
+                    )
+
+
+if __name__ == "__main__":
+    unittest.main()

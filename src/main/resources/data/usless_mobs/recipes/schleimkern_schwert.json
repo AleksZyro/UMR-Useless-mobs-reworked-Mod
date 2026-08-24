@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " C ",
+    " C ",
+    " S "
+  ],
+  "key": {
+    "C": {
+      "item": "usless_mobs:schleimkern"
+    },
+    "S": {
+      "item": "minecraft:stick"
+    }
+  },
+  "result": {
+    "item": "usless_mobs:schleimkern_schwert",
+    "count": 1
+  }
+}

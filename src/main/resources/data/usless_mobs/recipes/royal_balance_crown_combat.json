@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {"item": "usless_mobs:royal_balance_crown"}
+  ],
+  "result": {"item": "usless_mobs:true_crown", "count": 1}
+}

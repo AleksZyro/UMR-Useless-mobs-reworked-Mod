@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "EVE",
+    "OCO",
+    "EVE"
+  ],
+  "key": {
+    "C": {
+      "item": "usless_mobs:celestial_crystal"
+    },
+    "E": {
+      "item": "minecraft:ender_eye"
+    },
+    "O": {
+      "item": "minecraft:obsidian"
+    },
+    "V": {
+      "item": "usless_mobs:void_schleimball"
+    }
+  },
+  "result": {
+    "item": "usless_mobs:void_summoner",
+    "count": 1
+  }
+}

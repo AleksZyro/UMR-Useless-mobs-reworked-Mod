@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "usless_mobs:void_crystal" },
+    { "item": "usless_mobs:soul_crystal" },
+    { "item": "minecraft:echo_shard" },
+    { "item": "minecraft:netherite_ingot" }
+  ],
+  "result": {
+    "item": "usless_mobs:void_core",
+    "count": 1
+  }
+}

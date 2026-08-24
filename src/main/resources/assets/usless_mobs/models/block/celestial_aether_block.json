@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "usless_mobs:block/celestial_aether_block"
+  }
+}

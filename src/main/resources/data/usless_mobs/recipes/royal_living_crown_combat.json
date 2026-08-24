@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {"item": "usless_mobs:royal_living_crown"}
+  ],
+  "result": {"item": "usless_mobs:living_king", "count": 1}
+}

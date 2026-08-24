@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "usless_mobs:celestial_crystal" },
+    { "item": "usless_mobs:helping_soul" },
+    { "item": "usless_mobs:soul_crystal" }
+  ],
+  "result": {
+    "item": "usless_mobs:awakened_celestial_crystal",
+    "count": 1
+  }
+}

@@ -1,0 +1,9 @@
+{
+    "replace": false,
+    "entries": [
+        "usless_mobs:end_ship_books",
+        "usless_mobs:library_books",
+        "usless_mobs:ancient_city_books",
+        "usless_mobs:codex_books"
+    ]
+}

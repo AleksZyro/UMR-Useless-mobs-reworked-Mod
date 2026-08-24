@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {"item": "usless_mobs:royal_celestial_crown"}
+  ],
+  "result": {"item": "usless_mobs:god_king", "count": 1}
+}

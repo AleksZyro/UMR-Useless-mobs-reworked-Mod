@@ -1,6 +1,0 @@
-{
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "usless_mobs:item/schleimreaktor_brustpanzer"
-  }
-}
