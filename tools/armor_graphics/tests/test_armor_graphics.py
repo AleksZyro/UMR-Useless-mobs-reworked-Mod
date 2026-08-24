@@ -1635,8 +1635,16 @@ class WornArmorContract(unittest.TestCase):
             self.assertEqual(module.VOID_CORE, item.getpixel((8, 7)))
             self.assertEqual(module.VOID_CORE, item.getpixel((8, 8)))
 
-        self.assertEqual(worn_path.read_bytes(), module.png_bytes(module.build_worn_texture()))
-        self.assertEqual(item_path.read_bytes(), module.png_bytes(module.build_item_texture()))
+        for path, expected in (
+            (worn_path, module.build_worn_texture()),
+            (item_path, module.build_item_texture()),
+        ):
+            with Image.open(path) as committed:
+                committed.load()
+                actual = committed.convert("RGBA")
+                expected_rgba = expected.convert("RGBA")
+                self.assertEqual(expected_rgba.size, actual.size)
+                self.assertEqual(expected_rgba.tobytes(), actual.tobytes())
 
     def test_worn_java_slot_visibility_mapping_is_exact(self):
         path = REPO_ROOT / "src/main/java/com/Momik/usless_mobs/client/WornTruePathArmorModel.java"

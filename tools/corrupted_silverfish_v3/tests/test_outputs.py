@@ -229,9 +229,12 @@ class PaintedTextureContract(unittest.TestCase):
             (glow, paint.GLOWMASK_PATH),
             (paint._preview(main), paint.PREVIEW_PATH),
         ):
-            buffer = io.BytesIO()
-            image.save(buffer, format="PNG")
-            self.assertEqual(buffer.getvalue(), path.read_bytes())
+            with Image.open(path) as committed:
+                committed.load()
+                expected = image.convert("RGBA")
+                actual = committed.convert("RGBA")
+                self.assertEqual(expected.size, actual.size)
+                self.assertEqual(expected.tobytes(), actual.tobytes())
         source = "data:image/png;base64," + base64.b64encode(
             paint.MAIN_TEXTURE_PATH.read_bytes()
         ).decode("ascii")

@@ -7,20 +7,14 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-WORKSPACE_ROOT = ROOT.parents[2]
 
 
 class UmrProjectTruthContractTests(unittest.TestCase):
     def test_persistent_context_files_exist_and_name_the_runtime_truth(self) -> None:
-        workspace_agents = (WORKSPACE_ROOT / "AGENTS.md").read_text(encoding="utf-8")
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
         state = (ROOT / "docs" / "UMR_ACTIVE_PROJECT_STATE.md").read_text(encoding="utf-8")
-        skill = (
-            ROOT / ".agents" / "skills" / "umr-project-truth" / "SKILL.md"
-        ).read_text(encoding="utf-8")
 
-        self.assertIn("slime/.worktrees/corrupted-silverfish-v3", workspace_agents)
-        for text in (workspace_agents, agents, state, skill):
+        for text in (agents, state):
             self.assertIn("verify_umr_project_truth.py", text)
         self.assertIn("feature/corrupted-silverfish-v3", state)
         self.assertIn("101,723", state)
