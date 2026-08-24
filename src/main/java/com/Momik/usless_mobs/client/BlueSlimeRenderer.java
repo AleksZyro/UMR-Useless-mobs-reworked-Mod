@@ -1,7 +1,7 @@
 package com.Momik.usless_mobs.client;
 
-import com.Momik.usless_mobs.Usless_mobs;
 import com.Momik.usless_mobs.entity.BlueSlimeEntity;
+import com.Momik.usless_mobs.Usless_mobs;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.SlimeRenderer;
@@ -15,6 +15,7 @@ public class BlueSlimeRenderer extends SlimeRenderer {
 
     public BlueSlimeRenderer(EntityRendererProvider.Context context) {
         super(context);
+        this.addLayer(new SlimeEquipmentLayer(this));
     }
 
     @SuppressWarnings("unchecked")

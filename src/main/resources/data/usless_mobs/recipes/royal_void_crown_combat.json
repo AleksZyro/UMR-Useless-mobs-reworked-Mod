@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {"item": "usless_mobs:royal_void_crown"}
+  ],
+  "result": {"item": "usless_mobs:void_reaper_king", "count": 1}
+}

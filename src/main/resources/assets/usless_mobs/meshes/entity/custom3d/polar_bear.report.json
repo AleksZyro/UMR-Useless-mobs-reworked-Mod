@@ -1,0 +1,18 @@
+{
+  "bones": {
+    "body": 399139,
+    "head": 112513,
+    "leg_front_left": 86979,
+    "leg_front_right": 18508,
+    "leg_rear_left": 62288,
+    "leg_rear_right": 5512
+  },
+  "cubes": 0,
+  "fit_axis": 2,
+  "fit_span": 30.4,
+  "mob": "polar_bear",
+  "output_triangles": 684939,
+  "source_triangles": 684939,
+  "texture_height": 4096,
+  "texture_width": 4096
+}

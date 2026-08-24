@@ -1,0 +1,7 @@
+{
+  "parent": "usless_mobs:item/true_living_boots",
+  "textures": {
+    "main": "usless_mobs:item/living/living_root_boots",
+    "particle": "usless_mobs:item/living/living_root_boots"
+  }
+}

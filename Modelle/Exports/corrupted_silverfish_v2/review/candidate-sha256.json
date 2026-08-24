@@ -1,0 +1,18 @@
+[
+  {
+    "Path": "Modelle\\Editierbar\\Corrupted Silverfish v2.bbmodel",
+    "Sha256": "BD22A62270F9FFAA3B18F8D1B4E7A28102842A2BE38ADC23010E1E13DF6F3040"
+  },
+  {
+    "Path": "Modelle\\Exports\\corrupted_silverfish_v2\\geo\\corrupted_silverfish.geo.json",
+    "Sha256": "E5F9C360A25C28F5BF381B70D1FCBF3AC3334A6D7E8FDC32C32F26AB595B4D51"
+  },
+  {
+    "Path": "Modelle\\Exports\\corrupted_silverfish_v2\\textures\\entity\\corrupted_silverfish.png",
+    "Sha256": "97F5F1A93386F4C1C66484F8D852FB03ED622D3BB8D2F1040DDEB8CFB8C22868"
+  },
+  {
+    "Path": "Modelle\\Exports\\corrupted_silverfish_v2\\animations\\corrupted_silverfish.animation.json",
+    "Sha256": "F372DDC3A93FB428B5F70E3D8F36055F53E63EFDEA2B9006B40B03661198DE90"
+  }
+]

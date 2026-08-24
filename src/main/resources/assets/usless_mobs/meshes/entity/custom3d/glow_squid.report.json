@@ -1,0 +1,23 @@
+{
+  "bones": {
+    "arm0": 15608,
+    "arm1": 13187,
+    "arm2": 10540,
+    "arm3": 13843,
+    "arm4": 15028,
+    "arm5": 20833,
+    "arm6": 43656,
+    "arm7": 21583,
+    "body": 463283,
+    "catching_tentacle0": 58786,
+    "catching_tentacle1": 38187
+  },
+  "cubes": 0,
+  "fit_axis": 1,
+  "fit_span": 24.0,
+  "mob": "glow_squid",
+  "output_triangles": 714534,
+  "source_triangles": 714534,
+  "texture_height": 4096,
+  "texture_width": 4096
+}

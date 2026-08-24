@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "minecraft:fermented_spider_eye"
+    },
+    {
+      "item": "usless_mobs:infested_stone_fragment"
+    },
+    {
+      "item": "usless_mobs:corrupted_chitin"
+    }
+  ],
+  "result": {
+    "item": "usless_mobs:infested_bait",
+    "count": 2
+  }
+}

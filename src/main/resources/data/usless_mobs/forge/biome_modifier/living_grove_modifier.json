@@ -1,0 +1,6 @@
+{
+  "type": "forge:add_features",
+  "biomes": ["minecraft:jungle", "minecraft:sparse_jungle", "minecraft:bamboo_jungle"],
+  "features": "usless_mobs:living_grove",
+  "step": "vegetal_decoration"
+}

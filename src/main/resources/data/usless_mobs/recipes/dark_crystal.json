@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "usless_mobs:corrupted_crystal"
+    },
+    {
+      "item": "usless_mobs:soul_crystal"
+    }
+  ],
+  "result": {
+    "item": "usless_mobs:dark_crystal",
+    "count": 1
+  }
+}

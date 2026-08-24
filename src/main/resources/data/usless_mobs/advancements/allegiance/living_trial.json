@@ -1,0 +1,13 @@
+{
+  "parent": "usless_mobs:allegiance/path_chosen",
+  "display": {
+    "icon": { "item": "usless_mobs:living_crystal_block" },
+    "title": { "translate": "advancement.usless_mobs.allegiance.living_trial.title" },
+    "description": { "translate": "advancement.usless_mobs.allegiance.living_trial.desc" },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "criteria": { "impossible": { "trigger": "minecraft:impossible" } }
+}

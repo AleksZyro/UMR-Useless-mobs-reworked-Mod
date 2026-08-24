@@ -1,0 +1,22 @@
+[
+  {
+    "Path": "src/main/mobs/endermite/resources/assets/usless_mobs/geo/corrupted_silverfish.geo.json",
+    "Sha256": "644833E4409B556C21D386531DD23C8CCC430B5110152895BCC1CA6B061D5E04"
+  },
+  {
+    "Path": "src/main/mobs/endermite/resources/assets/usless_mobs/textures/entity/corrupted_silverfish.png",
+    "Sha256": "E6604BF233BD592CC6C328E4D012CE613819B11CEB8C1E5BE8DD2D7F565D2405"
+  },
+  {
+    "Path": "src/main/mobs/endermite/resources/assets/usless_mobs/animations/corrupted_silverfish.animation.json",
+    "Sha256": "98CD446C610AFDD4DBD86ACC2D69C61182A3B9D78AF630B7494241DC8223BB1F"
+  },
+  {
+    "Path": "src/main/mobs/endermite/java/net/mysith/silverfish/CorruptedSilverfishEntity.java",
+    "Sha256": "646AC52C125B7788BA7CD1C4B4D351BF799F01E3CE9422A83AC347918F09FEB5"
+  },
+  {
+    "Path": "src/main/mobs/endermite/java/net/mysith/client/CorruptedSilverfishRenderer.java",
+    "Sha256": "6E3ACEF4592A8EC59FCEFCD10FAC79DFB852DA1BEE0AE8D85215A8CA732C93D5"
+  }
+]

@@ -1,0 +1,18 @@
+{
+  "bones": {
+    "body": 128276,
+    "head": 182225,
+    "left_arm": 108002,
+    "left_leg": 90021,
+    "right_arm": 111649,
+    "right_leg": 93973
+  },
+  "cubes": 0,
+  "fit_axis": 1,
+  "fit_span": 31.2,
+  "mob": "frost_stray",
+  "output_triangles": 714146,
+  "source_triangles": 714146,
+  "texture_height": 4096,
+  "texture_width": 4096
+}

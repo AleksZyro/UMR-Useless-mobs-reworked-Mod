@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": { "item": "usless_mobs:celestial_vitality_template" },
+  "base": { "item": "minecraft:shield" },
+  "addition": { "item": "usless_mobs:awakened_celestial_crystal" },
+  "result": { "item": "usless_mobs:celestial_shield" }
+}

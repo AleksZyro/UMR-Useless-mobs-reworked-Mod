@@ -1,0 +1,23 @@
+{
+  "type": "usless_mobs:nether_only_shaped",
+  "pattern": [
+    "DGD",
+    "SSS",
+    "SSS"
+  ],
+  "key": {
+    "D": {
+      "item": "minecraft:diamond"
+    },
+    "G": {
+      "item": "minecraft:gold_block"
+    },
+    "S": {
+      "item": "usless_mobs:blauer_schleimblock"
+    }
+  },
+  "result": {
+    "item": "usless_mobs:king_slime_spawner",
+    "count": 1
+  }
+}

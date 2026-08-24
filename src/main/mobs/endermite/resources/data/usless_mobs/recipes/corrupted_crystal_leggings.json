@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:smithing_transform",
+  "template": {
+    "item": "usless_mobs:schleimreaktor_schmiedevorlage"
+  },
+  "base": {
+    "item": "minecraft:netherite_leggings"
+  },
+  "addition": {
+    "item": "usless_mobs:corrupted_crystal"
+  },
+  "result": {
+    "item": "usless_mobs:corrupted_crystal_leggings",
+    "count": 1
+  }
+}

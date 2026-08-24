@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "VCL",
+    "RDS",
+    "ONX"
+  ],
+  "key": {
+    "V": { "item": "usless_mobs:awakened_void_crystal" },
+    "C": { "item": "usless_mobs:awakened_celestial_crystal" },
+    "L": { "item": "usless_mobs:awakened_living_crystal" },
+    "R": { "item": "usless_mobs:corrupted_crystal" },
+    "D": { "item": "usless_mobs:dark_crystal" },
+    "S": { "item": "usless_mobs:netherite_schleimkern" },
+    "O": { "item": "usless_mobs:void_core" },
+    "N": { "item": "usless_mobs:living_core" },
+    "X": { "item": "minecraft:nether_star" }
+  },
+  "result": {
+    "item": "usless_mobs:balance_catalyst",
+    "count": 1
+  }
+}

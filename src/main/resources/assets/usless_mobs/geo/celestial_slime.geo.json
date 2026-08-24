@@ -1,0 +1,40 @@
+{
+  "format_version": "1.12.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.celestial_slime",
+        "texture_width": 64,
+        "texture_height": 64,
+        "visible_bounds_width": 3,
+        "visible_bounds_height": 3,
+        "visible_bounds_offset": [0, 1.5, 0]
+      },
+      "bones": [
+        {
+          "name": "root",
+          "pivot": [0, 0, 0]
+        },
+        {
+          "name": "body",
+          "parent": "root",
+          "pivot": [0, 0, 0],
+          "cubes": [
+            {
+              "origin": [-8, 0, -8],
+              "size": [16, 15, 16],
+              "uv": {
+                "north": { "uv": [0.83333, 1.33333], "uv_size": [19.75, 29.33334] },
+                "east":  { "uv": [43.375, 30.70833], "uv_size": [19.70833, -29.375] },
+                "south": { "uv": [43.39583, 30.70833], "uv_size": [19.68750, -29.375] },
+                "west":  { "uv": [43.38889, 30.70833], "uv_size": [19.69444, -29.375] },
+                "up":    { "uv": [41.75, 30.54167], "uv_size": [-19.5, -29.25] },
+                "down":  { "uv": [41.70833, 1.375], "uv_size": [-19.625, 29.16667] }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

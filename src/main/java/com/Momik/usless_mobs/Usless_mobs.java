@@ -1,58 +1,87 @@
 package com.Momik.usless_mobs;
 
-import com.Momik.usless_mobs.block.BlueSlimeBlock;
-import com.Momik.usless_mobs.block.GoldenSlimeBlock;
-import com.Momik.usless_mobs.client.BlueSlimeRenderer;
-import com.Momik.usless_mobs.effect.ElasticityMobEffect;
-import com.Momik.usless_mobs.effect.GoldenFlowMobEffect;
-import com.Momik.usless_mobs.entity.BlueSlimeEntity;
-import com.Momik.usless_mobs.item.NetheriteSlimeCoreItem;
-import com.Momik.usless_mobs.item.SlimeReactorChestplateItem;
-import com.Momik.usless_mobs.item.SlimeCoreItem;
 import com.mojang.logging.LogUtils;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.ItemBlockRenderTypes;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.world.effect.MobEffect;
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.MobCategory;
+import com.Momik.usless_mobs.client.BlueSlimeRenderer;
+import com.Momik.usless_mobs.client.CelestialSlimeRenderer;
+import com.Momik.usless_mobs.client.CoralDrownedRenderer;
+import com.Momik.usless_mobs.client.CustomMob3DModel;
+import com.Momik.usless_mobs.client.CustomMobModelLayers;
+import com.Momik.usless_mobs.client.EnderSlimeRenderer;
+import com.Momik.usless_mobs.client.FrostStrayRenderer;
+import com.Momik.usless_mobs.client.HelpingAllayRenderer;
+import com.Momik.usless_mobs.client.KingSlimeRenderer;
+import com.Momik.usless_mobs.client.LivingBatRenderer;
+import com.Momik.usless_mobs.client.LivingBossRenderer;
+import com.Momik.usless_mobs.client.LivingSquidRenderer;
+import com.Momik.usless_mobs.client.LivingGlowSquidRenderer;
+import com.Momik.usless_mobs.client.LivingPolarBearRenderer;
+import com.Momik.usless_mobs.client.LivingAxolotlRenderer;
+import com.Momik.usless_mobs.client.LivingOcelotRenderer;
+import com.Momik.usless_mobs.client.OctopusRenderer;
+import com.Momik.usless_mobs.client.RootedHuskRenderer;
+import com.Momik.usless_mobs.client.WebCaveSpiderRenderer;
+import com.Momik.usless_mobs.client.WitchBossRenderer;
+import com.Momik.usless_mobs.entity.BlueSlimeEntity;
+import com.Momik.usless_mobs.entity.CelestialSlimeEntity;
+import com.Momik.usless_mobs.entity.CoralDrownedEntity;
+import com.Momik.usless_mobs.entity.EnderSlimeEntity;
+import com.Momik.usless_mobs.entity.FrostStrayEntity;
+import com.Momik.usless_mobs.entity.HelpingAllayEntity;
+import com.Momik.usless_mobs.entity.KingSlimeEntity;
+import com.Momik.usless_mobs.entity.LivingBossEntity;
+import com.Momik.usless_mobs.entity.LivingBatEntity;
+import com.Momik.usless_mobs.entity.LivingSquidEntity;
+import com.Momik.usless_mobs.entity.LivingGlowSquidEntity;
+import com.Momik.usless_mobs.entity.LivingPolarBearEntity;
+import com.Momik.usless_mobs.entity.LivingAxolotlEntity;
+import com.Momik.usless_mobs.entity.LivingOcelotEntity;
+import com.Momik.usless_mobs.entity.OctopusEntity;
+import com.Momik.usless_mobs.entity.RootedHuskEntity;
+import com.Momik.usless_mobs.entity.WebCaveSpiderEntity;
+import com.Momik.usless_mobs.entity.WitchBossEntity;
+import com.Momik.usless_mobs.network.ModNetwork;
+import com.Momik.usless_mobs.registry.ModBlockEntities;
+import com.Momik.usless_mobs.registry.ModBlocks;
+import com.Momik.usless_mobs.registry.ModCreativeTabs;
+import com.Momik.usless_mobs.registry.ModEffects;
+import com.Momik.usless_mobs.registry.ModEntities;
+import com.Momik.usless_mobs.registry.ModFeatures;
+import com.Momik.usless_mobs.registry.ModItems;
+import com.Momik.usless_mobs.registry.ModPotions;
+import com.Momik.usless_mobs.registry.ModRecipeSerializers;
+import com.Momik.usless_mobs.registry.ModSounds;
+import net.minecraft.client.renderer.entity.ThrownItemRenderer;
+import net.minecraft.client.renderer.item.ItemProperties;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.SpawnPlacements;
-import net.minecraft.world.item.CreativeModeTabs;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Rarity;
-import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.alchemy.Potion;
-import net.minecraft.world.item.alchemy.PotionUtils;
 import net.minecraft.world.item.alchemy.Potions;
-import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.alchemy.PotionUtils;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.SoundType;
-import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.EntityRenderersEvent;
+import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.common.brewing.BrewingRecipeRegistry;
-import net.minecraftforge.common.ForgeSpawnEggItem;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
 import net.minecraftforge.event.entity.SpawnPlacementRegisterEvent;
-import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.registries.DeferredRegister;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.RegistryObject;
+import net.minecraftforge.fml.ModList;
+import net.mysith.client.CorruptedSilverfishRenderer;
+import net.mysith.MySithMod;
+import net.mysith.silverfish.CorruptedSilverfishEntity;
 import org.slf4j.Logger;
 
 @Mod(Usless_mobs.MODID)
@@ -60,104 +89,207 @@ public class Usless_mobs {
 
     public static final String MODID = "usless_mobs";
     private static final Logger LOGGER = LogUtils.getLogger();
-    public static final DeferredRegister<EntityType<?>> ENTITY_TYPES = DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, MODID);
-    public static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, MODID);
-    public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, MODID);
-    public static final DeferredRegister<MobEffect> MOB_EFFECTS = DeferredRegister.create(ForgeRegistries.MOB_EFFECTS, MODID);
-    public static final DeferredRegister<Potion> POTIONS = DeferredRegister.create(ForgeRegistries.POTIONS, MODID);
-    public static final RegistryObject<EntityType<BlueSlimeEntity>> BLAUER_SCHLEIM = ENTITY_TYPES.register("blauer_schleim",
-            () -> EntityType.Builder.of(BlueSlimeEntity::new, MobCategory.MONSTER)
-                    .sized(1.04F, 1.04F)
-                    .clientTrackingRange(8)
-                    .build(MODID + ":blauer_schleim"));
-    public static final RegistryObject<Block> BLAUER_SCHLEIMBLOCK = BLOCKS.register("blauer_schleimblock",
-            () -> new BlueSlimeBlock(BlockBehaviour.Properties.copy(Blocks.SLIME_BLOCK).strength(0.2F).sound(SoundType.SLIME_BLOCK)));
-    public static final RegistryObject<Block> GOLDENER_SCHLEIMBLOCK = BLOCKS.register("goldener_schleimblock",
-            () -> new GoldenSlimeBlock(BlockBehaviour.Properties.copy(Blocks.SLIME_BLOCK).strength(0.35F).sound(SoundType.SLIME_BLOCK).lightLevel(state -> 7)));
-    public static final RegistryObject<Item> BLAUER_SCHLEIMBALL = ITEMS.register("blauer_schleimball",
-            () -> new Item(new Item.Properties().rarity(Rarity.UNCOMMON)));
-    public static final RegistryObject<Item> GOLDENER_SCHLEIMBALL = ITEMS.register("goldener_schleimball", () -> new Item(new Item.Properties()) {
-        @Override
-        public boolean isFoil(net.minecraft.world.item.ItemStack stack) {
-            return true;
-        }
-    });
-    public static final RegistryObject<Item> SCHLEIMKERN = ITEMS.register("schleimkern",
-            () -> new SlimeCoreItem(new Item.Properties().stacksTo(1).rarity(Rarity.RARE)));
-    public static final RegistryObject<Item> NETHERITE_SCHLEIMKERN = ITEMS.register("netherite_schleimkern",
-            () -> new NetheriteSlimeCoreItem(new Item.Properties().stacksTo(1).fireResistant().rarity(Rarity.EPIC)));
-    public static final RegistryObject<Item> SCHLEIMREAKTOR_SCHMIEDEVORLAGE = ITEMS.register("schleimreaktor_schmiedevorlage",
-            () -> new Item(new Item.Properties().rarity(Rarity.RARE)));
-    public static final RegistryObject<Item> SCHLEIMREAKTOR_BRUSTPANZER = ITEMS.register("schleimreaktor_brustpanzer",
-            () -> new SlimeReactorChestplateItem(new Item.Properties().stacksTo(1).fireResistant().rarity(Rarity.EPIC)));
-    public static final RegistryObject<Item> BLAUER_SCHLEIMBLOCK_ITEM = registerBlockItem("blauer_schleimblock", BLAUER_SCHLEIMBLOCK, new Item.Properties().rarity(Rarity.UNCOMMON));
-    public static final RegistryObject<Item> GOLDENER_SCHLEIMBLOCK_ITEM = registerBlockItem("goldener_schleimblock", GOLDENER_SCHLEIMBLOCK, new Item.Properties().rarity(Rarity.RARE));
-    public static final RegistryObject<Item> BLAUER_SCHLEIM_SPAWN_EGG = ITEMS.register("blauer_schleim_spawn_egg",
-            () -> new ForgeSpawnEggItem(BLAUER_SCHLEIM, 0x3D7DFF, 0xA7D3FF, new Item.Properties()));
-    public static final RegistryObject<MobEffect> ELASTICITY = MOB_EFFECTS.register("elasticity", ElasticityMobEffect::new);
-    public static final RegistryObject<MobEffect> GOLDEN_FLOW = MOB_EFFECTS.register("golden_flow", GoldenFlowMobEffect::new);
-    public static final RegistryObject<Potion> ELASTICITY_POTION = POTIONS.register("elasticity",
-            () -> new Potion(new MobEffectInstance(ELASTICITY.get(), 3_600)));
-    public static final RegistryObject<Potion> LONG_ELASTICITY_POTION = POTIONS.register("long_elasticity",
-            () -> new Potion(new MobEffectInstance(ELASTICITY.get(), 9_600)));
-    public static final RegistryObject<Potion> GOLDEN_FLOW_POTION = POTIONS.register("golden_flow",
-            () -> new Potion(new MobEffectInstance(GOLDEN_FLOW.get(), 1_800)));
-    public static final RegistryObject<Potion> STRONG_GOLDEN_FLOW_POTION = POTIONS.register("strong_golden_flow",
-            () -> new Potion(new MobEffectInstance(GOLDEN_FLOW.get(), 900, 1)));
 
-    public Usless_mobs() {
-        IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+    public Usless_mobs(FMLJavaModLoadingContext context) {
+        IEventBus modEventBus = context.getModEventBus();
 
         modEventBus.addListener(this::commonSetup);
-        ENTITY_TYPES.register(modEventBus);
-        BLOCKS.register(modEventBus);
-        ITEMS.register(modEventBus);
-        MOB_EFFECTS.register(modEventBus);
-        POTIONS.register(modEventBus);
+        ModEntities.ENTITY_TYPES.register(modEventBus);
+        ModBlocks.BLOCKS.register(modEventBus);
+        ModBlockEntities.BLOCK_ENTITY_TYPES.register(modEventBus);
+        ModItems.ITEMS.register(modEventBus);
+        ModEffects.MOB_EFFECTS.register(modEventBus);
+        ModPotions.POTIONS.register(modEventBus);
+        ModRecipeSerializers.RECIPE_SERIALIZERS.register(modEventBus);
+        ModSounds.SOUND_EVENTS.register(modEventBus);
+        ModFeatures.FEATURES.register(modEventBus);
+        ModCreativeTabs.CREATIVE_TABS.register(modEventBus);
         MinecraftForge.EVENT_BUS.register(this);
         modEventBus.addListener(this::addCreative);
-        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        context.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        MySithMod.bootstrap(modEventBus);
+
+        if (ModList.get().isLoaded("curios")) {
+            com.Momik.usless_mobs.compat.curios.CuriosCompat.init(modEventBus);
+            LOGGER.info("Curios detected — King Slime Crown registered as trinket");
+        }
+
+        software.bernie.geckolib.GeckoLib.initialize();
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
-            BrewingRecipeRegistry.addRecipe(Ingredient.of(potionStack(Potions.AWKWARD)), Ingredient.of(BLAUER_SCHLEIMBALL.get()), potionStack(ELASTICITY_POTION.get()));
-            BrewingRecipeRegistry.addRecipe(Ingredient.of(potionStack(ELASTICITY_POTION.get())), Ingredient.of(Items.REDSTONE), potionStack(LONG_ELASTICITY_POTION.get()));
-            BrewingRecipeRegistry.addRecipe(Ingredient.of(potionStack(Potions.AWKWARD)), Ingredient.of(GOLDENER_SCHLEIMBALL.get()), potionStack(GOLDEN_FLOW_POTION.get()));
-            BrewingRecipeRegistry.addRecipe(Ingredient.of(potionStack(GOLDEN_FLOW_POTION.get())), Ingredient.of(Items.GLOWSTONE_DUST), potionStack(STRONG_GOLDEN_FLOW_POTION.get()));
+            ModNetwork.register();
+            BrewingRecipeRegistry.addRecipe(
+                    Ingredient.of(potionStack(Potions.AWKWARD)),
+                    Ingredient.of(ModItems.BLAUER_SCHLEIMBALL.get()),
+                    potionStack(ModPotions.ELASTICITY_POTION.get()));
+            BrewingRecipeRegistry.addRecipe(
+                    Ingredient.of(potionStack(ModPotions.ELASTICITY_POTION.get())),
+                    Ingredient.of(Items.REDSTONE),
+                    potionStack(ModPotions.LONG_ELASTICITY_POTION.get()));
+            BrewingRecipeRegistry.addRecipe(
+                    Ingredient.of(potionStack(Potions.AWKWARD)),
+                    Ingredient.of(ModItems.GOLDENER_SCHLEIMBALL.get()),
+                    potionStack(ModPotions.GOLDEN_FLOW_POTION.get()));
+            BrewingRecipeRegistry.addRecipe(
+                    Ingredient.of(potionStack(ModPotions.GOLDEN_FLOW_POTION.get())),
+                    Ingredient.of(Items.GLOWSTONE_DUST),
+                    potionStack(ModPotions.STRONG_GOLDEN_FLOW_POTION.get()));
         });
-        LOGGER.info("Registered slime content: entity {}, blocks {}, {}, core {}", BLAUER_SCHLEIM.getId(), BLAUER_SCHLEIMBLOCK.getId(), GOLDENER_SCHLEIMBLOCK.getId(), NETHERITE_SCHLEIMKERN.getId());
+        LOGGER.info("Registered slime content: entity {}, blocks {}, {}, core {}",
+                ModEntities.BLAUER_SCHLEIM.getId(),
+                ModBlocks.BLAUER_SCHLEIMBLOCK.getId(),
+                ModBlocks.GOLDENER_SCHLEIMBLOCK.getId(),
+                ModItems.NETHERITE_SCHLEIMKERN.getId());
     }
 
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.INGREDIENTS) {
-            event.accept(BLAUER_SCHLEIMBALL);
-            event.accept(GOLDENER_SCHLEIMBALL);
-            event.accept(SCHLEIMREAKTOR_SCHMIEDEVORLAGE);
+            event.accept(ModItems.BLAUER_SCHLEIMBALL);
+            event.accept(ModItems.GOLDENER_SCHLEIMBALL);
+            event.accept(ModItems.VOID_SCHLEIMBALL);
+            event.accept(ModItems.NATURE_CRYSTAL);
+            event.accept(ModItems.LIVING_TISSUE);
+            event.accept(ModItems.FROST_CORE);
+            event.accept(ModItems.LIVING_CORE);
+            event.accept(ModItems.LIVING_CRYSTAL);
+            event.accept(ModItems.AWAKENED_LIVING_CRYSTAL);
+            event.accept(ModItems.AXOLOTL_GILLS);
+            event.accept(ModItems.BAT_WING);
+            event.accept(ModItems.SHADOWTOOTH);
+            event.accept(ModItems.TENTACLE);
+            event.accept(ModItems.GLOW_FLARE);
+            event.accept(ModItems.POTION_OF_LIFE);
+            event.accept(ModItems.CORAL_SCALE);
+            event.accept(ModItems.HELPING_AMETHYST);
+            event.accept(ModItems.HELPING_SOUL);
+            event.accept(ModItems.VOID_VITALITY_TEMPLATE);
+            event.accept(ModItems.CELESTIAL_VITALITY_TEMPLATE);
+            event.accept(ModItems.BALANCE_UPGRADE_TEMPLATE);
+            event.accept(ModItems.TRUE_VOID_TEMPLATE);
+            event.accept(ModItems.TRUE_CELESTIAL_TEMPLATE);
+            event.accept(ModItems.TRUE_LIVING_TEMPLATE);
+            event.accept(ModItems.BALANCE_CATALYST);
+            event.accept(ModItems.CORRUPTED_CHITIN);
+            event.accept(ModItems.SILVER_DUST);
+            event.accept(ModItems.INFESTED_STONE_FRAGMENT);
+            event.accept(ModItems.CORRUPTED_SHARD);
+            event.accept(ModItems.CORRUPTED_CRYSTAL);
+            event.accept(net.mysith.registry.ModItems.DARK_CRYSTAL.get());
+            event.accept(net.mysith.registry.ModItems.CELESTIAL_CRYSTAL.get());
+            event.accept(net.mysith.registry.ModItems.AWAKENED_CELESTIAL_CRYSTAL.get());
+            event.accept(net.mysith.registry.ModItems.VOID_CRYSTAL.get());
+            event.accept(net.mysith.registry.ModItems.AWAKENED_VOID_CRYSTAL.get());
+            event.accept(net.mysith.registry.ModItems.VOID_CORE.get());
+            event.accept(ModItems.SCHLEIMREAKTOR_SCHMIEDEVORLAGE);
         }
 
         if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
-            event.accept(BLAUER_SCHLEIMBLOCK_ITEM);
-            event.accept(GOLDENER_SCHLEIMBLOCK_ITEM);
+            event.accept(ModItems.BLAUER_SCHLEIMBLOCK_ITEM);
+            event.accept(ModItems.GOLDENER_SCHLEIMBLOCK_ITEM);
+            event.accept(ModItems.KING_SLIME_TROPHY);
+            event.accept(ModItems.VOID_ALTAR_ITEM);
+            event.accept(ModItems.CELESTIAL_ALTAR_ITEM);
+            event.accept(ModItems.LIVING_ALTAR_ITEM);
         }
 
         if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
-            event.accept(SCHLEIMKERN);
-            event.accept(NETHERITE_SCHLEIMKERN);
+            event.accept(ModItems.SCHLEIMKERN);
+            event.accept(ModItems.NETHERITE_SCHLEIMKERN);
+            event.accept(ModItems.SLIME_KOMPASS);
+            event.accept(ModItems.GLOWBAIT_FISHING_ROD);
+            event.accept(ModItems.AXOLOTL_GILLS);
+            event.accept(ModItems.BAT_WING);
+            event.accept(ModItems.SHADOWTOOTH);
+            event.accept(ModItems.GLOW_FLARE);
+            event.accept(ModItems.CORRUPTION_RESONATOR);
+            event.accept(ModItems.SILVER_FLARE);
+            event.accept(ModItems.SILVER_DUST_BOMB);
+            event.accept(ModItems.INFESTED_BAIT);
+            event.accept(net.mysith.registry.ModItems.VOID_SUMMONER.get());
+            event.accept(net.mysith.registry.ModItems.VOIDBOUND_SCYTHE.get());
+            event.accept(net.mysith.registry.ModItems.CELESTIAL_SCYTHE.get());
+            event.accept(net.mysith.registry.ModItems.BALANCE_SCYTHE.get());
+            event.accept(ModItems.VOIDBOUND_AXE);
+            event.accept(ModItems.VOIDBOUND_PICKAXE);
+            event.accept(ModItems.VOIDBOUND_SHOVEL);
+            event.accept(ModItems.VOIDBOUND_HOE);
+            event.accept(ModItems.CELESTIAL_AXE);
+            event.accept(ModItems.CELESTIAL_PICKAXE);
+            event.accept(ModItems.CELESTIAL_SHOVEL);
+            event.accept(ModItems.CELESTIAL_HOE);
+            event.accept(ModItems.BALANCE_AXE);
+            event.accept(ModItems.BALANCE_PICKAXE);
+            event.accept(ModItems.BALANCE_SHOVEL);
+            event.accept(ModItems.BALANCE_HOE);
         }
 
         if (event.getTabKey() == CreativeModeTabs.COMBAT) {
-            event.accept(SCHLEIMREAKTOR_BRUSTPANZER);
+            event.accept(ModItems.SCHLEIMREAKTOR_BRUSTPANZER);
+            event.accept(ModItems.CORRUPTED_CRYSTAL_LEGGINGS);
+            event.accept(ModItems.VOID_CRYSTAL_HELMET);
+            event.accept(ModItems.ARMOR_OF_BALANCE_HELMET);
+            event.accept(ModItems.ARMOR_OF_BALANCE_CHESTPLATE);
+            event.accept(ModItems.ARMOR_OF_BALANCE_LEGGINGS);
+            event.accept(ModItems.ARMOR_OF_BALANCE_BOOTS);
+            event.accept(ModItems.KING_SLIME_KRONE);
+            event.accept(ModItems.NETHERITE_KINGS_KRONE);
+            event.accept(net.mysith.registry.ModItems.VOIDBOUND_SCYTHE.get());
+            event.accept(net.mysith.registry.ModItems.CELESTIAL_SCYTHE.get());
+            event.accept(net.mysith.registry.ModItems.BALANCE_SCYTHE.get());
+            event.accept(ModItems.SCHLEIMKERN_SCHWERT);
+            event.accept(ModItems.NETHERITE_SLIME_CORE_SWORD);
+            event.accept(ModItems.VOID_SLIME_CORE_SWORD);
+            event.accept(ModItems.CELESTIAL_SLIME_CORE_SWORD);
+            event.accept(ModItems.BALANCE_SLIME_CORE_SWORD);
+            event.accept(ModItems.VOIDBOUND_SHIELD);
+            event.accept(ModItems.CELESTIAL_SHIELD);
+            event.accept(ModItems.BALANCE_SHIELD);
+            event.accept(ModItems.BEAR_CLAW);
+            event.accept(ModItems.BEARCLAW_NECKLACE);
+            event.accept(ModItems.AWAKENED_BEARCLAW_NECKLACE);
+            event.accept(ModItems.ICE_ARROW);
+            event.accept(ModItems.LIVING_CRYSTAL_HELMET);
+            event.accept(ModItems.LIVING_ROOT_BOOTS);
+            event.accept(ModItems.TRUE_CROWN);
+            event.accept(ModItems.TRUE_VOID_SWORD);
+            event.accept(ModItems.TRUE_CELESTIAL_SWORD);
+            event.accept(ModItems.TRUE_LIVING_AXE);
+            event.accept(ModItems.VOID_TALISMAN);
+            event.accept(ModItems.CELESTIAL_TALISMAN);
+            event.accept(ModItems.LIVING_TALISMAN);
+            event.accept(ModItems.KING_SLIME_TROPHY);
         }
 
         if (event.getTabKey() == CreativeModeTabs.SPAWN_EGGS) {
-            event.accept(BLAUER_SCHLEIM_SPAWN_EGG);
+            event.accept(ModItems.BLAUER_SCHLEIM_SPAWN_EGG);
+            event.accept(ModItems.GOLDENER_SCHLEIM_SPAWN_EGG.get().getDefaultInstance());
+            event.accept(ModItems.KING_SCHLEIM_SPAWN_EGG);
+            event.accept(ModItems.ENDER_SCHLEIM_SPAWN_EGG);
+            event.accept(ModItems.CELESTIAL_SLIME_SPAWN_EGG);
+            event.accept(ModItems.CORRUPTED_SILVERFISH_SPAWN_EGG);
+            event.accept(ModItems.LIVING_BOSS_SPAWN_EGG);
+            event.accept(ModItems.FROST_STRAY_SPAWN_EGG);
+            event.accept(ModItems.WEB_CAVE_SPIDER_SPAWN_EGG);
+            event.accept(ModItems.CORAL_DROWNED_SPAWN_EGG);
+            event.accept(ModItems.OCTOPUS_SPAWN_EGG);
+            event.accept(ModItems.WITCH_BOSS_SPAWN_EGG);
+            event.accept(ModItems.HELPING_ALLAY_SPAWN_EGG);
+            event.accept(ModItems.LIVING_SQUID_SPAWN_EGG);
+            event.accept(ModItems.LIVING_GLOW_SQUID_SPAWN_EGG);
+            event.accept(ModItems.LIVING_POLAR_BEAR_SPAWN_EGG);
+            event.accept(ModItems.LIVING_AXOLOTL_SPAWN_EGG);
+            event.accept(ModItems.LIVING_OCELOT_SPAWN_EGG);
+            event.accept(ModItems.LIVING_BAT_SPAWN_EGG);
+            event.accept(ModItems.ROOTED_HUSK_SPAWN_EGG);
+            event.accept(ModItems.KING_SLIME_SPAWNER);
         }
     }
 
     @SubscribeEvent
-    public void onServerStarting(ServerStartingEvent event) {
-        LOGGER.info("HELLO from server starting");
+    public void onRegisterCommands(net.minecraftforge.event.RegisterCommandsEvent event) {
+        com.Momik.usless_mobs.command.UmrCommand.register(event.getDispatcher());
     }
 
     @Mod.EventBusSubscriber(modid = MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
@@ -165,15 +297,68 @@ public class Usless_mobs {
 
         @SubscribeEvent
         public static void registerAttributes(EntityAttributeCreationEvent event) {
-            event.put(BLAUER_SCHLEIM.get(), BlueSlimeEntity.createAttributes().build());
+            event.put(ModEntities.BLAUER_SCHLEIM.get(), BlueSlimeEntity.createAttributes().build());
+            event.put(ModEntities.KING_SCHLEIM.get(), KingSlimeEntity.createAttributes().build());
+            event.put(ModEntities.ENDER_SCHLEIM.get(), EnderSlimeEntity.createAttributes().build());
+            event.put(ModEntities.CELESTIAL_SLIME.get(), CelestialSlimeEntity.createAttributes().build());
+            event.put(ModEntities.CORRUPTED_SILVERFISH.get(), CorruptedSilverfishEntity.createAttributes().build());
+            event.put(ModEntities.LIVING_BOSS.get(), LivingBossEntity.createAttributes().build());
+            event.put(ModEntities.FROST_STRAY.get(), FrostStrayEntity.createAttributes().build());
+            event.put(ModEntities.WEB_CAVE_SPIDER.get(), WebCaveSpiderEntity.createAttributes().build());
+            event.put(ModEntities.CORAL_DROWNED.get(), CoralDrownedEntity.createAttributes().build());
+            event.put(ModEntities.OCTOPUS.get(), OctopusEntity.createAttributes().build());
+            event.put(ModEntities.WITCH_BOSS.get(), WitchBossEntity.createAttributes().build());
+            event.put(ModEntities.HELPING_ALLAY.get(), HelpingAllayEntity.createAttributes().build());
+            event.put(ModEntities.LIVING_SQUID.get(), LivingSquidEntity.createAttributes().build());
+            event.put(ModEntities.LIVING_GLOW_SQUID.get(), LivingGlowSquidEntity.createAttributes().build());
+            event.put(ModEntities.LIVING_POLAR_BEAR.get(), LivingPolarBearEntity.createAttributes().build());
+            event.put(ModEntities.LIVING_AXOLOTL.get(), LivingAxolotlEntity.createAttributes().build());
+            event.put(ModEntities.LIVING_OCELOT.get(), LivingOcelotEntity.createAttributes().build());
+            event.put(ModEntities.LIVING_BAT.get(), LivingBatEntity.createAttributes().build());
+            event.put(ModEntities.ROOTED_HUSK.get(), RootedHuskEntity.createAttributes().build());
         }
 
         @SubscribeEvent
         public static void registerSpawnPlacements(SpawnPlacementRegisterEvent event) {
-            event.register(BLAUER_SCHLEIM.get(),
+            event.register(ModEntities.BLAUER_SCHLEIM.get(),
                     SpawnPlacements.Type.ON_GROUND,
                     Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                     BlueSlimeEntity::checkBlueSlimeSpawnRules,
+                    SpawnPlacementRegisterEvent.Operation.OR);
+            event.register(ModEntities.KING_SCHLEIM.get(),
+                    SpawnPlacements.Type.ON_GROUND,
+                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                    KingSlimeEntity::checkKingSlimeSpawnRules,
+                    SpawnPlacementRegisterEvent.Operation.OR);
+            event.register(ModEntities.ENDER_SCHLEIM.get(),
+                    SpawnPlacements.Type.ON_GROUND,
+                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                    EnderSlimeEntity::checkEnderSlimeSpawnRules,
+                    SpawnPlacementRegisterEvent.Operation.OR);
+            event.register(ModEntities.CELESTIAL_SLIME.get(),
+                    SpawnPlacements.Type.ON_GROUND,
+                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                    CelestialSlimeEntity::checkCelestialSlimeSpawnRules,
+                    SpawnPlacementRegisterEvent.Operation.OR);
+            event.register(ModEntities.CORRUPTED_SILVERFISH.get(),
+                    SpawnPlacements.Type.ON_GROUND,
+                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                    CorruptedSilverfishEntity::checkCorruptedSilverfishSpawnRules,
+                    SpawnPlacementRegisterEvent.Operation.OR);
+            event.register(ModEntities.FROST_STRAY.get(),
+                    SpawnPlacements.Type.ON_GROUND,
+                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                    net.minecraft.world.entity.monster.Monster::checkMonsterSpawnRules,
+                    SpawnPlacementRegisterEvent.Operation.OR);
+            event.register(ModEntities.WEB_CAVE_SPIDER.get(),
+                    SpawnPlacements.Type.ON_GROUND,
+                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                    net.minecraft.world.entity.monster.Monster::checkMonsterSpawnRules,
+                    SpawnPlacementRegisterEvent.Operation.OR);
+            event.register(ModEntities.CORAL_DROWNED.get(),
+                    SpawnPlacements.Type.IN_WATER,
+                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                    CoralDrownedEntity::checkCoralDrownedSpawnRules,
                     SpawnPlacementRegisterEvent.Operation.OR);
         }
     }
@@ -183,22 +368,78 @@ public class Usless_mobs {
 
         @SubscribeEvent
         public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
-            event.registerEntityRenderer(BLAUER_SCHLEIM.get(), BlueSlimeRenderer::createRenderer);
+            event.registerEntityRenderer(ModEntities.BLAUER_SCHLEIM.get(), BlueSlimeRenderer::createRenderer);
+            event.registerEntityRenderer(ModEntities.KING_SCHLEIM.get(), KingSlimeRenderer::createRenderer);
+            event.registerEntityRenderer(ModEntities.ENDER_SCHLEIM.get(), EnderSlimeRenderer::createRenderer);
+            event.registerEntityRenderer(ModEntities.CELESTIAL_SLIME.get(), CelestialSlimeRenderer::createRenderer);
+            event.registerEntityRenderer(ModEntities.CORRUPTED_SILVERFISH.get(), CorruptedSilverfishRenderer::createRenderer);
+            event.registerEntityRenderer(ModEntities.LIVING_BOSS.get(), LivingBossRenderer::new);
+            event.registerEntityRenderer(ModEntities.FROST_STRAY.get(), FrostStrayRenderer::new);
+            event.registerEntityRenderer(ModEntities.WEB_CAVE_SPIDER.get(), WebCaveSpiderRenderer::new);
+            event.registerEntityRenderer(ModEntities.CORAL_DROWNED.get(), CoralDrownedRenderer::new);
+            event.registerEntityRenderer(ModEntities.OCTOPUS.get(), OctopusRenderer::new);
+            event.registerEntityRenderer(ModEntities.WITCH_BOSS.get(), WitchBossRenderer::new);
+            event.registerEntityRenderer(ModEntities.HELPING_ALLAY.get(), HelpingAllayRenderer::new);
+            event.registerEntityRenderer(ModEntities.LIVING_SQUID.get(), LivingSquidRenderer::new);
+            event.registerEntityRenderer(ModEntities.LIVING_GLOW_SQUID.get(), LivingGlowSquidRenderer::new);
+            event.registerEntityRenderer(ModEntities.LIVING_POLAR_BEAR.get(), LivingPolarBearRenderer::new);
+            event.registerEntityRenderer(ModEntities.LIVING_AXOLOTL.get(), LivingAxolotlRenderer::new);
+            event.registerEntityRenderer(ModEntities.LIVING_OCELOT.get(), LivingOcelotRenderer::new);
+            event.registerEntityRenderer(ModEntities.LIVING_BAT.get(), LivingBatRenderer::new);
+            event.registerEntityRenderer(ModEntities.ROOTED_HUSK.get(), RootedHuskRenderer::new);
+            event.registerEntityRenderer(ModEntities.SLIME_SPIKE.get(), ThrownItemRenderer::new);
+        }
+
+        @SubscribeEvent
+        public static void registerLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
+            event.registerLayerDefinition(CustomMobModelLayers.LIVING_BOSS,
+                    () -> CustomMob3DModel.createLayer(CustomMob3DModel.Variant.LIVING_BOSS));
+            event.registerLayerDefinition(CustomMobModelLayers.FROST_STRAY,
+                    () -> CustomMob3DModel.createLayer(CustomMob3DModel.Variant.FROST_STRAY));
+            event.registerLayerDefinition(CustomMobModelLayers.WEB_CAVE_SPIDER,
+                    () -> CustomMob3DModel.createLayer(CustomMob3DModel.Variant.WEB_CAVE_SPIDER));
+            event.registerLayerDefinition(CustomMobModelLayers.CORAL_DROWNED,
+                    () -> CustomMob3DModel.createLayer(CustomMob3DModel.Variant.CORAL_DROWNED));
+            event.registerLayerDefinition(CustomMobModelLayers.OCTOPUS,
+                    () -> CustomMob3DModel.createLayer(CustomMob3DModel.Variant.OCTOPUS));
+            event.registerLayerDefinition(CustomMobModelLayers.WITCH_BOSS,
+                    () -> CustomMob3DModel.createLayer(CustomMob3DModel.Variant.WITCH_BOSS));
+            event.registerLayerDefinition(CustomMobModelLayers.LIVING_BAT,
+                    () -> CustomMob3DModel.createLayer(CustomMob3DModel.Variant.LIVING_BAT));
+            event.registerLayerDefinition(CustomMobModelLayers.ROOTED_HUSK,
+                    () -> CustomMob3DModel.createLayer(CustomMob3DModel.Variant.ROOTED_HUSK));
+        }
+
+        @SubscribeEvent
+        public static void registerKeyMappings(RegisterKeyMappingsEvent event) {
+            event.register(com.Momik.usless_mobs.client.ModKeyMappings.TOGGLE_SLIME_EFFECTS);
         }
 
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
             event.enqueueWork(() -> {
-                ItemBlockRenderTypes.setRenderLayer(BLAUER_SCHLEIMBLOCK.get(), RenderType.translucent());
-                ItemBlockRenderTypes.setRenderLayer(GOLDENER_SCHLEIMBLOCK.get(), RenderType.translucent());
-            });
-            LOGGER.info("HELLO FROM CLIENT SETUP");
-            LOGGER.info("MINECRAFT NAME >> {}", Minecraft.getInstance().getUser().getName());
-        }
-    }
+                ItemProperties.register(ModItems.SLIME_KOMPASS.get(), ResourceLocation.tryBuild(MODID, "slime_kompass_angle"),
+                        (stack, level, livingEntity, seed) -> {
+                            if (livingEntity == null || stack.getTag() == null
+                                    || !stack.getTag().contains("TargetX") || !stack.getTag().contains("TargetZ")) {
+                                return 0.0F;
+                            }
 
-    private static RegistryObject<Item> registerBlockItem(String name, RegistryObject<Block> block, Item.Properties properties) {
-        return ITEMS.register(name, () -> new BlockItem(block.get(), properties));
+                            double dx = stack.getTag().getInt("TargetX") + 0.5D - livingEntity.getX();
+                            double dz = stack.getTag().getInt("TargetZ") + 0.5D - livingEntity.getZ();
+                            if (dx * dx + dz * dz < 0.0001D) {
+                                return 0.0F;
+                            }
+
+                            double targetYaw = Math.toDegrees(Math.atan2(dz, dx)) - 90.0D;
+                            double relativeAngle = Mth.wrapDegrees(targetYaw - livingEntity.getYRot()) / 360.0D;
+                            if (relativeAngle < 0.0D) {
+                                relativeAngle += 1.0D;
+                            }
+                            return (float) relativeAngle;
+                        });
+            });
+        }
     }
 
     private static ItemStack potionStack(Potion potion) {

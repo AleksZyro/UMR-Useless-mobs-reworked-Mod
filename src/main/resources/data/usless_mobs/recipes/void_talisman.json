@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " V ",
+    "VAV",
+    " V "
+  ],
+  "key": {
+    "V": { "item": "usless_mobs:void_fragment_block" },
+    "A": { "item": "minecraft:amethyst_shard" }
+  },
+  "result": { "item": "usless_mobs:void_talisman", "count": 1 }
+}

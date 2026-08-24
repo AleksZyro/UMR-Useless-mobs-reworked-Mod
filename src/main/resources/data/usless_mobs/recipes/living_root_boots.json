@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "C C",
+    "TBT",
+    "FNF"
+  ],
+  "key": {
+    "C": { "item": "usless_mobs:living_crystal" },
+    "T": { "item": "usless_mobs:living_tissue" },
+    "B": { "item": "minecraft:netherite_boots" },
+    "F": { "item": "usless_mobs:frost_core" },
+    "N": { "item": "usless_mobs:nature_crystal" }
+  },
+  "result": {
+    "item": "usless_mobs:living_root_boots",
+    "count": 1
+  }
+}

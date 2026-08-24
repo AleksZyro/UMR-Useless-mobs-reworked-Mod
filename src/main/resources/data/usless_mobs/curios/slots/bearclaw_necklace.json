@@ -1,0 +1,8 @@
+{
+  "order": 55,
+  "size": 1,
+  "icon": "usless_mobs:slot/empty_bearclaw_necklace_slot",
+  "use_native_gui": true,
+  "render_toggle": true,
+  "validators": ["curios:tag"]
+}

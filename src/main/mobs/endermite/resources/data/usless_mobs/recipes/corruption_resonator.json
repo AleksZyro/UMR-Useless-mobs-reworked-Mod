@@ -1,0 +1,29 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "CDC",
+    "SAS",
+    "CFC"
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:amethyst_shard"
+    },
+    "C": {
+      "item": "usless_mobs:corrupted_chitin"
+    },
+    "D": {
+      "item": "usless_mobs:silver_dust"
+    },
+    "F": {
+      "item": "usless_mobs:infested_stone_fragment"
+    },
+    "S": {
+      "item": "minecraft:compass"
+    }
+  },
+  "result": {
+    "item": "usless_mobs:corruption_resonator",
+    "count": 1
+  }
+}

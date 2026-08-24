@@ -1,0 +1,104 @@
+{
+    "parent": "minecraft:item/generated",
+    "textures": {
+        "layer0": "usless_mobs:item/soul_compass/soul_compass_00"
+    },
+    "overrides": [
+        {
+            "predicate": {
+                "usless_mobs:angle": 0.0
+            },
+            "model": "usless_mobs:item/soul_compass_00"
+        },
+        {
+            "predicate": {
+                "usless_mobs:angle": 0.0625
+            },
+            "model": "usless_mobs:item/soul_compass_01"
+        },
+        {
+            "predicate": {
+                "usless_mobs:angle": 0.125
+            },
+            "model": "usless_mobs:item/soul_compass_02"
+        },
+        {
+            "predicate": {
+                "usless_mobs:angle": 0.1875
+            },
+            "model": "usless_mobs:item/soul_compass_03"
+        },
+        {
+            "predicate": {
+                "usless_mobs:angle": 0.25
+            },
+            "model": "usless_mobs:item/soul_compass_04"
+        },
+        {
+            "predicate": {
+                "usless_mobs:angle": 0.3125
+            },
+            "model": "usless_mobs:item/soul_compass_05"
+        },
+        {
+            "predicate": {
+                "usless_mobs:angle": 0.375
+            },
+            "model": "usless_mobs:item/soul_compass_06"
+        },
+        {
+            "predicate": {
+                "usless_mobs:angle": 0.4375
+            },
+            "model": "usless_mobs:item/soul_compass_07"
+        },
+        {
+            "predicate": {
+                "usless_mobs:angle": 0.5
+            },
+            "model": "usless_mobs:item/soul_compass_08"
+        },
+        {
+            "predicate": {
+                "usless_mobs:angle": 0.5625
+            },
+            "model": "usless_mobs:item/soul_compass_09"
+        },
+        {
+            "predicate": {
+                "usless_mobs:angle": 0.625
+            },
+            "model": "usless_mobs:item/soul_compass_10"
+        },
+        {
+            "predicate": {
+                "usless_mobs:angle": 0.6875
+            },
+            "model": "usless_mobs:item/soul_compass_11"
+        },
+        {
+            "predicate": {
+                "usless_mobs:angle": 0.75
+            },
+            "model": "usless_mobs:item/soul_compass_12"
+        },
+        {
+            "predicate": {
+                "usless_mobs:angle": 0.8125
+            },
+            "model": "usless_mobs:item/soul_compass_13"
+        },
+        {
+            "predicate": {
+                "usless_mobs:angle": 0.875
+            },
+            "model": "usless_mobs:item/soul_compass_14"
+        },
+        {
+            "predicate": {
+                "usless_mobs:angle": 0.9375
+            },
+            "model": "usless_mobs:item/soul_compass_15"
+        }
+    ]
+}

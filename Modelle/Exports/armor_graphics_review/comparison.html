@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UMR – Rüstungsgrafiken vor/nachher</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; background: #0f1016; color: #f5f5f7; }
+    body { max-width: 1420px; margin: 0 auto; padding: 32px; }
+    h1 { margin: 0 0 8px; font-size: 30px; }
+    .lead { margin: 0 0 28px; color: #b8bac7; }
+    .matrix { display: grid; gap: 24px; }
+    section { padding: 18px; border: 1px solid #303342; border-radius: 16px; background: #171923; }
+    h2 { margin: 0 0 14px; font-size: 20px; }
+    .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .triple { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    figure { margin: 0; }
+    figcaption { margin-bottom: 7px; color: #d4d6df; font-weight: 650; }
+    img { display: block; width: 100%; height: auto; border-radius: 10px; border: 1px solid #393c4c; image-rendering: auto; }
+    .pass { color: #80e7aa; }
+    .proof { margin: 0 0 14px; padding: 14px 16px; border-left: 4px solid #60d394; background: #17271f; color: #c8f5d8; border-radius: 8px; }
+    code { color: #dcb6ff; }
+    @media (max-width: 900px) { .pair, .triple { grid-template-columns: 1fr; } body { padding: 18px; } }
+  </style>
+</head>
+<body>
+  <h1>Rüstungsgrafiken – reale Forge-Aufnahmen</h1>
+  <p class="lead">854 × 480, derselbe Entwicklungs-Client, trockenes Tageslicht. <span class="pass">Nachher: keine fehlenden Texturen, keine versteckten Slots und keine abgeschnittenen Rüstungsteile – vorne wie hinten.</span></p>
+  <main class="matrix">
+    <section><h2>Inventarmodelle</h2><div class="pair"><figure><figcaption>Vorher</figcaption><img src="inventory_before.png" alt="Inventarmodelle vor der Reparatur"></figure><figure><figcaption>Nachher</figcaption><img src="inventory_after.png" alt="Inventarmodelle nach der Reparatur"></figure></div></section>
+    <section><h2>True Void</h2><div class="triple"><figure><figcaption>Vorher, vorne</figcaption><img src="void_before.png" alt="Void-Rüstung vorher"></figure><figure><figcaption>Nachher, vorne</figcaption><img src="void_after.png" alt="Void-Rüstung nachher von vorne"></figure><figure><figcaption>Nachher, hinten</figcaption><img src="void_back_after.png" alt="Void-Rüstung nachher von hinten"></figure></div></section>
+    <section><h2>True Celestial</h2><div class="triple"><figure><figcaption>Vorher, vorne</figcaption><img src="celestial_before.png" alt="Celestial-Rüstung vorher"></figure><figure><figcaption>Nachher, vorne</figcaption><img src="celestial_after.png" alt="Celestial-Rüstung nachher von vorne"></figure><figure><figcaption>Nachher, hinten</figcaption><img src="celestial_back_after.png" alt="Celestial-Rüstung nachher von hinten"></figure></div></section>
+    <section><h2>True Living</h2><div class="triple"><figure><figcaption>Vorher, vorne</figcaption><img src="living_before.png" alt="Living-Rüstung vorher"></figure><figure><figcaption>Nachher, vorne</figcaption><img src="living_after.png" alt="Living-Rüstung nachher von vorne"></figure><figure><figcaption>Nachher, hinten</figcaption><img src="living_back_after.png" alt="Living-Rüstung nachher von hinten"></figure></div></section>
+    <section><h2>Armor of Balance</h2><div class="triple"><figure><figcaption>Vorher, vorne</figcaption><img src="balance_before.png" alt="Balance-Rüstung vorher"></figure><figure><figcaption>Nachher, vorne</figcaption><img src="balance_after.png" alt="Balance-Rüstung nachher von vorne"></figure><figure><figcaption>Nachher, hinten</figcaption><img src="balance_back_after.png" alt="Balance-Rüstung nachher von hinten"></figure></div></section>
+    <section><h2>Corrupted Crystal Leggings</h2><div class="triple"><figure><figcaption>Vorher, vorne</figcaption><img src="corrupted_leggings_before.png" alt="Corrupted-Leggings vorher"></figure><figure><figcaption>Nachher, vorne</figcaption><img src="corrupted_leggings_after.png" alt="Corrupted-Leggings nachher von vorne"></figure><figure><figcaption>Nachher, hinten</figcaption><img src="corrupted_leggings_back_after.png" alt="Corrupted-Leggings nachher von hinten"></figure></div></section>
+    <section>
+      <h2>Corrupted Silverfish – Laufabnahme</h2>
+      <p class="proof"><strong>Im echten Client bestätigt:</strong> Das Tier lief mit aktiver KI in einer unsichtbar eingefassten Testfläche auf den Spieler zu. Die beiden Live-Seitenbilder wurden im selben aktiven Fenster rund 0,4 Sekunden auseinander aufgenommen und zeigen die wechselnden, gegenläufigen Dreiergruppen. Alle sechs Beine bleiben am Körper; es gibt keinen sichtbaren Boden- oder Körperschnitt.</p>
+      <div class="triple">
+        <figure><figcaption>Front/Schräg – Referenz</figcaption><img src="silverfish_walk_front_a_after.png" alt="Corrupted Silverfish Laufbewegung frontal"></figure>
+        <figure><figcaption>Live-Seite – Schritt A</figcaption><img src="silverfish_walk_side_live_a.jpg" alt="Corrupted Silverfish Laufbewegung seitlich, Schritt A"></figure>
+        <figure><figcaption>Live-Seite – Schritt B</figcaption><img src="silverfish_walk_side_live_b.jpg" alt="Corrupted Silverfish Laufbewegung seitlich, Schritt B"></figure>
+      </div>
+    </section>
+    <section>
+      <h2>Corrupted Silverfish – Hitbox</h2>
+      <p class="proof"><strong>Im echten Client mit F3+B bestätigt:</strong> Die Hitbox misst 2,00 × 0,92 Blöcke und umfasst von der Seite Körper, Kopf, Beine, Kristalle und Schwanz. Damit entspricht sie den mechanisch gemessenen Grenzen des produktiven Tripo-Modells.</p>
+      <figure><figcaption>Nachher – seitliche F3+B-Prüfung</figcaption><img src="silverfish_hitbox_after.png" alt="Angepasste Hitbox des Corrupted Silverfish von der Seite"></figure>
+    </section>
+  </main>
+</body>
+</html>

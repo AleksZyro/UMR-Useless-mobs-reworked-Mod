@@ -1,0 +1,92 @@
+{
+  "format_version": "1.12.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.corrupted_silverfish",
+        "texture_width": 4096,
+        "texture_height": 4096,
+        "visible_bounds_width": 1.99768,
+        "visible_bounds_height": 0.91727,
+        "visible_bounds_offset": [
+          0,
+          0.45864,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "root",
+          "pivot": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "name": "body",
+          "pivot": [
+            0.0,
+            5.375920000000001,
+            0.0
+          ],
+          "parent": "root"
+        },
+        {
+          "name": "leg_front_left",
+          "pivot": [
+            -5.0,
+            4.4,
+            6.0
+          ],
+          "parent": "body"
+        },
+        {
+          "name": "leg_front_right",
+          "pivot": [
+            5.0,
+            4.4,
+            6.0
+          ],
+          "parent": "body"
+        },
+        {
+          "name": "leg_middle_left",
+          "pivot": [
+            -5.0,
+            4.4,
+            0.0
+          ],
+          "parent": "body"
+        },
+        {
+          "name": "leg_middle_right",
+          "pivot": [
+            5.0,
+            4.4,
+            0.0
+          ],
+          "parent": "body"
+        },
+        {
+          "name": "leg_rear_left",
+          "pivot": [
+            -5.0,
+            4.4,
+            -6.0
+          ],
+          "parent": "body"
+        },
+        {
+          "name": "leg_rear_right",
+          "pivot": [
+            5.0,
+            4.4,
+            -6.0
+          ],
+          "parent": "body"
+        }
+      ]
+    }
+  ]
+}

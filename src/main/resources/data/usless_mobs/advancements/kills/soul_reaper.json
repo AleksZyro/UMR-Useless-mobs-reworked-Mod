@@ -1,0 +1,16 @@
+{
+    "parent": "usless_mobs:kills/reaper",
+    "display": {
+        "icon": { "item": "minecraft:nether_star" },
+        "title": { "translate": "advancement.usless_mobs.kills.soul_reaper.title" },
+        "description": { "translate": "advancement.usless_mobs.kills.soul_reaper.desc" },
+        "frame": "challenge",
+        "show_toast": true,
+        "announce_to_chat": true,
+        "hidden": true
+    },
+    "criteria": {
+        "impossible": { "trigger": "minecraft:impossible" }
+    },
+    "rewards": { "experience": 2000 }
+}

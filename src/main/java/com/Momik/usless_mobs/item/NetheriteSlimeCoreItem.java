@@ -1,17 +1,16 @@
 package com.Momik.usless_mobs.item;
 
-import com.Momik.usless_mobs.Usless_mobs;
 import net.minecraft.core.particles.ItemParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -34,6 +33,10 @@ public class NetheriteSlimeCoreItem extends Item {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand usedHand) {
         ItemStack stack = player.getItemInHand(usedHand);
+        if (level.isClientSide) {
+            return InteractionResultHolder.sidedSuccess(stack, true);
+        }
+
         Vec3 lookDirection = player.getLookAngle();
         boolean verticalBurst = player.isShiftKeyDown();
         double horizontalBoost = verticalBurst ? 0.55D : 1.7D;
@@ -42,19 +45,17 @@ public class NetheriteSlimeCoreItem extends Item {
         player.push(lookDirection.x * horizontalBoost, verticalBoost, lookDirection.z * horizontalBoost);
         player.hasImpulse = true;
         player.fallDistance = 0.0F;
-        player.addEffect(new MobEffectInstance(Usless_mobs.ELASTICITY.get(), 360, 1));
-        player.addEffect(new MobEffectInstance(Usless_mobs.GOLDEN_FLOW.get(), 240, 0));
+        player.addEffect(new MobEffectInstance(com.Momik.usless_mobs.registry.ModEffects.ELASTICITY.get(), 360, 1));
+        player.addEffect(new MobEffectInstance(com.Momik.usless_mobs.registry.ModEffects.GOLDEN_FLOW.get(), 240, 0));
         player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 140, 0));
         player.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 200, 0));
         player.getCooldowns().addCooldown(this, COOLDOWN_TICKS);
 
         level.playSound(null, player.blockPosition(), SoundEvents.SLIME_BLOCK_PLACE, SoundSource.PLAYERS, 1.15F, verticalBurst ? 0.75F : 0.95F);
 
-        if (level instanceof ServerLevel serverLevel) {
-            this.triggerShockwave(serverLevel, player, verticalBurst);
-        }
+        this.triggerShockwave((ServerLevel) level, player, verticalBurst);
 
-        return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
+        return InteractionResultHolder.sidedSuccess(stack, false);
     }
 
     private void triggerShockwave(ServerLevel level, Player player, boolean verticalBurst) {
@@ -77,7 +78,7 @@ public class NetheriteSlimeCoreItem extends Item {
             livingEntity.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 1));
         }
 
-        level.sendParticles(new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Usless_mobs.GOLDENER_SCHLEIMBALL.get())),
+        level.sendParticles(new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(com.Momik.usless_mobs.registry.ModItems.GOLDENER_SCHLEIMBALL.get())),
                 player.getX(), player.getY(0.8D), player.getZ(), verticalBurst ? 48 : 32, 1.2D, 0.5D, 1.2D, 0.08D);
         level.sendParticles(ParticleTypes.CRIT,
                 player.getX(), player.getY(0.8D), player.getZ(), verticalBurst ? 30 : 18, 0.8D, 0.35D, 0.8D, 0.08D);

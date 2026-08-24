@@ -1,0 +1,19 @@
+{
+  "bones": {
+    "body": 236983,
+    "head": 26420,
+    "leg_front_left": 47849,
+    "leg_front_right": 50972,
+    "leg_rear_left": 62924,
+    "leg_rear_right": 65342,
+    "tail": 231359
+  },
+  "cubes": 0,
+  "fit_axis": 2,
+  "fit_span": 23.2,
+  "mob": "ocelot",
+  "output_triangles": 721849,
+  "source_triangles": 721849,
+  "texture_height": 4096,
+  "texture_width": 4096
+}

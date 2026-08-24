@@ -1,0 +1,13 @@
+{
+  "parent": "usless_mobs:allegiance/ascended",
+  "display": {
+    "icon": { "item": "usless_mobs:king_slime_trophy" },
+    "title": { "translate": "advancement.usless_mobs.allegiance.mastered.title" },
+    "description": { "translate": "advancement.usless_mobs.allegiance.mastered.desc" },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": { "impossible": { "trigger": "minecraft:impossible" } }
+}

@@ -1,0 +1,20 @@
+{
+    "parent": "minecraft:recipes/root",
+    "criteria": {
+        "has_fragment": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [{ "items": ["usless_mobs:soul_fragment"] }]
+            }
+        },
+        "has_the_recipe": {
+            "trigger": "minecraft:recipe_unlocked",
+            "conditions": { "recipe": "usless_mobs:soul_codex" }
+        }
+    },
+    "requirements": [
+        ["has_fragment"],
+        ["has_the_recipe"]
+    ],
+    "rewards": { "recipes": ["usless_mobs:soul_codex"] }
+}

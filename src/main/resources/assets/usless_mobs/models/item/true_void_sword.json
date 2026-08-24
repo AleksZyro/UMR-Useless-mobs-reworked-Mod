@@ -1,0 +1,6 @@
+{
+  "parent": "item/handheld",
+  "textures": {
+    "layer0": "usless_mobs:item/true_void_sword"
+  }
+}

@@ -1,0 +1,23 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        " F ",
+        "GCG",
+        " G "
+    ],
+    "key": {
+        "G": {
+            "item": "minecraft:gold_ingot"
+        },
+        "F": {
+            "item": "usless_mobs:soul_fragment"
+        },
+        "C": {
+            "item": "minecraft:compass"
+        }
+    },
+    "result": {
+        "item": "usless_mobs:soul_compass",
+        "count": 1
+    }
+}

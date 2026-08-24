@@ -1,0 +1,15 @@
+{
+    "parent": "usless_mobs:scythe",
+    "display": {
+        "icon": { "item": "usless_mobs:soul_fragment" },
+        "title": { "translate": "advancement.usless_mobs.kills.initiate.title" },
+        "description": { "translate": "advancement.usless_mobs.kills.initiate.desc" },
+        "frame": "task",
+        "show_toast": true,
+        "announce_to_chat": true,
+        "hidden": true
+    },
+    "criteria": {
+        "impossible": { "trigger": "minecraft:impossible" }
+    }
+}

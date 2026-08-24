@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " C ",
+    "CAC",
+    " C "
+  ],
+  "key": {
+    "C": { "item": "usless_mobs:celestial_aether_block" },
+    "A": { "item": "minecraft:amethyst_shard" }
+  },
+  "result": { "item": "usless_mobs:celestial_talisman", "count": 1 }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Minecraft Tripo Rigging"
+  short_description: "Rig Tripo meshes without visible animation seams"
+  default_prompt: "Use $minecraft-tripo-rigging to convert and validate this Tripo model for Blockbench and GeckoLib."

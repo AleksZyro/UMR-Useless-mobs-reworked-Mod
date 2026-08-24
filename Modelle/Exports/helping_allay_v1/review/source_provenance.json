@@ -1,0 +1,17 @@
+{
+  "mob": "helping_allay",
+  "generator": "Tripo Multi-View Builder",
+  "workspace_url": "https://studio.tripo3d.ai/workspace/generate/42058fdf-419b-447f-b2d8-1c3ea26e2f85",
+  "generation_model": "v3.1 - Best Quality",
+  "generation_mode": "multi_view",
+  "topology": "triangles",
+  "source_faces": 725990,
+  "source_vertices": 387898,
+  "texture_quality": "4k",
+  "pbr": false,
+  "source_glb": "../tripo_export/helping_allay.glb",
+  "source_sha256": "5d683e1d7c3ef39d96e33e9e069d8f37d4f10b77f35758907fadc91d6df94db0",
+  "approved_front_axis": "+Z",
+  "approved": true,
+  "approval_notes": "Front, side, and back review confirmed two arms, four separate wings, readable face, visible soul core, and continuous textured materials. PBR post-processing was not used because the UMR exact runtime consumes the original albedo texture."
+}
