@@ -343,7 +343,15 @@ class CommittedRenderContract(unittest.TestCase):
                 digests[name] = hashlib.sha256(one).digest()
                 committed = self.ROOT / render.REVIEW_RELATIVE / name
                 if committed.is_file():
-                    self.assertEqual(one, committed.read_bytes(), f"fresh render differs from committed {name}")
+                    with Image.open(first_paths[name]) as fresh, Image.open(committed) as archived:
+                        fresh.load()
+                        archived.load()
+                        self.assertEqual(fresh.size, archived.size)
+                        self.assertEqual(
+                            fresh.convert("RGBA").tobytes(),
+                            archived.convert("RGBA").tobytes(),
+                            f"fresh render pixels differ from committed {name}",
+                        )
                 with Image.open(first_paths[name]) as image:
                     self.assertEqual(image.size, (768, 768))
                     self.assertEqual(image.mode, "RGBA")

@@ -35,6 +35,9 @@ atlassian-ide-plugin.xml
 hs_err_pid*
 
 *~
+*.bak
+*.tmp
+*.orig
 
 # temporary files which can be created if a process still has a handle open of a deleted file
 .fuse_hidden*

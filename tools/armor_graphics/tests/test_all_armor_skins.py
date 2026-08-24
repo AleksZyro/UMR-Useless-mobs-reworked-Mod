@@ -140,10 +140,12 @@ class AllArmorSkinContract(unittest.TestCase):
         documents = self.generator.build_documents(REPO_ROOT)
         for relative_path, image in documents.items():
             with self.subTest(path=relative_path):
-                self.assertEqual(
-                    self.generator.png_bytes(image),
-                    (REPO_ROOT / relative_path).read_bytes(),
-                )
+                with Image.open(REPO_ROOT / relative_path) as committed:
+                    committed.load()
+                    expected = image.convert("RGBA")
+                    actual = committed.convert("RGBA")
+                    self.assertEqual(expected.size, actual.size)
+                    self.assertEqual(expected.tobytes(), actual.tobytes())
 
     def test_multi_file_publish_rolls_back_every_target(self):
         with tempfile.TemporaryDirectory() as directory:

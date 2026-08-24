@@ -1426,16 +1426,15 @@ sys.exit(3)
 
     def test_contact_sheet_is_a_real_render_of_all_eight_models(self):
         self.assertTrue(CROWN_CONTACT.is_file())
-        self.assertEqual(
-            self.generator.png_bytes(self.generator.build_contact_sheet()),
-            CROWN_CONTACT.read_bytes(),
-        )
         with Image.open(CROWN_CONTACT) as image:
             image.load()
             self.assertEqual("RGBA", image.mode)
             self.assertGreaterEqual(image.width, 1200)
             self.assertGreaterEqual(image.height, 600)
             self.assertGreater(len(set(image.getdata())), 32)
+            expected = self.generator.build_contact_sheet().convert("RGBA")
+            self.assertEqual(expected.size, image.size)
+            self.assertEqual(expected.tobytes(), image.convert("RGBA").tobytes())
 
 
 class CrownContractParserRegression(unittest.TestCase):

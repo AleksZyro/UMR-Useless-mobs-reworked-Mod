@@ -1,0 +1,68 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+
+      - name: Install validation dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-ci.txt
+
+      - name: Verify active project truth
+        run: python tools/verify_umr_project_truth.py
+
+      - name: Run Python regression suite
+        run: python -m pytest -q
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Build Forge mod
+        run: ./gradlew clean build --no-daemon
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ github.sha }}
+          path: build/reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload mod JAR
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: umr-${{ github.sha }}
+          path: build/libs/*.jar
+          if-no-files-found: error
+          retention-days: 14
