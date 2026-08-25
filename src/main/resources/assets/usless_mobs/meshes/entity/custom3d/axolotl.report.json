@@ -1,19 +1,20 @@
 {
   "bones": {
-    "body": 162161,
-    "head": 209851,
-    "leg_front_left": 87997,
-    "leg_front_right": 88335,
-    "leg_rear_left": 50095,
-    "leg_rear_right": 50982,
-    "tail": 84413
+    "body": 16623,
+    "head": 4069,
+    "leg_front_left": 1826,
+    "leg_front_right": 2355,
+    "leg_rear_left": 15280,
+    "leg_rear_right": 19441,
+    "tail": 38941
   },
   "cubes": 0,
+  "discarded_detached_triangles": 0,
   "fit_axis": 2,
   "fit_span": 20.8,
   "mob": "axolotl",
-  "output_triangles": 733834,
-  "source_triangles": 733834,
+  "output_triangles": 98535,
+  "source_triangles": 98535,
   "texture_height": 4096,
   "texture_width": 4096
 }

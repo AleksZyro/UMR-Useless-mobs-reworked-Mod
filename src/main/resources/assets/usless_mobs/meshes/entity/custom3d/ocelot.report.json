@@ -1,19 +1,20 @@
 {
   "bones": {
-    "body": 236983,
-    "head": 26420,
-    "leg_front_left": 47849,
-    "leg_front_right": 50972,
-    "leg_rear_left": 62924,
-    "leg_rear_right": 65342,
-    "tail": 231359
+    "body": 23123,
+    "head": 2453,
+    "leg_front_left": 4124,
+    "leg_front_right": 4155,
+    "leg_rear_left": 9542,
+    "leg_rear_right": 9747,
+    "tail": 47914
   },
   "cubes": 0,
+  "discarded_detached_triangles": 0,
   "fit_axis": 2,
   "fit_span": 23.2,
   "mob": "ocelot",
-  "output_triangles": 721849,
-  "source_triangles": 721849,
+  "output_triangles": 101058,
+  "source_triangles": 101058,
   "texture_height": 4096,
   "texture_width": 4096
 }

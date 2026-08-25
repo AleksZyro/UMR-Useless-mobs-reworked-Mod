@@ -1,0 +1,7 @@
+{
+  "type": "usless_mobs:ancient_whale_ruin",
+  "biomes": "#usless_mobs:has_structure/ancient_whale_ruin",
+  "spawn_overrides": {},
+  "step": "surface_structures",
+  "terrain_adaptation": "none"
+}

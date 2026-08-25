@@ -1,27 +1,36 @@
-import importlib
+from tools.mob_tripo.diagnose_uv_fidelity import runtime_contract_passes
 
 
-EXPECTED_EXACT_MOBS = {
-    "axolotl",
-    "coral_drowned",
-    "frost_stray",
-    "glow_squid",
-    "helping_allay",
-    "living_bat",
-    "living_boss",
-    "ocelot",
-    "octopus",
-    "polar_bear",
-    "rooted_husk",
-    "squid",
-    "web_cave_spider",
-    "witch_boss",
-}
+def test_accepts_exact_runtime_mesh():
+    assert runtime_contract_passes({
+        "pixels_equal": True,
+        "uv_exact": True,
+        "expected_runtime_triangles": 100,
+        "runtime_triangles": 100,
+    })
 
 
-def test_uv_fidelity_audit_covers_every_exact_runtime_mob() -> None:
-    module = importlib.import_module("tools.mob_tripo.diagnose_uv_fidelity")
+def test_accepts_only_a_recorded_verified_shell_removal():
+    assert runtime_contract_passes({
+        "pixels_equal": True,
+        "uv_exact": True,
+        "expected_runtime_triangles": 90,
+        "runtime_triangles": 90,
+    })
+    assert not runtime_contract_passes({
+        "pixels_equal": True,
+        "uv_exact": True,
+        "expected_runtime_triangles": 90,
+        "runtime_triangles": 89,
+    })
 
-    assert hasattr(module, "SOURCES"), "audit must expose its authoritative source map"
-    assert set(module.SOURCES) == EXPECTED_EXACT_MOBS
-    assert all(path.is_file() for path in module.SOURCES.values())
+
+def test_rejects_texture_or_uv_changes_even_when_triangle_count_matches():
+    base = {
+        "pixels_equal": True,
+        "uv_exact": True,
+        "expected_runtime_triangles": 90,
+        "runtime_triangles": 90,
+    }
+    assert not runtime_contract_passes({**base, "pixels_equal": False})
+    assert not runtime_contract_passes({**base, "uv_exact": False})

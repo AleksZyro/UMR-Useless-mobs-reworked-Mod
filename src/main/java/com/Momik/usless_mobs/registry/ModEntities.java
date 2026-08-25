@@ -6,6 +6,7 @@ import com.Momik.usless_mobs.entity.CoralDrownedEntity;
 import com.Momik.usless_mobs.entity.EnderSlimeEntity;
 import com.Momik.usless_mobs.entity.FrostStrayEntity;
 import com.Momik.usless_mobs.entity.HelpingAllayEntity;
+import com.Momik.usless_mobs.entity.GiantSquidEntity;
 import com.Momik.usless_mobs.entity.KingSlimeEntity;
 import com.Momik.usless_mobs.entity.LivingBossEntity;
 import com.Momik.usless_mobs.entity.LivingBatEntity;
@@ -120,6 +121,13 @@ public final class ModEntities {
                     .clientTrackingRange(10)
                     .updateInterval(2)
                     .build(Usless_mobs.MODID + ":living_squid"));
+
+    public static final RegistryObject<EntityType<GiantSquidEntity>> GIANT_SQUID = ENTITY_TYPES.register("giant_squid",
+            () -> EntityType.Builder.of(GiantSquidEntity::new, MobCategory.MONSTER)
+                    .sized(5.80F, 3.20F)
+                    .clientTrackingRange(16)
+                    .updateInterval(1)
+                    .build(Usless_mobs.MODID + ":giant_squid"));
 
     public static final RegistryObject<EntityType<LivingGlowSquidEntity>> LIVING_GLOW_SQUID = ENTITY_TYPES.register("living_glow_squid",
             () -> EntityType.Builder.of(LivingGlowSquidEntity::new, MobCategory.WATER_CREATURE)

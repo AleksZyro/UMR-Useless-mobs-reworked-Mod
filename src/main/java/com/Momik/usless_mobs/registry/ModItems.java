@@ -574,6 +574,9 @@ public final class ModItems {
     public static final RegistryObject<Item> LIVING_SQUID_SPAWN_EGG = ITEMS.register("living_squid_spawn_egg",
             () -> new ForgeSpawnEggItem(ModEntities.LIVING_SQUID, 0x315B70, 0xD89BBD, new Item.Properties().rarity(Rarity.RARE)));
 
+    public static final RegistryObject<Item> GIANT_SQUID_SPAWN_EGG = ITEMS.register("giant_squid_spawn_egg",
+            () -> new ForgeSpawnEggItem(ModEntities.GIANT_SQUID, 0x07162E, 0xA13CFF, new Item.Properties().rarity(Rarity.EPIC)));
+
     public static final RegistryObject<Item> LIVING_GLOW_SQUID_SPAWN_EGG = ITEMS.register("living_glow_squid_spawn_egg",
             () -> new ForgeSpawnEggItem(ModEntities.LIVING_GLOW_SQUID, 0x071C38, 0x38F4FF, new Item.Properties().rarity(Rarity.RARE)));
 

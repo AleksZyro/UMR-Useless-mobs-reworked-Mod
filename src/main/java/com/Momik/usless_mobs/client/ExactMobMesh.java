@@ -1,5 +1,6 @@
 package com.Momik.usless_mobs.client;
 
+import com.Momik.usless_mobs.entity.HelpingAllayEntity;
 import com.Momik.usless_mobs.entity.OctopusEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -11,7 +12,6 @@ import net.minecraft.util.Mth;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-import org.joml.Vector4f;
 
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
@@ -111,15 +111,57 @@ final class ExactMobMesh {
         Matrix3f normalMatrix = poseStack.last().normal();
         float[] data = part.data();
         int cursor = 0;
+        Vector3f normal = new Vector3f();
         for (int face = 0; face < part.faceCount(); face++) {
             int verticesStart = cursor;
             int normalStart = cursor + 15;
-            Vector3f normal = normalMatrix.transform(new Vector3f(
-                    data[normalStart], data[normalStart + 1], data[normalStart + 2]));
+            normal.set(data[normalStart], data[normalStart + 1], data[normalStart + 2]);
+            normalMatrix.transform(normal);
             emitVertex(data, verticesStart, pose, normal, buffer, packedLight, packedOverlay);
             emitVertex(data, verticesStart + 5, pose, normal, buffer, packedLight, packedOverlay);
             emitVertex(data, verticesStart + 10, pose, normal, buffer, packedLight, packedOverlay);
             emitVertex(data, verticesStart + 10, pose, normal, buffer, packedLight, packedOverlay);
+            cursor += 18;
+        }
+    }
+
+    /**
+     * Moves the unweighted Helping Allay as one continuous surface. The weights
+     * depend only on source position, so coincident vertices at region borders
+     * always receive the same transform and cannot open visible cracks.
+     */
+    void renderAllayBone(String boneName, PoseStack poseStack, VertexConsumer buffer,
+                         int packedLight, int packedOverlay, float ageInTicks,
+                         float netHeadYaw, float headPitch, byte actionState) {
+        MeshPart part = this.parts.get(boneName);
+        if (part == null || part.faceCount() == 0) {
+            return;
+        }
+        Matrix4f pose = poseStack.last().pose();
+        Matrix3f normalMatrix = poseStack.last().normal();
+        float[] data = part.data();
+        Vector3f normal = new Vector3f();
+        Vector3f edge = new Vector3f();
+        Vector3f first = new Vector3f();
+        Vector3f second = new Vector3f();
+        Vector3f third = new Vector3f();
+        Vector3f original = new Vector3f();
+        Vector3f temporary = new Vector3f();
+        int cursor = 0;
+        for (int face = 0; face < part.faceCount(); face++) {
+            int verticesStart = cursor;
+            deformAllayVertex(data, verticesStart, ageInTicks, netHeadYaw,
+                    headPitch, actionState, first, original, temporary);
+            deformAllayVertex(data, verticesStart + 5, ageInTicks, netHeadYaw,
+                    headPitch, actionState, second, original, temporary);
+            deformAllayVertex(data, verticesStart + 10, ageInTicks, netHeadYaw,
+                    headPitch, actionState, third, original, temporary);
+            calculateFaceNormal(first, second, third, normal, edge);
+            normalMatrix.transform(normal);
+            emitVertex(data, verticesStart, first, pose, normal, buffer, packedLight, packedOverlay);
+            emitVertex(data, verticesStart + 5, second, pose, normal, buffer, packedLight, packedOverlay);
+            emitVertex(data, verticesStart + 10, third, pose, normal, buffer, packedLight, packedOverlay);
+            emitVertex(data, verticesStart + 10, third, pose, normal, buffer, packedLight, packedOverlay);
             cursor += 18;
         }
     }
@@ -142,20 +184,18 @@ final class ExactMobMesh {
         float strength = inWater ? 1.0F : 0.18F;
         float waveSin = Mth.sin(ageInTicks * 0.18F);
         float waveCos = Mth.cos(ageInTicks * 0.145F);
+        Vector3f normal = new Vector3f();
+        Vector3f edge = new Vector3f();
+        Vector3f first = new Vector3f();
+        Vector3f second = new Vector3f();
+        Vector3f third = new Vector3f();
         int cursor = 0;
         for (int face = 0; face < part.faceCount(); face++) {
             int verticesStart = cursor;
-            Vector3f first = deformSquidVertex(data, verticesStart, waveSin, waveCos, strength);
-            Vector3f second = deformSquidVertex(data, verticesStart + 5, waveSin, waveCos, strength);
-            Vector3f third = deformSquidVertex(data, verticesStart + 10, waveSin, waveCos, strength);
-            Vector3f edgeOne = new Vector3f(second).sub(first);
-            Vector3f edgeTwo = new Vector3f(third).sub(first);
-            Vector3f normal = edgeOne.cross(edgeTwo);
-            if (normal.lengthSquared() < 1.0E-12F) {
-                normal.set(0, 1, 0);
-            } else {
-                normal.normalize();
-            }
+            deformSquidVertex(data, verticesStart, waveSin, waveCos, strength, first);
+            deformSquidVertex(data, verticesStart + 5, waveSin, waveCos, strength, second);
+            deformSquidVertex(data, verticesStart + 10, waveSin, waveCos, strength, third);
+            calculateFaceNormal(first, second, third, normal, edge);
             normalMatrix.transform(normal);
             emitVertex(data, verticesStart, first, pose, normal, buffer, packedLight, packedOverlay);
             emitVertex(data, verticesStart + 5, second, pose, normal, buffer, packedLight, packedOverlay);
@@ -179,18 +219,18 @@ final class ExactMobMesh {
         float strength = inWater ? 1.0F : 0.18F;
         float waveSin = Mth.sin(ageInTicks * 0.20F);
         float waveCos = Mth.cos(ageInTicks * 0.155F);
+        Vector3f normal = new Vector3f();
+        Vector3f edge = new Vector3f();
+        Vector3f first = new Vector3f();
+        Vector3f second = new Vector3f();
+        Vector3f third = new Vector3f();
         int cursor = 0;
         for (int face = 0; face < part.faceCount(); face++) {
             int verticesStart = cursor;
-            Vector3f first = deformGlowSquidVertex(data, verticesStart, waveSin, waveCos, strength);
-            Vector3f second = deformGlowSquidVertex(data, verticesStart + 5, waveSin, waveCos, strength);
-            Vector3f third = deformGlowSquidVertex(data, verticesStart + 10, waveSin, waveCos, strength);
-            Vector3f normal = new Vector3f(second).sub(first).cross(new Vector3f(third).sub(first));
-            if (normal.lengthSquared() < 1.0E-12F) {
-                normal.set(0, 1, 0);
-            } else {
-                normal.normalize();
-            }
+            deformGlowSquidVertex(data, verticesStart, waveSin, waveCos, strength, first);
+            deformGlowSquidVertex(data, verticesStart + 5, waveSin, waveCos, strength, second);
+            deformGlowSquidVertex(data, verticesStart + 10, waveSin, waveCos, strength, third);
+            calculateFaceNormal(first, second, third, normal, edge);
             normalMatrix.transform(normal);
             emitVertex(data, verticesStart, first, pose, normal, buffer, packedLight, packedOverlay);
             emitVertex(data, verticesStart + 5, second, pose, normal, buffer, packedLight, packedOverlay);
@@ -211,21 +251,21 @@ final class ExactMobMesh {
         Matrix4f pose = poseStack.last().pose();
         Matrix3f normalMatrix = poseStack.last().normal();
         float[] data = part.data();
+        Vector3f normal = new Vector3f();
+        Vector3f edge = new Vector3f();
+        Vector3f first = new Vector3f();
+        Vector3f second = new Vector3f();
+        Vector3f third = new Vector3f();
         int cursor = 0;
         for (int face = 0; face < part.faceCount(); face++) {
             int verticesStart = cursor;
-            Vector3f first = deformOctopusVertex(data, verticesStart, ageInTicks,
-                    inWater, actionState, squeezing);
-            Vector3f second = deformOctopusVertex(data, verticesStart + 5, ageInTicks,
-                    inWater, actionState, squeezing);
-            Vector3f third = deformOctopusVertex(data, verticesStart + 10, ageInTicks,
-                    inWater, actionState, squeezing);
-            Vector3f normal = new Vector3f(second).sub(first).cross(new Vector3f(third).sub(first));
-            if (normal.lengthSquared() < 1.0E-12F) {
-                normal.set(0, 1, 0);
-            } else {
-                normal.normalize();
-            }
+            deformOctopusVertex(data, verticesStart, ageInTicks,
+                    inWater, actionState, squeezing, first);
+            deformOctopusVertex(data, verticesStart + 5, ageInTicks,
+                    inWater, actionState, squeezing, second);
+            deformOctopusVertex(data, verticesStart + 10, ageInTicks,
+                    inWater, actionState, squeezing, third);
+            calculateFaceNormal(first, second, third, normal, edge);
             normalMatrix.transform(normal);
             emitVertex(data, verticesStart, first, pose, normal, buffer, packedLight, packedOverlay);
             emitVertex(data, verticesStart + 5, second, pose, normal, buffer, packedLight, packedOverlay);
@@ -246,21 +286,21 @@ final class ExactMobMesh {
         Matrix4f pose = poseStack.last().pose();
         Matrix3f normalMatrix = poseStack.last().normal();
         float[] data = part.data();
+        Vector3f normal = new Vector3f();
+        Vector3f edge = new Vector3f();
+        Vector3f first = new Vector3f();
+        Vector3f second = new Vector3f();
+        Vector3f third = new Vector3f();
         int cursor = 0;
         for (int face = 0; face < part.faceCount(); face++) {
             int verticesStart = cursor;
-            Vector3f first = deformAxolotlVertex(data, verticesStart, ageInTicks,
-                    limbSwing, limbSwingAmount, inWater);
-            Vector3f second = deformAxolotlVertex(data, verticesStart + 5, ageInTicks,
-                    limbSwing, limbSwingAmount, inWater);
-            Vector3f third = deformAxolotlVertex(data, verticesStart + 10, ageInTicks,
-                    limbSwing, limbSwingAmount, inWater);
-            Vector3f normal = new Vector3f(second).sub(first).cross(new Vector3f(third).sub(first));
-            if (normal.lengthSquared() < 1.0E-12F) {
-                normal.set(0, 1, 0);
-            } else {
-                normal.normalize();
-            }
+            deformAxolotlVertex(data, verticesStart, ageInTicks,
+                    limbSwing, limbSwingAmount, inWater, first);
+            deformAxolotlVertex(data, verticesStart + 5, ageInTicks,
+                    limbSwing, limbSwingAmount, inWater, second);
+            deformAxolotlVertex(data, verticesStart + 10, ageInTicks,
+                    limbSwing, limbSwingAmount, inWater, third);
+            calculateFaceNormal(first, second, third, normal, edge);
             normalMatrix.transform(normal);
             emitVertex(data, verticesStart, first, pose, normal, buffer, packedLight, packedOverlay);
             emitVertex(data, verticesStart + 5, second, pose, normal, buffer, packedLight, packedOverlay);
@@ -282,21 +322,21 @@ final class ExactMobMesh {
         Matrix4f pose = poseStack.last().pose();
         Matrix3f normalMatrix = poseStack.last().normal();
         float[] data = part.data();
+        Vector3f normal = new Vector3f();
+        Vector3f edge = new Vector3f();
+        Vector3f first = new Vector3f();
+        Vector3f second = new Vector3f();
+        Vector3f third = new Vector3f();
         int cursor = 0;
         for (int face = 0; face < part.faceCount(); face++) {
             int verticesStart = cursor;
-            Vector3f first = deformOcelotVertex(data, verticesStart, ageInTicks, limbSwing,
-                    limbSwingAmount, netHeadYaw, headPitch, sprinting, airborne);
-            Vector3f second = deformOcelotVertex(data, verticesStart + 5, ageInTicks, limbSwing,
-                    limbSwingAmount, netHeadYaw, headPitch, sprinting, airborne);
-            Vector3f third = deformOcelotVertex(data, verticesStart + 10, ageInTicks, limbSwing,
-                    limbSwingAmount, netHeadYaw, headPitch, sprinting, airborne);
-            Vector3f normal = new Vector3f(second).sub(first).cross(new Vector3f(third).sub(first));
-            if (normal.lengthSquared() < 1.0E-12F) {
-                normal.set(0, 1, 0);
-            } else {
-                normal.normalize();
-            }
+            deformOcelotVertex(data, verticesStart, ageInTicks, limbSwing,
+                    limbSwingAmount, netHeadYaw, headPitch, sprinting, airborne, first);
+            deformOcelotVertex(data, verticesStart + 5, ageInTicks, limbSwing,
+                    limbSwingAmount, netHeadYaw, headPitch, sprinting, airborne, second);
+            deformOcelotVertex(data, verticesStart + 10, ageInTicks, limbSwing,
+                    limbSwingAmount, netHeadYaw, headPitch, sprinting, airborne, third);
+            calculateFaceNormal(first, second, third, normal, edge);
             normalMatrix.transform(normal);
             emitVertex(data, verticesStart, first, pose, normal, buffer, packedLight, packedOverlay);
             emitVertex(data, verticesStart + 5, second, pose, normal, buffer, packedLight, packedOverlay);
@@ -317,18 +357,18 @@ final class ExactMobMesh {
         Matrix4f pose = poseStack.last().pose();
         Matrix3f normalMatrix = poseStack.last().normal();
         float[] data = part.data();
+        Vector3f normal = new Vector3f();
+        Vector3f edge = new Vector3f();
+        Vector3f first = new Vector3f();
+        Vector3f second = new Vector3f();
+        Vector3f third = new Vector3f();
         int cursor = 0;
         for (int face = 0; face < part.faceCount(); face++) {
             int verticesStart = cursor;
-            Vector3f first = deformSpiderVertex(data, verticesStart, limbSwing, limbSwingAmount);
-            Vector3f second = deformSpiderVertex(data, verticesStart + 5, limbSwing, limbSwingAmount);
-            Vector3f third = deformSpiderVertex(data, verticesStart + 10, limbSwing, limbSwingAmount);
-            Vector3f normal = new Vector3f(second).sub(first).cross(new Vector3f(third).sub(first));
-            if (normal.lengthSquared() < 1.0E-12F) {
-                normal.set(0, 1, 0);
-            } else {
-                normal.normalize();
-            }
+            deformSpiderVertex(data, verticesStart, limbSwing, limbSwingAmount, first);
+            deformSpiderVertex(data, verticesStart + 5, limbSwing, limbSwingAmount, second);
+            deformSpiderVertex(data, verticesStart + 10, limbSwing, limbSwingAmount, third);
+            calculateFaceNormal(first, second, third, normal, edge);
             normalMatrix.transform(normal);
             emitVertex(data, verticesStart, first, pose, normal, buffer, packedLight, packedOverlay);
             emitVertex(data, verticesStart + 5, second, pose, normal, buffer, packedLight, packedOverlay);
@@ -353,21 +393,21 @@ final class ExactMobMesh {
         Matrix4f pose = poseStack.last().pose();
         Matrix3f normalMatrix = poseStack.last().normal();
         float[] data = part.data();
+        Vector3f normal = new Vector3f();
+        Vector3f edge = new Vector3f();
+        Vector3f first = new Vector3f();
+        Vector3f second = new Vector3f();
+        Vector3f third = new Vector3f();
         int cursor = 0;
         for (int face = 0; face < part.faceCount(); face++) {
             int verticesStart = cursor;
-            Vector3f first = deformQuadrupedVertex(data, verticesStart, limbSwing, limbSwingAmount,
-                    netHeadYaw, headPitch);
-            Vector3f second = deformQuadrupedVertex(data, verticesStart + 5, limbSwing, limbSwingAmount,
-                    netHeadYaw, headPitch);
-            Vector3f third = deformQuadrupedVertex(data, verticesStart + 10, limbSwing, limbSwingAmount,
-                    netHeadYaw, headPitch);
-            Vector3f normal = new Vector3f(second).sub(first).cross(new Vector3f(third).sub(first));
-            if (normal.lengthSquared() < 1.0E-12F) {
-                normal.set(0, 1, 0);
-            } else {
-                normal.normalize();
-            }
+            deformQuadrupedVertex(data, verticesStart, limbSwing, limbSwingAmount,
+                    netHeadYaw, headPitch, first);
+            deformQuadrupedVertex(data, verticesStart + 5, limbSwing, limbSwingAmount,
+                    netHeadYaw, headPitch, second);
+            deformQuadrupedVertex(data, verticesStart + 10, limbSwing, limbSwingAmount,
+                    netHeadYaw, headPitch, third);
+            calculateFaceNormal(first, second, third, normal, edge);
             normalMatrix.transform(normal);
             emitVertex(data, verticesStart, first, pose, normal, buffer, packedLight, packedOverlay);
             emitVertex(data, verticesStart + 5, second, pose, normal, buffer, packedLight, packedOverlay);
@@ -394,21 +434,26 @@ final class ExactMobMesh {
         Matrix4f pose = poseStack.last().pose();
         Matrix3f normalMatrix = poseStack.last().normal();
         float[] data = part.data();
+        Vector3f normal = new Vector3f();
+        Vector3f edge = new Vector3f();
+        Vector3f first = new Vector3f();
+        Vector3f second = new Vector3f();
+        Vector3f third = new Vector3f();
+        Vector3f original = new Vector3f();
+        Vector3f temporary = new Vector3f();
         int cursor = 0;
         for (int face = 0; face < part.faceCount(); face++) {
             int verticesStart = cursor;
-            Vector3f first = deformHumanoidVertex(data, verticesStart, limbSwing, limbSwingAmount,
-                    ageInTicks, netHeadYaw, headPitch, swimming, aimingBow, aggressiveMelee);
-            Vector3f second = deformHumanoidVertex(data, verticesStart + 5, limbSwing, limbSwingAmount,
-                    ageInTicks, netHeadYaw, headPitch, swimming, aimingBow, aggressiveMelee);
-            Vector3f third = deformHumanoidVertex(data, verticesStart + 10, limbSwing, limbSwingAmount,
-                    ageInTicks, netHeadYaw, headPitch, swimming, aimingBow, aggressiveMelee);
-            Vector3f normal = new Vector3f(second).sub(first).cross(new Vector3f(third).sub(first));
-            if (normal.lengthSquared() < 1.0E-12F) {
-                normal.set(0, 1, 0);
-            } else {
-                normal.normalize();
-            }
+            deformHumanoidVertex(data, verticesStart, limbSwing, limbSwingAmount,
+                    ageInTicks, netHeadYaw, headPitch, swimming, aimingBow, aggressiveMelee,
+                    first, original, temporary);
+            deformHumanoidVertex(data, verticesStart + 5, limbSwing, limbSwingAmount,
+                    ageInTicks, netHeadYaw, headPitch, swimming, aimingBow, aggressiveMelee,
+                    second, original, temporary);
+            deformHumanoidVertex(data, verticesStart + 10, limbSwing, limbSwingAmount,
+                    ageInTicks, netHeadYaw, headPitch, swimming, aimingBow, aggressiveMelee,
+                    third, original, temporary);
+            calculateFaceNormal(first, second, third, normal, edge);
             normalMatrix.transform(normal);
             emitVertex(data, verticesStart, first, pose, normal, buffer, packedLight, packedOverlay);
             emitVertex(data, verticesStart + 5, second, pose, normal, buffer, packedLight, packedOverlay);
@@ -433,18 +478,20 @@ final class ExactMobMesh {
         Matrix4f pose = poseStack.last().pose();
         Matrix3f normalMatrix = poseStack.last().normal();
         float[] data = part.data();
+        Vector3f normal = new Vector3f();
+        Vector3f edge = new Vector3f();
+        Vector3f first = new Vector3f();
+        Vector3f second = new Vector3f();
+        Vector3f third = new Vector3f();
+        Vector3f original = new Vector3f();
+        Vector3f temporary = new Vector3f();
         int cursor = 0;
         for (int face = 0; face < part.faceCount(); face++) {
             int verticesStart = cursor;
-            Vector3f first = deformBatVertex(data, verticesStart, ageInTicks, resting);
-            Vector3f second = deformBatVertex(data, verticesStart + 5, ageInTicks, resting);
-            Vector3f third = deformBatVertex(data, verticesStart + 10, ageInTicks, resting);
-            Vector3f normal = new Vector3f(second).sub(first).cross(new Vector3f(third).sub(first));
-            if (normal.lengthSquared() < 1.0E-12F) {
-                normal.set(0, 1, 0);
-            } else {
-                normal.normalize();
-            }
+            deformBatVertex(data, verticesStart, ageInTicks, resting, first, original, temporary);
+            deformBatVertex(data, verticesStart + 5, ageInTicks, resting, second, original, temporary);
+            deformBatVertex(data, verticesStart + 10, ageInTicks, resting, third, original, temporary);
+            calculateFaceNormal(first, second, third, normal, edge);
             normalMatrix.transform(normal);
             emitVertex(data, verticesStart, first, pose, normal, buffer, packedLight, packedOverlay);
             emitVertex(data, verticesStart + 5, second, pose, normal, buffer, packedLight, packedOverlay);
@@ -454,9 +501,10 @@ final class ExactMobMesh {
         }
     }
 
-    private static Vector3f deformBatVertex(float[] data, int offset, float ageInTicks,
-                                             boolean resting) {
-        Vector3f original = new Vector3f(data[offset], data[offset + 1], data[offset + 2]);
+    private static void deformBatVertex(float[] data, int offset, float ageInTicks,
+                                        boolean resting, Vector3f output,
+                                        Vector3f original, Vector3f temporary) {
+        original.set(data[offset], data[offset + 1], data[offset + 2]);
         float x = original.x();
         float side = x < 0.0F ? -1.0F : 1.0F;
         float wingWeight = Mth.clamp((Math.abs(x) - 0.72F) / 0.62F, 0.0F, 1.0F);
@@ -464,56 +512,118 @@ final class ExactMobMesh {
         float flap = resting
                 ? -0.72F
                 : Mth.sin(ageInTicks * 0.78F) * 0.62F - 0.10F;
-        Vector3f flapped = rotateAroundZ(original, side * 0.82F, 21.38F, side * flap);
-        Vector3f result = new Vector3f(original).lerp(flapped, wingWeight);
+        rotateAroundZ(original, side * 0.82F, 21.38F, side * flap, temporary);
+        output.set(original).lerp(temporary, wingWeight);
 
         if (resting) {
-            Vector3f tucked = rotateAroundY(result, side * 0.82F, 0.05F, -side * 0.88F);
-            result.lerp(tucked, wingWeight * 0.72F);
+            rotateAroundY(output, side * 0.82F, 0.05F, -side * 0.88F, temporary);
+            output.lerp(temporary, wingWeight * 0.72F);
         } else {
             float flex = Mth.sin(ageInTicks * 0.78F + 0.85F) * 0.22F * wingTipWeight;
-            result.add(0.0F, flex, -Math.abs(flex) * 0.42F);
+            output.add(0.0F, flex, -Math.abs(flex) * 0.42F);
         }
 
         float headWeight = Mth.clamp((21.20F - original.y()) / 0.55F, 0.0F, 1.0F)
                 * Mth.clamp((1.28F - Math.abs(x)) / 0.30F, 0.0F, 1.0F);
         if (!resting && headWeight > 0.0F) {
-            Vector3f head = rotateAroundY(original, 0.0F, -0.65F,
-                    Mth.sin(ageInTicks * 0.11F) * 0.10F);
-            result.lerp(head, headWeight * 0.45F);
+            rotateAroundY(original, 0.0F, -0.65F,
+                    Mth.sin(ageInTicks * 0.11F) * 0.10F, temporary);
+            output.lerp(temporary, headWeight * 0.45F);
         }
-        return result;
     }
 
-    private static Vector3f rotateAroundZ(Vector3f point, float pivotX, float pivotY, float angle) {
+    private static void deformAllayVertex(float[] data, int offset, float ageInTicks,
+                                          float netHeadYaw, float headPitch,
+                                          byte actionState, Vector3f output,
+                                          Vector3f original, Vector3f temporary) {
+        original.set(data[offset], data[offset + 1], data[offset + 2]);
+        output.set(original);
+        float x = original.x();
+        float y = original.y();
+        float z = original.z();
+        float side = x < 0.0F ? -1.0F : 1.0F;
+
+        float wingWeight = Mth.clamp((Math.abs(x) - 3.55F) / 0.82F, 0.0F, 1.0F)
+                * Mth.clamp((-z + 1.30F) / 0.65F, 0.0F, 1.0F);
+        float flapSpeed = actionState == HelpingAllayEntity.ACTION_TELEPORT ? 1.34F
+                : actionState == HelpingAllayEntity.ACTION_SHIELD
+                || actionState == HelpingAllayEntity.ACTION_HEAL ? 1.05F : 0.78F;
+        float flapStrength = actionState == HelpingAllayEntity.ACTION_TELEPORT ? 1.05F
+                : actionState == HelpingAllayEntity.ACTION_SHIELD
+                || actionState == HelpingAllayEntity.ACTION_HEAL ? 0.86F : 0.62F;
+        float flap = Mth.sin(ageInTicks * flapSpeed) * flapStrength;
+        rotateAroundY(original, side * 3.55F, -1.45F, side * flap, temporary);
+        output.lerp(temporary, wingWeight);
+
+        float armWeight = Mth.clamp((Math.abs(x) - 1.88F) / 0.58F, 0.0F, 1.0F)
+                * Mth.clamp((4.08F - Math.abs(x)) / 0.42F, 0.0F, 1.0F)
+                * Mth.clamp((y - 16.45F) / 0.72F, 0.0F, 1.0F)
+                * Mth.clamp((21.70F - y) / 0.72F, 0.0F, 1.0F)
+                * Mth.clamp((z + 2.02F) / 0.52F, 0.0F, 1.0F);
+        float armAngle;
+        if (actionState == HelpingAllayEntity.ACTION_REVEAL) {
+            armAngle = -1.05F;
+        } else if (actionState == HelpingAllayEntity.ACTION_SHIELD) {
+            armAngle = -1.24F;
+        } else if (actionState == HelpingAllayEntity.ACTION_HEAL
+                || actionState == HelpingAllayEntity.ACTION_BOND) {
+            armAngle = -0.72F;
+        } else {
+            armAngle = Mth.sin(ageInTicks * 0.10F + (side < 0.0F ? Mth.PI : 0.0F)) * 0.12F;
+        }
+        rotateAroundX(original, 16.85F, 0.0F, armAngle, temporary);
+        output.lerp(temporary, armWeight);
+
+        float headWeight = Mth.clamp((17.25F - y) / 0.72F, 0.0F, 1.0F)
+                * Mth.clamp((4.50F - Math.abs(x)) / 0.42F, 0.0F, 1.0F);
+        float yaw = Mth.clamp(netHeadYaw * Mth.DEG_TO_RAD, -0.55F, 0.55F);
+        float pitch = Mth.clamp(headPitch * Mth.DEG_TO_RAD, -0.42F, 0.42F);
+        rotateAroundY(original, 0.0F, 0.15F, yaw, temporary);
+        rotateAroundX(temporary, 16.85F, 0.15F, pitch, temporary);
+        output.lerp(temporary, headWeight * headWeight);
+
+        float coreWeight = Mth.clamp((z - 2.30F) / 0.34F, 0.0F, 1.0F)
+                * Mth.clamp((1.45F - Math.abs(x)) / 0.32F, 0.0F, 1.0F)
+                * Mth.clamp((y - 17.40F) / 0.38F, 0.0F, 1.0F)
+                * Mth.clamp((20.05F - y) / 0.38F, 0.0F, 1.0F);
+        float corePulse = actionState == HelpingAllayEntity.ACTION_HEAL ? 0.30F
+                : actionState == HelpingAllayEntity.ACTION_BOND ? 0.20F : 0.08F;
+        output.add(0.0F, Mth.sin(ageInTicks * 0.42F) * corePulse * coreWeight,
+                Mth.cos(ageInTicks * 0.42F) * corePulse * 0.35F * coreWeight);
+    }
+
+    private static void rotateAroundZ(Vector3f point, float pivotX, float pivotY, float angle,
+                                      Vector3f output) {
         float relativeX = point.x() - pivotX;
         float relativeY = point.y() - pivotY;
         float cosine = Mth.cos(angle);
         float sine = Mth.sin(angle);
-        return new Vector3f(
+        output.set(
                 relativeX * cosine - relativeY * sine + pivotX,
                 relativeX * sine + relativeY * cosine + pivotY,
                 point.z());
     }
 
-    private static Vector3f rotateAroundY(Vector3f point, float pivotX, float pivotZ, float angle) {
+    private static void rotateAroundY(Vector3f point, float pivotX, float pivotZ, float angle,
+                                      Vector3f output) {
         float relativeX = point.x() - pivotX;
         float relativeZ = point.z() - pivotZ;
         float cosine = Mth.cos(angle);
         float sine = Mth.sin(angle);
-        return new Vector3f(
+        output.set(
                 relativeX * cosine + relativeZ * sine + pivotX,
                 point.y(),
                 -relativeX * sine + relativeZ * cosine + pivotZ);
     }
 
-    private static Vector3f deformHumanoidVertex(float[] data, int offset, float limbSwing,
-                                                  float limbSwingAmount, float ageInTicks,
-                                                  float netHeadYaw, float headPitch,
-                                                  boolean swimming, boolean aimingBow,
-                                                  boolean aggressiveMelee) {
-        Vector3f original = new Vector3f(data[offset], data[offset + 1], data[offset + 2]);
-        Vector3f result = new Vector3f(original);
+    private static void deformHumanoidVertex(float[] data, int offset, float limbSwing,
+                                             float limbSwingAmount, float ageInTicks,
+                                             float netHeadYaw, float headPitch,
+                                             boolean swimming, boolean aimingBow,
+                                             boolean aggressiveMelee, Vector3f output,
+                                             Vector3f original, Vector3f temporary) {
+        original.set(data[offset], data[offset + 1], data[offset + 2]);
+        output.set(original);
         float x = original.x();
         float y = original.y();
         float walk = limbSwing * 0.6662F;
@@ -527,8 +637,8 @@ final class ExactMobMesh {
                 -1.28F + Mth.sin(ageInTicks * 0.18F + armPhase) * 0.08F : swimming
                 ? -1.05F + Mth.sin(ageInTicks * 0.12F + armPhase) * 0.18F
                 : Mth.cos(walk + armPhase) * 0.82F * limbSwingAmount;
-        Vector3f arm = rotateAroundX(original, 0.18F, 0.0F, armAngle);
-        result.lerp(arm, armWeight);
+        rotateAroundX(original, 0.18F, 0.0F, armAngle, temporary);
+        output.lerp(temporary, armWeight);
 
         float legWeight = Mth.clamp((y - 0.62F) / 0.66F, 0.0F, 1.0F)
                 * Mth.clamp((Math.abs(x) - 0.02F) / 0.13F, 0.0F, 1.0F);
@@ -536,32 +646,32 @@ final class ExactMobMesh {
         float legAngle = swimming
                 ? Mth.sin(ageInTicks * 0.16F + legPhase) * 0.34F
                 : Mth.cos(walk + legPhase) * 0.88F * limbSwingAmount;
-        Vector3f leg = rotateAroundX(original, 0.70F, 0.0F, legAngle);
-        result.lerp(leg, legWeight);
+        rotateAroundX(original, 0.70F, 0.0F, legAngle, temporary);
+        output.lerp(temporary, legWeight);
 
         float headWeight = Mth.clamp((0.20F - y) / 0.32F, 0.0F, 1.0F);
-        Vector3f head = rotateHead(original,
+        rotateHead(original,
                 Mth.clamp(netHeadYaw * Mth.DEG_TO_RAD, -0.55F, 0.55F),
-                Mth.clamp(headPitch * Mth.DEG_TO_RAD, -0.42F, 0.42F));
-        result.lerp(head, headWeight * headWeight);
+                Mth.clamp(headPitch * Mth.DEG_TO_RAD, -0.42F, 0.42F), temporary);
+        output.lerp(temporary, headWeight * headWeight);
         if (swimming) {
             float bodyWeight = 1.0F - Math.max(armWeight, legWeight);
-            result.add(Mth.sin(ageInTicks * 0.08F + y * 2.0F) * 0.025F * bodyWeight, 0.0F, 0.0F);
+            output.add(Mth.sin(ageInTicks * 0.08F + y * 2.0F) * 0.025F * bodyWeight, 0.0F, 0.0F);
         }
-        return result;
     }
 
-    private static Vector3f rotateAroundX(Vector3f point, float pivotY, float pivotZ, float angle) {
+    private static void rotateAroundX(Vector3f point, float pivotY, float pivotZ, float angle,
+                                      Vector3f output) {
         float relativeY = point.y() - pivotY;
         float relativeZ = point.z() - pivotZ;
         float cosine = Mth.cos(angle);
         float sine = Mth.sin(angle);
-        return new Vector3f(point.x(),
+        output.set(point.x(),
                 relativeY * cosine - relativeZ * sine + pivotY,
                 relativeY * sine + relativeZ * cosine + pivotZ);
     }
 
-    private static Vector3f rotateHead(Vector3f point, float yaw, float pitch) {
+    private static void rotateHead(Vector3f point, float yaw, float pitch, Vector3f output) {
         float pivotY = -0.02F;
         float pivotZ = 0.0F;
         float yawCosine = Mth.cos(yaw);
@@ -571,14 +681,14 @@ final class ExactMobMesh {
         float pitchCosine = Mth.cos(pitch);
         float pitchSine = Mth.sin(pitch);
         float relativeY = point.y() - pivotY;
-        return new Vector3f(yawedX,
+        output.set(yawedX,
                 relativeY * pitchCosine - yawedZ * pitchSine + pivotY,
                 relativeY * pitchSine + yawedZ * pitchCosine + pivotZ);
     }
 
-    private static Vector3f deformQuadrupedVertex(float[] data, int offset, float limbSwing,
-                                                   float limbSwingAmount, float netHeadYaw,
-                                                   float headPitch) {
+    private static void deformQuadrupedVertex(float[] data, int offset, float limbSwing,
+                                              float limbSwingAmount, float netHeadYaw,
+                                              float headPitch, Vector3f output) {
         float x = data[offset];
         float y = data[offset + 1];
         float z = data[offset + 2];
@@ -603,11 +713,11 @@ final class ExactMobMesh {
         float relativeY = y - pivotY;
         float rotatedY = relativeY * Mth.cos(pitch) - yawedZ * Mth.sin(pitch);
         float rotatedZ = relativeY * Mth.sin(pitch) + yawedZ * Mth.cos(pitch);
-        return new Vector3f(rotatedX, rotatedY + pivotY, rotatedZ + pivotZ);
+        output.set(rotatedX, rotatedY + pivotY, rotatedZ + pivotZ);
     }
 
-    private static Vector3f deformSpiderVertex(float[] data, int offset, float limbSwing,
-                                                float limbSwingAmount) {
+    private static void deformSpiderVertex(float[] data, int offset, float limbSwing,
+                                           float limbSwingAmount, Vector3f output) {
         float x = data[offset];
         float y = data[offset + 1];
         float z = data[offset + 2];
@@ -619,11 +729,11 @@ final class ExactMobMesh {
         y -= Math.abs(step) * 0.042F * legTipWeight;
         x += Math.signum(x) * Mth.sin(limbSwing * 1.45F + phase)
                 * 0.022F * limbSwingAmount * legTipWeight;
-        return new Vector3f(x, y, z);
+        output.set(x, y, z);
     }
 
-    private static Vector3f deformSquidVertex(float[] data, int offset, float waveSin,
-                                               float waveCos, float strength) {
+    private static void deformSquidVertex(float[] data, int offset, float waveSin,
+                                          float waveCos, float strength, Vector3f output) {
         float x = data[offset];
         float y = data[offset + 1];
         float z = data[offset + 2];
@@ -638,12 +748,12 @@ final class ExactMobMesh {
         float displacedX = x + amplitude * (waveSin * 0.040F + radialY * waveCos * 0.085F);
         float displacedY = y + amplitude * (waveCos * 0.030F - x * waveSin * 0.085F);
         float displacedZ = z + amplitude * waveSin * 0.012F;
-        return new Vector3f(displacedX, displacedY, displacedZ);
+        output.set(displacedX, displacedY, displacedZ);
     }
 
-    private static Vector3f deformOctopusVertex(float[] data, int offset, float ageInTicks,
-                                                 boolean inWater, byte actionState,
-                                                 boolean squeezing) {
+    private static void deformOctopusVertex(float[] data, int offset, float ageInTicks,
+                                            boolean inWater, byte actionState,
+                                            boolean squeezing, Vector3f output) {
         float x = data[offset];
         float y = data[offset + 1];
         float z = data[offset + 2];
@@ -714,11 +824,11 @@ final class ExactMobMesh {
             z += 0.08F * holdingArm;
             y -= 0.10F * holdingArm;
         }
-        return new Vector3f(x, y, z);
+        output.set(x, y, z);
     }
 
-    private static Vector3f deformGlowSquidVertex(float[] data, int offset, float waveSin,
-                                                   float waveCos, float strength) {
+    private static void deformGlowSquidVertex(float[] data, int offset, float waveSin,
+                                              float waveCos, float strength, Vector3f output) {
         float x = data[offset];
         float y = data[offset + 1];
         float z = data[offset + 2];
@@ -731,12 +841,12 @@ final class ExactMobMesh {
         float displacedX = x + amplitude * (waveSin * 0.075F + z * waveCos * 0.10F);
         float displacedZ = z + amplitude * (waveCos * 0.075F - x * waveSin * 0.10F);
         float displacedY = y + amplitude * Mth.sin(radialPhase + waveSin) * 0.028F;
-        return new Vector3f(displacedX, displacedY, displacedZ);
+        output.set(displacedX, displacedY, displacedZ);
     }
 
-    private static Vector3f deformAxolotlVertex(float[] data, int offset, float ageInTicks,
-                                                 float limbSwing, float limbSwingAmount,
-                                                 boolean inWater) {
+    private static void deformAxolotlVertex(float[] data, int offset, float ageInTicks,
+                                            float limbSwing, float limbSwingAmount,
+                                            boolean inWater, Vector3f output) {
         float x = data[offset];
         float y = data[offset + 1];
         float z = data[offset + 2];
@@ -758,21 +868,24 @@ final class ExactMobMesh {
         z += step * (inWater ? 0.055F : 0.13F) * legWeight;
         y -= Math.abs(step) * 0.035F * legWeight;
 
-        // Six external gills around the rear of the head flutter independently
-        // while remaining part of the exact continuous surface.
-        float gillWeight = Mth.clamp((-z - 0.24F) / 0.30F, 0.0F, 1.0F)
-                * Mth.clamp((1.31F - y) / 0.24F, 0.0F, 1.0F)
-                * Mth.clamp((Math.abs(x) - 0.14F) / 0.25F, 0.0F, 1.0F);
+        // The regenerated model carries its external gill/frond silhouette on
+        // the upper lateral rear of the body. A continuous positional field
+        // reaches those surfaces without moving the face or opening seams.
+        float gillWeight = Mth.clamp((Math.abs(x) - 0.24F) / 0.08F, 0.0F, 1.0F)
+                * Mth.clamp((z - 0.08F) / 0.08F, 0.0F, 1.0F)
+                * Mth.clamp((0.34F - z) / 0.08F, 0.0F, 1.0F)
+                * Mth.clamp((1.28F - y) / 0.10F, 0.0F, 1.0F);
         float gillSide = x < 0.0F ? -1.0F : 1.0F;
         x += gillSide * Mth.sin(ageInTicks * 0.31F + y * 8.0F) * 0.035F * gillWeight;
         y += Mth.cos(ageInTicks * 0.27F + z * 7.0F) * 0.018F * gillWeight;
-        return new Vector3f(x, y, z);
+        output.set(x, y, z);
     }
 
-    private static Vector3f deformOcelotVertex(float[] data, int offset, float ageInTicks,
-                                                float limbSwing, float limbSwingAmount,
-                                                float netHeadYaw, float headPitch,
-                                                boolean sprinting, boolean airborne) {
+    private static void deformOcelotVertex(float[] data, int offset, float ageInTicks,
+                                           float limbSwing, float limbSwingAmount,
+                                           float netHeadYaw, float headPitch,
+                                           boolean sprinting, boolean airborne,
+                                           Vector3f output) {
         float x = data[offset];
         float y = data[offset + 1];
         float z = data[offset + 2];
@@ -818,7 +931,7 @@ final class ExactMobMesh {
         float relativeY = y - pivotY;
         float rotatedY = relativeY * Mth.cos(pitch) - yawedZ * Mth.sin(pitch);
         float rotatedZ = relativeY * Mth.sin(pitch) + yawedZ * Mth.cos(pitch);
-        return new Vector3f(rotatedX, rotatedY + pivotY, rotatedZ + pivotZ);
+        output.set(rotatedX, rotatedY + pivotY, rotatedZ + pivotZ);
     }
 
     private static MeshPart readPart(DataInputStream input, Vector3f pivot, int faceCount)
@@ -855,20 +968,41 @@ final class ExactMobMesh {
         return new MeshPart(pivot, data, faceCount);
     }
 
+    private static void calculateFaceNormal(Vector3f first, Vector3f second, Vector3f third,
+                                            Vector3f normal, Vector3f edge) {
+        normal.set(second).sub(first);
+        edge.set(third).sub(first);
+        normal.cross(edge);
+        if (normal.lengthSquared() < 1.0E-12F) {
+            normal.set(0, 1, 0);
+        } else {
+            normal.normalize();
+        }
+    }
+
     private static void emitVertex(float[] data, int offset, Matrix4f pose, Vector3f normal,
                                    VertexConsumer buffer, int packedLight, int packedOverlay) {
-        Vector4f position = pose.transform(new Vector4f(
-                data[offset], data[offset + 1], data[offset + 2], 1));
-        buffer.vertex(position.x(), position.y(), position.z(), 1F, 1F, 1F, 1F,
+        float modelX = data[offset];
+        float modelY = data[offset + 1];
+        float modelZ = data[offset + 2];
+        float x = pose.m00() * modelX + pose.m10() * modelY + pose.m20() * modelZ + pose.m30();
+        float y = pose.m01() * modelX + pose.m11() * modelY + pose.m21() * modelZ + pose.m31();
+        float z = pose.m02() * modelX + pose.m12() * modelY + pose.m22() * modelZ + pose.m32();
+        buffer.vertex(x, y, z, 1F, 1F, 1F, 1F,
                 data[offset + 3], data[offset + 4], packedOverlay, packedLight,
                 normal.x(), normal.y(), normal.z());
     }
 
     private static void emitVertex(float[] data, int offset, Vector3f modelPosition,
-                                   Matrix4f pose, Vector3f normal, VertexConsumer buffer,
-                                   int packedLight, int packedOverlay) {
-        Vector4f position = pose.transform(new Vector4f(modelPosition, 1));
-        buffer.vertex(position.x(), position.y(), position.z(), 1F, 1F, 1F, 1F,
+                                    Matrix4f pose, Vector3f normal, VertexConsumer buffer,
+                                    int packedLight, int packedOverlay) {
+        float modelX = modelPosition.x();
+        float modelY = modelPosition.y();
+        float modelZ = modelPosition.z();
+        float x = pose.m00() * modelX + pose.m10() * modelY + pose.m20() * modelZ + pose.m30();
+        float y = pose.m01() * modelX + pose.m11() * modelY + pose.m21() * modelZ + pose.m31();
+        float z = pose.m02() * modelX + pose.m12() * modelY + pose.m22() * modelZ + pose.m32();
+        buffer.vertex(x, y, z, 1F, 1F, 1F, 1F,
                 data[offset + 3], data[offset + 4], packedOverlay, packedLight,
                 normal.x(), normal.y(), normal.z());
     }
