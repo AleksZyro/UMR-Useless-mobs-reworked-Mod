@@ -18,7 +18,6 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.animal.allay.Allay;
 
 public final class HelpingAllayExactLayer extends RenderLayer<Allay, AllayModel> {
-    private static final double ANIMATION_LOD_DISTANCE_SQUARED = 144.0D;
     private static final Set<String> BONES = Set.of(
             "body",
             "head",
@@ -61,16 +60,19 @@ public final class HelpingAllayExactLayer extends RenderLayer<Allay, AllayModel>
                 RenderType.entityCutoutNoCull(CustomMobModelLayers.HELPING_ALLAY_EXACT_TEXTURE));
         int overlay = LivingEntityRenderer.getOverlayCoords(helpingAllay, 0.0F);
         var cameraPosition = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
-        boolean animateSurface = entity.distanceToSqr(cameraPosition) <= ANIMATION_LOD_DISTANCE_SQUARED;
+        ExactAnimationLod animationLod = ExactAnimationLod.at(entity.distanceToSqr(cameraPosition));
+        float lodAgeInTicks = animationLod.quantizedAge(ageInTicks);
         poseStack.pushPose();
         float modelScale = 1.35F;
         poseStack.scale(modelScale, modelScale, modelScale);
         poseStack.translate(0F, 1.5F / modelScale - 1.5F, 0F);
-        poseStack.translate(0F, Mth.sin(ageInTicks * 0.12F) * 0.012F, 0F);
+        if (animationLod != ExactAnimationLod.FAR) {
+            poseStack.translate(0F, Mth.sin(lodAgeInTicks * 0.12F) * 0.012F, 0F);
+        }
         for (String bone : BONES) {
-            if (animateSurface) {
+            if (animationLod != ExactAnimationLod.FAR) {
                 this.mesh.renderAllayBone(bone, poseStack, buffer,
-                        LightTexture.FULL_BRIGHT, overlay, ageInTicks,
+                        LightTexture.FULL_BRIGHT, overlay, lodAgeInTicks,
                         netHeadYaw, headPitch, helpingAllay.action());
             } else {
                 this.mesh.renderBone(bone, poseStack, buffer,

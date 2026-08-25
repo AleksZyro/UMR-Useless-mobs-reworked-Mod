@@ -28,10 +28,10 @@ import java.util.Set;
 /** Animates exact Tripo triangle regions without replacing them with cuboids. */
 public final class ExactMobMeshLayer<T extends LivingEntity, M extends EntityModel<T>>
         extends RenderLayer<T, M> {
-    private static final double ANIMATION_LOD_DISTANCE_SQUARED = 144.0D;
     private final ExactMobMesh mesh;
     private final CustomMob3DModel.Variant variant;
     private final ResourceLocation texture;
+    private final ExactRigPose rigPose = new ExactRigPose();
 
     public ExactMobMeshLayer(RenderLayerParent<T, M> parent, ResourceManager resourceManager,
                              CustomMob3DModel.Variant variant, ResourceLocation texture) {
@@ -59,7 +59,13 @@ public final class ExactMobMeshLayer<T extends LivingEntity, M extends EntityMod
         // world light from multiplying that baked appearance a second time.
         int materialLight = LightTexture.FULL_BRIGHT;
         var cameraPosition = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
-        boolean animateSurface = entity.distanceToSqr(cameraPosition) <= ANIMATION_LOD_DISTANCE_SQUARED;
+        ExactAnimationLod animationLod = ExactAnimationLod.at(entity.distanceToSqr(cameraPosition));
+        boolean animateSurface = animationLod != ExactAnimationLod.FAR;
+        float lodAgeInTicks = animationLod.quantizedAge(ageInTicks);
+        if (animateSurface) {
+            this.rigPose.updateFor(this.variant, entity, limbSwing, limbSwingAmount,
+                    lodAgeInTicks, netHeadYaw, headPitch);
+        }
         poseStack.pushPose();
         float modelScale = switch (this.variant) {
             case LIVING_BOSS -> 1.35F;
@@ -88,16 +94,17 @@ public final class ExactMobMeshLayer<T extends LivingEntity, M extends EntityMod
             // These Tripo assets are continuous surfaces. Their exported regions
             // have no vertex weights, so rotating regions separately tears open
             // shared seams. Animate the complete surface as one cohesive root.
-            poseStack.translate(0F, rigidRootYOffset(entity, limbSwing,
-                    limbSwingAmount, ageInTicks), 0F);
+            if (animateSurface) {
+                poseStack.translate(0F, rigidRootYOffset(limbSwingAmount), 0F);
+            }
         }
         for (String bone : this.mesh.boneNames()) {
             BonePose animation;
-            if (usesRigidRootAnimation()) {
+            if (animationLod == ExactAnimationLod.FAR || usesRigidRootAnimation()) {
                 animation = BonePose.ZERO;
             } else {
                 animation = poseFor(bone, entity, limbSwing, limbSwingAmount,
-                        ageInTicks, netHeadYaw, headPitch);
+                        lodAgeInTicks, netHeadYaw, headPitch);
             }
             Vector3f pivot = this.mesh.pivot(bone);
             poseStack.pushPose();
@@ -117,24 +124,24 @@ public final class ExactMobMeshLayer<T extends LivingEntity, M extends EntityMod
             } else if (this.variant == CustomMob3DModel.Variant.OCTOPUS
                     && entity instanceof OctopusEntity octopus) {
                 this.mesh.renderOctopusBone(bone, poseStack, buffer, materialLight, overlay,
-                        ageInTicks, entity.isInWater(), octopus.getActionState(), octopus.isSqueezing());
+                        lodAgeInTicks, this.rigPose.inWater(), octopus.getActionState(), octopus.isSqueezing());
             } else if (this.variant == CustomMob3DModel.Variant.SQUID) {
                 this.mesh.renderSquidBone(bone, poseStack, buffer, materialLight, overlay,
-                        ageInTicks, entity.isInWater());
+                        lodAgeInTicks, this.rigPose.inWater());
             } else if (this.variant == CustomMob3DModel.Variant.GLOW_SQUID) {
                 this.mesh.renderGlowSquidBone(bone, poseStack, buffer, materialLight, overlay,
-                        ageInTicks, entity.isInWater());
+                        lodAgeInTicks, this.rigPose.inWater());
             } else if (this.variant == CustomMob3DModel.Variant.AXOLOTL) {
                 this.mesh.renderAxolotlBone(bone, poseStack, buffer, materialLight, overlay,
-                        ageInTicks, limbSwing, limbSwingAmount, entity.isInWater());
+                        lodAgeInTicks, limbSwing, limbSwingAmount, this.rigPose.inWater());
             } else if (this.variant == CustomMob3DModel.Variant.OCELOT) {
                 this.mesh.renderOcelotBone(bone, poseStack, buffer, materialLight, overlay,
-                        ageInTicks, limbSwing, limbSwingAmount, netHeadYaw, headPitch,
-                        entity.isSprinting(), !entity.onGround());
+                        lodAgeInTicks, limbSwing, limbSwingAmount, netHeadYaw, headPitch,
+                        this.rigPose.sprinting(), !this.rigPose.onGround());
             } else if (this.variant == CustomMob3DModel.Variant.LIVING_BAT
                     && entity instanceof LivingBatEntity bat) {
                 this.mesh.renderBatBone(bone, poseStack, buffer, materialLight, overlay,
-                        ageInTicks, bat.isResting());
+                        lodAgeInTicks, bat.isResting());
             } else {
                 if (this.variant == CustomMob3DModel.Variant.WEB_CAVE_SPIDER) {
                     this.mesh.renderSpiderBone(bone, poseStack, buffer, materialLight, overlay,
@@ -151,8 +158,8 @@ public final class ExactMobMeshLayer<T extends LivingEntity, M extends EntityMod
                     boolean aggressiveMelee = entity instanceof CoralDrownedEntity drowned && drowned.isAggressive()
                             || entity instanceof RootedHuskEntity husk && husk.isAggressive();
                     this.mesh.renderHumanoidBone(bone, poseStack, buffer, materialLight, overlay,
-                            limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch,
-                            entity.isInWater(), aimingBow, aggressiveMelee);
+                            limbSwing, limbSwingAmount, lodAgeInTicks, netHeadYaw, headPitch,
+                            this.rigPose.inWater(), aimingBow, aggressiveMelee);
                 } else {
                     this.mesh.renderBone(bone, poseStack, buffer, materialLight, overlay);
                 }
@@ -172,22 +179,21 @@ public final class ExactMobMeshLayer<T extends LivingEntity, M extends EntityMod
         };
     }
 
-    private float rigidRootYOffset(T entity, float limbSwing, float amount, float age) {
-        float walk = limbSwing * 0.6662F;
+    private float rigidRootYOffset(float amount) {
         return switch (this.variant) {
-            case LIVING_BOSS -> Mth.abs(Mth.cos(walk)) * 0.030F * amount;
-            case WEB_CAVE_SPIDER -> Mth.sin(age * 0.20F) * 0.011F;
-            case OCTOPUS -> Mth.sin(age * 0.08F) * (entity.isInWater() ? 0.019F : 0.006F);
-            case SQUID -> Mth.sin(age * 0.12F) * 0.012F;
-            case GLOW_SQUID -> Mth.sin(age * 0.14F) * 0.018F;
-            case WITCH_BOSS -> Mth.sin(age * 0.10F) * 0.008F;
-            case LIVING_BAT -> Mth.sin(age * 0.16F) * 0.015F;
-            case ROOTED_HUSK -> Mth.sin(age * 0.08F) * 0.004F;
-            case POLAR_BEAR -> Mth.abs(Mth.cos(walk)) * 0.018F * amount;
-            case FROST_STRAY -> Mth.abs(Mth.cos(walk)) * 0.014F * amount;
-            case CORAL_DROWNED -> Mth.sin(age * 0.10F) * (entity.isInWater() ? 0.018F : 0.006F);
-            case AXOLOTL -> Mth.sin(age * 0.16F) * (entity.isInWater() ? 0.012F : 0.004F);
-            case OCELOT -> Mth.abs(Mth.cos(walk)) * 0.012F * amount;
+            case LIVING_BOSS -> Mth.abs(this.rigPose.walkCos()) * 0.030F * amount;
+            case WEB_CAVE_SPIDER -> this.rigPose.rootSin() * 0.011F;
+            case OCTOPUS -> this.rigPose.rootSin() * (this.rigPose.inWater() ? 0.019F : 0.006F);
+            case SQUID -> this.rigPose.rootSin() * 0.012F;
+            case GLOW_SQUID -> this.rigPose.rootSin() * 0.018F;
+            case WITCH_BOSS -> this.rigPose.rootSin() * 0.008F;
+            case LIVING_BAT -> this.rigPose.rootSin() * 0.015F;
+            case ROOTED_HUSK -> this.rigPose.rootSin() * 0.004F;
+            case POLAR_BEAR -> Mth.abs(this.rigPose.walkCos()) * 0.018F * amount;
+            case FROST_STRAY -> Mth.abs(this.rigPose.walkCos()) * 0.014F * amount;
+            case CORAL_DROWNED -> this.rigPose.rootSin() * (this.rigPose.inWater() ? 0.018F : 0.006F);
+            case AXOLOTL -> this.rigPose.rootSin() * (this.rigPose.inWater() ? 0.012F : 0.004F);
+            case OCELOT -> Mth.abs(this.rigPose.walkCos()) * 0.012F * amount;
             default -> 0F;
         };
     }
