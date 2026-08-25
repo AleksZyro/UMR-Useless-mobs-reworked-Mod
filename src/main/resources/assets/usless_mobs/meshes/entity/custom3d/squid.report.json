@@ -1,23 +1,24 @@
 {
   "bones": {
-    "arm0": 61781,
-    "arm1": 65348,
-    "arm2": 3866,
-    "arm3": 33605,
-    "arm4": 42412,
-    "arm5": 25564,
-    "arm6": 74476,
-    "arm7": 42817,
-    "body": 333748,
-    "catching_tentacle0": 31225,
-    "catching_tentacle1": 19785
+    "arm0": 8082,
+    "arm1": 8342,
+    "arm2": 422,
+    "arm3": 4060,
+    "arm4": 2089,
+    "arm5": 3061,
+    "arm6": 10878,
+    "arm7": 5789,
+    "body": 51939,
+    "catching_tentacle0": 3848,
+    "catching_tentacle1": 4335
   },
   "cubes": 0,
+  "discarded_detached_triangles": 0,
   "fit_axis": 2,
   "fit_span": 22.4,
   "mob": "squid",
-  "output_triangles": 734627,
-  "source_triangles": 734627,
+  "output_triangles": 102845,
+  "source_triangles": 102845,
   "texture_height": 4096,
   "texture_width": 4096
 }

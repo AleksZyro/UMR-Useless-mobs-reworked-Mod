@@ -38,6 +38,7 @@ public final class ClientModEvents {
         event.registerEntityRenderer(ModEntities.WITCH_BOSS.get(), WitchBossRenderer::new);
         event.registerEntityRenderer(ModEntities.HELPING_ALLAY.get(), HelpingAllayRenderer::new);
         event.registerEntityRenderer(ModEntities.LIVING_SQUID.get(), LivingSquidRenderer::new);
+        event.registerEntityRenderer(ModEntities.GIANT_SQUID.get(), GiantSquidRenderer::new);
         event.registerEntityRenderer(ModEntities.LIVING_GLOW_SQUID.get(), LivingGlowSquidRenderer::new);
         event.registerEntityRenderer(ModEntities.LIVING_POLAR_BEAR.get(), LivingPolarBearRenderer::new);
         event.registerEntityRenderer(ModEntities.LIVING_AXOLOTL.get(), LivingAxolotlRenderer::new);

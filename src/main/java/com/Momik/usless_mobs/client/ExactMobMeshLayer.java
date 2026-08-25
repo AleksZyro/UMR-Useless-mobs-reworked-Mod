@@ -7,6 +7,7 @@ import com.Momik.usless_mobs.entity.RootedHuskEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -27,6 +28,7 @@ import java.util.Set;
 /** Animates exact Tripo triangle regions without replacing them with cuboids. */
 public final class ExactMobMeshLayer<T extends LivingEntity, M extends EntityModel<T>>
         extends RenderLayer<T, M> {
+    private static final double ANIMATION_LOD_DISTANCE_SQUARED = 144.0D;
     private final ExactMobMesh mesh;
     private final CustomMob3DModel.Variant variant;
     private final ResourceLocation texture;
@@ -56,6 +58,8 @@ public final class ExactMobMeshLayer<T extends LivingEntity, M extends EntityMod
         // shadow information. Stable full-bright sampling prevents Minecraft's
         // world light from multiplying that baked appearance a second time.
         int materialLight = LightTexture.FULL_BRIGHT;
+        var cameraPosition = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+        boolean animateSurface = entity.distanceToSqr(cameraPosition) <= ANIMATION_LOD_DISTANCE_SQUARED;
         poseStack.pushPose();
         float modelScale = switch (this.variant) {
             case LIVING_BOSS -> 1.35F;
@@ -70,14 +74,6 @@ public final class ExactMobMeshLayer<T extends LivingEntity, M extends EntityMod
         float floorScaleY = modelScale;
         poseStack.scale(modelScale, modelScale, modelScale);
         float modelYaw = switch (this.variant) {
-            // The Frost Stray GLB is reversed relative to the skeleton look
-            // vector. This half-turn keeps its skull/ribcage on the forward
-            // side instead of presenting the ice spine while approaching.
-            case FROST_STRAY -> 180F;
-            // The Coral Drowned source faces the runtime X axis. The positive
-            // quarter-turn presents the archived face/chest view along the
-            // entity look vector; the old negative turn exposed its backpack.
-            case CORAL_DROWNED -> 90F;
             default -> 0F;
         };
         if (modelYaw != 0F) {
@@ -113,7 +109,12 @@ public final class ExactMobMeshLayer<T extends LivingEntity, M extends EntityMod
             if (animation.yRot() != 0F) poseStack.mulPose(Axis.YP.rotation(animation.yRot()));
             if (animation.xRot() != 0F) poseStack.mulPose(Axis.XP.rotation(animation.xRot()));
             poseStack.translate(-pivot.x() / 16F, -pivot.y() / 16F, -pivot.z() / 16F);
-            if (this.variant == CustomMob3DModel.Variant.OCTOPUS
+            if (!animateSurface) {
+                // Keep the exact textured Tripo surface at distance, but skip the
+                // allocation-heavy per-vertex deformation that is not visible at
+                // this screen size. Nearby entities retain their full animation.
+                this.mesh.renderBone(bone, poseStack, buffer, materialLight, overlay);
+            } else if (this.variant == CustomMob3DModel.Variant.OCTOPUS
                     && entity instanceof OctopusEntity octopus) {
                 this.mesh.renderOctopusBone(bone, poseStack, buffer, materialLight, overlay,
                         ageInTicks, entity.isInWater(), octopus.getActionState(), octopus.isSqueezing());

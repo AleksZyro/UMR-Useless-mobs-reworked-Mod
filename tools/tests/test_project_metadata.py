@@ -39,6 +39,15 @@ def test_dependency_versions_are_centralized():
     assert "jei-1.20.1-forge:${jei_version}" in build
 
 
+def test_geckolib_is_declared_as_a_required_runtime_dependency():
+    mods = (ROOT / "src/main/resources/META-INF/mods.toml").read_text(encoding="utf-8")
+
+    dependency = mods.split('modId = "geckolib"', 1)[1].split("[[", 1)[0]
+    assert "mandatory = true" in dependency
+    assert 'versionRange = "[4.8.3,4.9)"' in dependency
+    assert 'side = "BOTH"' in dependency
+
+
 def test_build_resources_use_utf8_and_manifest_is_time_independent():
     build = (ROOT / "build.gradle").read_text(encoding="utf-8")
 

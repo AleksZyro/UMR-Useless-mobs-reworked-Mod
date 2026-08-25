@@ -81,6 +81,14 @@ public class Config {
             .comment("Whether the King Slime drops the trophy on Hard.")
             .define("kingSlime.hardDropsTrophy", true);
 
+    private static final ForgeConfigSpec.IntValue OCEAN_BIOME_REGION_WEIGHT = BUILDER
+            .comment("TerraBlender weight for UMR Deep Ocean biomes. Set to 0 to disable new UMR ocean-biome placement.")
+            .defineInRange("worldgen.oceanBiomeRegionWeight", 1, 0, 10);
+
+    private static final ForgeConfigSpec.IntValue ANCIENT_WHALE_RUIN_SPACING = BUILDER
+            .comment("Approximate Ancient Whale Ruin spacing in chunks. Values above 72 make the ruin rarer; restart required.")
+            .defineInRange("worldgen.ancientWhaleRuinSpacing", 72, 32, 512);
+
     static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static int slimeKillThreshold = 100;
@@ -101,6 +109,8 @@ public class Config {
     public static boolean normalDropsCrown = true;
     public static boolean hardDropsCrown = true;
     public static boolean hardDropsTrophy = true;
+    public static int oceanBiomeRegionWeight = 1;
+    public static int ancientWhaleRuinSpacing = 72;
 
     @SubscribeEvent
     static void onLoad(final ModConfigEvent event) {
@@ -122,5 +132,7 @@ public class Config {
         normalDropsCrown = NORMAL_DROPS_CROWN.get();
         hardDropsCrown = HARD_DROPS_CROWN.get();
         hardDropsTrophy = HARD_DROPS_TROPHY.get();
+        oceanBiomeRegionWeight = OCEAN_BIOME_REGION_WEIGHT.get();
+        ancientWhaleRuinSpacing = ANCIENT_WHALE_RUIN_SPACING.get();
     }
 }

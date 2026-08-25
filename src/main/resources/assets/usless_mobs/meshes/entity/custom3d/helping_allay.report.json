@@ -1,21 +1,22 @@
 {
   "bones": {
-    "body": 308377,
-    "head": 151573,
-    "left_arm": 81777,
-    "left_wing": 24855,
-    "left_wing_tip": 16629,
-    "right_arm": 78595,
-    "right_wing": 22854,
-    "right_wing_tip": 16965,
-    "soul_core": 24365
+    "body": 40878,
+    "head": 30391,
+    "left_arm": 10046,
+    "left_wing": 4123,
+    "left_wing_tip": 1597,
+    "right_arm": 4626,
+    "right_wing": 1570,
+    "right_wing_tip": 541,
+    "soul_core": 5469
   },
   "cubes": 0,
+  "discarded_detached_triangles": 0,
   "fit_axis": 1,
   "fit_span": 10.4,
   "mob": "helping_allay",
-  "output_triangles": 725990,
-  "source_triangles": 725990,
+  "output_triangles": 99241,
+  "source_triangles": 99241,
   "texture_height": 4096,
   "texture_width": 4096
 }

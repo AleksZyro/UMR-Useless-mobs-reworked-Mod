@@ -1,18 +1,19 @@
 {
   "bones": {
-    "body": 399139,
-    "head": 112513,
-    "leg_front_left": 86979,
-    "leg_front_right": 18508,
-    "leg_rear_left": 62288,
-    "leg_rear_right": 5512
+    "body": 44936,
+    "head": 12811,
+    "leg_front_left": 5683,
+    "leg_front_right": 8681,
+    "leg_rear_left": 5370,
+    "leg_rear_right": 7201
   },
   "cubes": 0,
+  "discarded_detached_triangles": 11206,
   "fit_axis": 2,
   "fit_span": 30.4,
   "mob": "polar_bear",
-  "output_triangles": 684939,
-  "source_triangles": 684939,
+  "output_triangles": 84682,
+  "source_triangles": 95888,
   "texture_height": 4096,
   "texture_width": 4096
 }

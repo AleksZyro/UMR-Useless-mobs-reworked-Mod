@@ -112,11 +112,15 @@ class HelpingAllayContractTests(unittest.TestCase):
         layer = (
             ROOT / "src/main/java/com/Momik/usless_mobs/client/HelpingAllayExactLayer.java"
         ).read_text(encoding="utf-8")
+        mesh = (
+            ROOT / "src/main/java/com/Momik/usless_mobs/client/ExactMobMesh.java"
+        ).read_text(encoding="utf-8")
         self.assertIn("TRANSPARENT_BASE_TEXTURE", renderer)
         self.assertIn('ExactMobMesh.load(resourceManager, "helping_allay"', layer)
         self.assertIn("HELPING_ALLAY_EXACT_TEXTURE", layer)
-        self.assertIn("ACTION_SHIELD", layer)
-        self.assertIn("ACTION_HEAL", layer)
+        self.assertIn("renderAllayBone", layer)
+        self.assertIn("ACTION_SHIELD", mesh)
+        self.assertIn("ACTION_HEAL", mesh)
         self.assertNotIn("CustomMob3DLayer", renderer + layer)
 
     def test_renderer_is_registered_for_the_dedicated_entity(self):

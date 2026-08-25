@@ -73,7 +73,22 @@ def test_continuous_exact_meshes_have_no_unweighted_per_region_rotation():
     assert "if (usesRigidRootAnimation())" in source
 
     allay = (ROOT / "src/main/java/com/Momik/usless_mobs/client/HelpingAllayExactLayer.java").read_text()
-    assert "BonePose animation = BonePose.ZERO;" in allay
+    assert "poseStack.mulPose(" not in allay
+
+
+def test_helping_allay_uses_continuous_action_wing_arm_head_and_core_deformation():
+    mesh = (ROOT / "src/main/java/com/Momik/usless_mobs/client/ExactMobMesh.java").read_text()
+    layer = (ROOT / "src/main/java/com/Momik/usless_mobs/client/HelpingAllayExactLayer.java").read_text()
+
+    assert "void renderAllayBone(" in mesh
+    assert "deformAllayVertex(" in mesh
+    assert "float wingWeight" in mesh
+    assert "float armWeight" in mesh
+    assert "float headWeight" in mesh
+    assert "float coreWeight" in mesh
+    assert "this.mesh.renderAllayBone(" in layer
+    assert "helpingAllay.action()" in layer
+    assert "BonePose animation = BonePose.ZERO;" not in layer
 
 
 def test_squid_uses_continuous_surface_swim_deformation_without_region_rotation():
@@ -164,14 +179,14 @@ def test_living_boss_uses_continuous_quadruped_walk_deformation_without_split_se
     assert "this.variant == CustomMob3DModel.Variant.LIVING_BOSS" in layer
 
 
-def test_frost_stray_uses_continuous_humanoid_deformation_and_corrected_forward_axis():
+def test_frost_stray_uses_continuous_humanoid_deformation_and_regenerated_forward_axis():
     mesh = (ROOT / "src/main/java/com/Momik/usless_mobs/client/ExactMobMesh.java").read_text()
     layer = (ROOT / "src/main/java/com/Momik/usless_mobs/client/ExactMobMeshLayer.java").read_text()
 
     assert "void renderHumanoidBone(" in mesh
     assert "deformHumanoidVertex(" in mesh
     assert "this.mesh.renderHumanoidBone(" in layer
-    assert "case FROST_STRAY -> 180F" in layer
+    assert "case FROST_STRAY -> 180F" not in layer
 
 
 def test_frost_stray_visible_arms_follow_its_aggressive_bow_pose():
@@ -202,7 +217,7 @@ def test_coral_drowned_uses_continuous_humanoid_swim_deformation():
     assert "boolean swimming" in mesh
     assert "CustomMob3DModel.Variant.CORAL_DROWNED" in layer
     assert "entity.isInWater()" in layer
-    assert "case CORAL_DROWNED -> 90F" in layer
+    assert "case CORAL_DROWNED -> 90F" not in layer
     assert "case CORAL_DROWNED -> -90F" not in layer
 
 
@@ -226,9 +241,12 @@ def test_axolotl_uses_continuous_tail_leg_and_gill_deformation():
     assert "float gillWeight" in mesh
     assert "this.mesh.renderAxolotlBone(" in layer
     assert "CustomMob3DModel.Variant.AXOLOTL" in layer
+    # Minecraft's model-forward convention is -Z, matching the verified source.
+    # A half-turn would present the tail as a fake, flattened head.
+    assert "case AXOLOTL -> 180F" not in layer
 
 
-def test_axolotl_gill_field_reaches_the_six_external_head_branches():
+def test_axolotl_gill_field_reaches_the_regenerated_external_fronds():
     source = (ROOT / "src/main/java/com/Momik/usless_mobs/client/ExactMobMesh.java").read_text()
     parts = decode_mesh((MESH_ROOT / "axolotl.mesh").read_bytes())
     positions = [
@@ -241,14 +259,14 @@ def test_axolotl_gill_field_reaches_the_six_external_head_branches():
     def clamp(value):
         return max(0.0, min(1.0, value))
 
-    # The generated model's six gills are its farthest lateral surfaces in a
-    # narrow band at the head/body junction. The runtime field must strongly
-    # reach those branches while excluding the face in front of z=-0.36.
+    # The regenerated model's external gill/frond silhouette occupies the
+    # upper lateral rear of the body. The runtime field must strongly reach
+    # those surfaces while excluding the face and the feet.
     weights = [
-        clamp((abs(x) - 0.24) / 0.09)
-        * clamp((z + 0.38) / 0.10)
-        * clamp((-z - 0.12) / 0.10)
-        * clamp((y - 1.02) / 0.12)
+        clamp((abs(x) - 0.24) / 0.08)
+        * clamp((z - 0.08) / 0.08)
+        * clamp((0.34 - z) / 0.08)
+        * clamp((1.28 - y) / 0.10)
         for x, y, z in positions
     ]
 
@@ -257,11 +275,12 @@ def test_axolotl_gill_field_reaches_the_six_external_head_branches():
     ]
     assert max(weights) == 1.0
     assert len(strongly_animated) >= len(positions) * 0.05
-    assert all(position[2] > -0.36 for position in strongly_animated)
-    assert "(Math.abs(x) - 0.24F) / 0.09F" in source
-    assert "(z + 0.38F) / 0.10F" in source
-    assert "(-z - 0.12F) / 0.10F" in source
-    assert "(y - 1.02F) / 0.12F" in source
+    assert all(position[2] > 0.15 for position in strongly_animated)
+    assert all(position[1] < 1.22 for position in strongly_animated)
+    assert "(Math.abs(x) - 0.24F) / 0.08F" in source
+    assert "(z - 0.08F) / 0.08F" in source
+    assert "(0.34F - z) / 0.08F" in source
+    assert "(1.28F - y) / 0.10F" in source
 
 
 def test_ocelot_has_continuous_leg_tail_head_and_pounce_deformation():
@@ -285,7 +304,7 @@ def test_runtime_loader_accepts_verified_high_detail_tripo_regions():
     )
     largest_verified_region = max(glow_report["bones"].values())
 
-    assert largest_verified_region == 463283
+    assert 50_000 <= largest_verified_region <= 110_000
     assert "MAX_FACES_PER_BONE = 1_000_000" in source
 
 
@@ -353,3 +372,49 @@ def test_living_boss_has_boss_scale_matching_hitbox_and_shadow():
     assert "case LIVING_BOSS -> 1.35F;" in layer
     assert ".sized(3.70F, 2.95F)" in entities
     assert "this.shadowRadius = 1.45F;" in renderer
+
+
+def test_exact_mesh_animation_uses_distance_lod_without_changing_near_geometry():
+    layer = (ROOT / "src/main/java/com/Momik/usless_mobs/client/ExactMobMeshLayer.java").read_text()
+
+    assert "ANIMATION_LOD_DISTANCE_SQUARED = 144.0D" in layer
+    assert "entity.distanceToSqr(cameraPosition)" in layer
+    assert "boolean animateSurface =" in layer
+    assert "if (!animateSurface)" in layer
+    assert "this.mesh.renderBone(bone, poseStack, buffer, materialLight, overlay);" in layer
+
+
+def test_static_exact_mesh_renderer_reuses_its_face_normal_vector():
+    mesh = (ROOT / "src/main/java/com/Momik/usless_mobs/client/ExactMobMesh.java").read_text()
+    render_bone = mesh[mesh.index("void renderBone("):mesh.index("void renderSquidBone(")]
+
+    assert "Vector3f normal = new Vector3f();" in render_bone
+    assert "normal.set(" in render_bone
+    assert "normalMatrix.transform(normal);" in render_bone
+    assert "normalMatrix.transform(new Vector3f(" not in render_bone
+
+
+def test_exact_mesh_vertex_emission_does_not_allocate_per_vertex_vectors():
+    mesh = (ROOT / "src/main/java/com/Momik/usless_mobs/client/ExactMobMesh.java").read_text()
+    emitters = mesh[mesh.index("private static void emitVertex("):mesh.index("private static int readIntLe(")]
+
+    assert "new Vector4f" not in emitters
+    assert "pose.m00()" in emitters
+    assert "pose.m30()" in emitters
+
+
+def test_animated_exact_mesh_reuses_face_normal_scratch_vectors():
+    mesh = (ROOT / "src/main/java/com/Momik/usless_mobs/client/ExactMobMesh.java").read_text()
+
+    assert ".cross(new Vector3f" not in mesh
+    assert "calculateFaceNormal(first, second, third, normal, edge);" in mesh
+    assert "private static void calculateFaceNormal(" in mesh
+
+
+def test_exact_mesh_deformation_writes_into_reused_vertex_vectors():
+    mesh = (ROOT / "src/main/java/com/Momik/usless_mobs/client/ExactMobMesh.java").read_text()
+    deformation = mesh[mesh.index("private static void deformBatVertex("):mesh.index("private static MeshPart readPart(")]
+
+    assert "private static Vector3f deform" not in deformation
+    assert "return new Vector3f" not in deformation
+    assert "Vector3f output" in deformation
