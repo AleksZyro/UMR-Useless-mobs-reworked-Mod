@@ -13,6 +13,10 @@
   "fit_span": 31.2,
   "mob": "coral_drowned",
   "output_triangles": 102563,
+  "runtime_texture_height": 2048,
+  "runtime_texture_width": 2048,
+  "source_texture_height": 4096,
+  "source_texture_width": 4096,
   "source_triangles": 102563,
   "texture_height": 4096,
   "texture_width": 4096

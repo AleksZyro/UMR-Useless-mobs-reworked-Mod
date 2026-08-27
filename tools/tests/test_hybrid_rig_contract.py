@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import re
 
 
@@ -163,7 +164,7 @@ def test_mid_quantizes_age_while_near_keeps_it_and_far_is_static_in_layers():
 
     humanoid_branch = _block_after(
         exact_loop,
-        "else if (this.variant == CustomMob3DModel.Variant.FROST_STRAY",
+        "else if (this.variant == CustomMob3DModel.Variant.CORAL_DROWNED",
     )
     assert "boolean aimingBow =" in humanoid_branch
     assert "boolean aggressiveMelee =" in humanoid_branch
@@ -207,18 +208,16 @@ def test_allay_inner_render_loop_keeps_action_state_without_allocations_or_trig(
     before_loop = render[:render.index("for (String bone :")]
     loop = _render_loop(layer)
 
-    root_branch = _block_after(
-        before_loop, "if (animationLod != ExactAnimationLod.FAR) {"
-    )
     animated_branch = _block_after(
         loop, "if (animationLod != ExactAnimationLod.FAR) {"
     )
     far_branch = _block_after(loop, "} else {")
     animated_call = _call(animated_branch, "renderAllayBone(")
 
-    assert "Mth.sin(lodAgeInTicks * 0.12F)" in root_branch
-    assert "lodAgeInTicks" in animated_call
-    assert "helpingAllay.action()" in animated_call
+    assert "this.rigPose.updateHelpingAllay(lodAgeInTicks" in before_loop
+    assert "helpingAllay.action()" in before_loop
+    assert "Mth.sin(lodAgeInTicks * 0.12F)" in before_loop
+    assert "this.rigPose" in animated_call
     assert "renderBone(" not in animated_branch
     assert "this.mesh.renderBone(bone, poseStack, buffer," in far_branch
     assert "renderAllayBone(" not in far_branch
@@ -226,3 +225,154 @@ def test_allay_inner_render_loop_keeps_action_state_without_allocations_or_trig(
     assert "new Vector3f" not in loop
     assert "Mth.sin(" not in loop
     assert "Mth.cos(" not in loop
+
+
+def test_frost_stray_pose_precomputes_segmented_limb_and_smooth_bow_values():
+    pose = _source("ExactRigPose.java")
+    update = _method_body(pose, "void updateFor(CustomMob3DModel.Variant variant, LivingEntity entity,")
+    frost = _method_body(pose, "private void updateFrostStray(")
+
+    assert "case FROST_STRAY -> updateFrostStray(" in update
+    assert "skeleton.isAggressive()" in update
+    for concept in (
+        "rightShoulderAngle", "leftShoulderAngle",
+        "rightElbowAngle", "leftElbowAngle",
+        "rightHipAngle", "leftHipAngle",
+        "rightKneeAngle", "leftKneeAngle",
+    ):
+        assert concept in pose
+    assert "rightWalkPhase" in frost and "leftWalkPhase" in frost
+    assert "Mth.PI" in frost
+    assert "this.bowBlend =" in frost
+    assert "Mth.clamp(" in frost
+    assert frost.count("Mth.lerp(this.bowBlend") >= 4
+    assert "targetYaw" in frost and "targetPitch" in frost
+    assert "upperBodyYaw" in frost and "upperBodyPitch" in frost
+
+
+def test_frost_stray_surface_uses_soft_overlapping_segments_and_precomputed_pose():
+    mesh = _source("ExactMobMesh.java")
+    render = _method_body(mesh, "void renderFrostStrayBone(")
+    loop = render[render.index("for (int face = 0;"):]
+    deform = _method_body(mesh, "private static void deformFrostStrayVertex(")
+
+    assert render.count("deformFrostStrayVertex(") == 3
+    assert "void renderFrostStrayBone(String boneName, PoseStack poseStack, VertexConsumer buffer," in mesh
+    assert "int packedLight, int packedOverlay, ExactRigPose pose)" in mesh
+    for weight in ("upperArmWeight", "lowerArmWeight", "thighWeight", "shinWeight"):
+        assert weight in deform
+    assert deform.count("smoothBand(") >= 4
+    assert "pose.rightShoulderCos()" in deform
+    assert "pose.leftElbowSin()" in deform
+    assert "pose.rightHipCos()" in deform
+    assert "pose.leftKneeSin()" in deform
+    assert "pose.targetYawCos()" in deform and "pose.targetPitchSin()" in deform
+    assert "pose.upperBodyYawCos()" in deform and "pose.upperBodyPitchSin()" in deform
+    assert "new Vector" not in loop
+    assert "Mth.sin(" not in loop and "Mth.cos(" not in loop
+    assert "Mth.sin(" not in deform and "Mth.cos(" not in deform
+
+
+def test_frost_stray_mesh_and_item_anchor_share_exact_pose_definition_and_lod_age():
+    exact_layer = _source("ExactMobMeshLayer.java")
+    item_layer = _source("ExactHeldItemLayer.java")
+    pose = _source("ExactRigPose.java")
+    mesh_render = _method_body(exact_layer, "public void render(")
+    item_render = _method_body(item_layer, "public void render(")
+
+    frost_branch = _block_after(
+        _render_loop(exact_layer),
+        "else if (this.variant == CustomMob3DModel.Variant.FROST_STRAY)",
+    )
+    assert "renderFrostStrayBone(" in frost_branch
+    assert "this.rigPose" in _call(frost_branch, "renderFrostStrayBone(")
+    assert "lodAgeInTicks" in _call(mesh_render, "this.rigPose.updateFor(")
+
+    assert "private final ExactRigPose rigPose = new ExactRigPose();" in item_layer
+    assert "entity.getMainHandItem()" in item_render
+    assert item_render.index("if (item.isEmpty())") < item_render.index("poseStack.pushPose();")
+    assert "ExactAnimationLod.at(entity.distanceToSqr(cameraPosition))" in item_render
+    assert "animationLod.quantizedAge(ageInTicks)" in item_render
+    assert "animationLod == ExactAnimationLod.FAR ? 0.0F" in item_render
+    assert "this.rigPose.updateFor(" in item_render
+    assert "this.rigPose.frostStrayMainHand(poseStack, mainArm);" in item_render
+    assert "ItemDisplayContext.THIRD_PERSON_RIGHT_HAND" in item_render
+    assert "ItemDisplayContext.THIRD_PERSON_LEFT_HAND" in item_render
+    assert "mainArm == HumanoidArm.LEFT" in item_render
+    assert "Axis.XP.rotationDegrees(-90.0F)" in item_render
+    assert "Axis.YP.rotationDegrees(180.0F)" in item_render
+    assert "leftHand ? -1.0F : 1.0F" in item_render
+    assert "0.125F, -0.625F" in item_render
+    assert "throw new IllegalStateException" in item_render
+    assert "void frostStrayMainHand(PoseStack poseStack, HumanoidArm arm)" in pose
+
+
+def test_web_cave_spider_pose_precomputes_alternating_eight_leg_gait():
+    pose = _source("ExactRigPose.java")
+    update = _method_body(pose, "void updateFor(CustomMob3DModel.Variant variant, LivingEntity entity,")
+    spider = _method_body(pose, "private void updateWebCaveSpider(")
+    mesh = _source("ExactMobMesh.java")
+    deform = _method_body(mesh, "private static void deformSpiderVertex(")
+    layer = _source("ExactMobMeshLayer.java")
+
+    assert "case WEB_CAVE_SPIDER -> updateWebCaveSpider(" in update
+    assert "spiderStepCosA" in pose and "spiderStepCosB" in pose
+    assert "spiderSweepSinA" in pose and "spiderSweepSinB" in pose
+    assert spider.count("Mth.cos(") == 2
+    assert spider.count("Mth.sin(") == 2
+    assert "longitudinalStation" in deform
+    assert "stationParity" in deform and "sideParity" in deform
+    assert "pose.spiderStepCosA()" in deform
+    assert "pose.spiderSweepSinB()" in deform
+    assert "Mth.cos(" not in deform and "Mth.sin(" not in deform
+    assert "case WEB_CAVE_SPIDER -> 180F;" in layer
+
+
+def test_web_cave_spider_hitbox_is_flat_and_matches_rendered_width():
+    entities = (ROOT / "src/main/java/com/Momik/usless_mobs/registry/ModEntities.java").read_text()
+    report = json.loads((
+        ROOT / "src/main/resources/assets/usless_mobs/meshes/entity/custom3d/web_cave_spider.report.json"
+    ).read_text())
+
+    assert ".sized(1.30F, 0.56F)" in entities
+    rendered_width = report["fit_span"] / 16.0 * 1.80
+    assert rendered_width <= 1.30
+    assert 0.56 < 1.30
+
+
+def test_helping_allay_pose_has_independent_wings_arms_head_core_and_actions():
+    pose = _source("ExactRigPose.java")
+    update = _method_body(pose, "void updateHelpingAllay(")
+    mesh = _source("ExactMobMesh.java")
+    deform = _method_body(mesh, "private static void deformAllayVertex(")
+
+    for concept in (
+        "rightWingRoot", "leftWingRoot", "rightWingTip", "leftWingTip",
+        "rightAllayArm", "leftAllayArm", "allayHeadYaw", "allayHeadPitch",
+        "allayCorePulse",
+    ):
+        assert concept in pose
+    for action in ("ACTION_REVEAL", "ACTION_SHIELD", "ACTION_HEAL", "ACTION_BOND", "ACTION_TELEPORT"):
+        assert action in update
+    assert "ExactRigPose pose" in mesh[mesh.index("void renderAllayBone("):mesh.index("void renderSquidBone(")]
+    assert "pose.rightWingRootCos()" in deform
+    assert "pose.leftWingTipSin()" in deform
+    assert "pose.rightAllayArmCos()" in deform
+    assert "pose.allayHeadYawCos()" in deform
+    assert "pose.allayCorePulse()" in deform
+    assert "Mth.sin(" not in deform and "Mth.cos(" not in deform
+    assert "16.85F" not in deform and "3.55F" not in deform
+
+
+def test_helping_allay_uses_exact_visible_item_anchor():
+    renderer = _source("HelpingAllayRenderer.java")
+    item_layer = _source("ExactHeldItemLayer.java")
+    pose = _source("ExactRigPose.java")
+
+    assert "new ExactHeldItemLayer<>(" in renderer
+    assert "ItemInHandLayer" not in renderer
+    assert "HelpingAllayEntity" in item_layer
+    assert "updateHelpingAllay(" in item_layer
+    assert "helpingAllayMainHand(" in item_layer
+    assert "0.7F / modelScale" in item_layer
+    assert "void helpingAllayMainHand(PoseStack poseStack, HumanoidArm arm)" in pose

@@ -51,6 +51,14 @@ class RemainingMobRendererContract(unittest.TestCase):
         self.assertNotIn("new CustomMob3DLayer<>(", source)
         self.assertIn("return CustomMobModelLayers.TRANSPARENT_BASE_TEXTURE;", source)
 
+    def test_helping_allay_uses_exact_item_anchor_before_exact_mesh(self):
+        source = (CLIENT / "HelpingAllayRenderer.java").read_text(encoding="utf-8")
+        held_item = source.index("new ExactHeldItemLayer<>(")
+        exact_mesh = source.index("new HelpingAllayExactLayer(")
+
+        self.assertLess(held_item, exact_mesh)
+        self.assertNotIn("ItemInHandLayer", source)
+
     def test_two_special_cases_remain_untouched_until_regenerated(self):
         for filename in SPECIAL_CASE_RENDERERS:
             with self.subTest(renderer=filename):
@@ -58,14 +66,17 @@ class RemainingMobRendererContract(unittest.TestCase):
                 self.assertEqual(1, source.count("new CustomMob3DLayer<>("))
                 self.assertNotIn("new ExactMobMeshLayer<>(", source)
 
-    def test_frost_stray_keeps_its_visible_bow_after_replacing_vanilla_layers(self):
+    def test_frost_stray_uses_exact_visible_bow_anchor_before_exact_mesh(self):
         source = (CLIENT / "FrostStrayRenderer.java").read_text(encoding="utf-8")
         clear = source.index("this.layers.clear();")
-        held_item = source.index("new ItemInHandLayer<>(")
+        held_item = source.index("new ExactHeldItemLayer<>(")
         exact_mesh = source.index("new ExactMobMeshLayer<>(")
 
         self.assertLess(clear, held_item)
         self.assertLess(held_item, exact_mesh)
+        self.assertEqual(1, source.count("new ExactHeldItemLayer<>("))
+        self.assertNotIn("ItemInHandLayer", source)
+        self.assertIn("CustomMob3DModel.Variant.FROST_STRAY", source[held_item:exact_mesh])
 
     def test_coral_drowned_keeps_held_items_after_replacing_vanilla_layers(self):
         source = (CLIENT / "CoralDrownedRenderer.java").read_text(encoding="utf-8")

@@ -17,7 +17,6 @@ def _pair(value: str) -> tuple[str, str]:
 
 
 def _owners(document: dict[str, Any]) -> dict[str, str]:
-    groups = {group["uuid"]: group["name"] for group in document.get("groups", [])}
     result: dict[str, str] = {}
 
     def visit(node: Any, owner: str | None = None) -> None:
@@ -27,9 +26,9 @@ def _owners(document: dict[str, Any]) -> dict[str, str]:
                     raise ValueError(f"element has multiple owners: {node}")
                 result[node] = owner
             return
-        if not isinstance(node, dict) or node.get("uuid") not in groups:
+        if not isinstance(node, dict) or not isinstance(node.get("name"), str):
             raise ValueError("invalid outliner group")
-        group = groups[node["uuid"]]
+        group = node["name"]
         for child in node.get("children", []):
             visit(child, group)
 

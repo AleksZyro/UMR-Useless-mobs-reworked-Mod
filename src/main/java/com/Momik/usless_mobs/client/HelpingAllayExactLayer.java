@@ -30,6 +30,7 @@ public final class HelpingAllayExactLayer extends RenderLayer<Allay, AllayModel>
             "soul_core");
 
     private final ExactMobMesh mesh;
+    private final ExactRigPose rigPose = new ExactRigPose();
 
     public HelpingAllayExactLayer(RenderLayerParent<Allay, AllayModel> parent, ResourceManager resourceManager) {
         super(parent);
@@ -62,6 +63,10 @@ public final class HelpingAllayExactLayer extends RenderLayer<Allay, AllayModel>
         var cameraPosition = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         ExactAnimationLod animationLod = ExactAnimationLod.at(entity.distanceToSqr(cameraPosition));
         float lodAgeInTicks = animationLod.quantizedAge(ageInTicks);
+        if (animationLod != ExactAnimationLod.FAR) {
+            this.rigPose.updateHelpingAllay(lodAgeInTicks, netHeadYaw,
+                    headPitch, helpingAllay.action());
+        }
         poseStack.pushPose();
         float modelScale = 1.35F;
         poseStack.scale(modelScale, modelScale, modelScale);
@@ -72,8 +77,7 @@ public final class HelpingAllayExactLayer extends RenderLayer<Allay, AllayModel>
         for (String bone : BONES) {
             if (animationLod != ExactAnimationLod.FAR) {
                 this.mesh.renderAllayBone(bone, poseStack, buffer,
-                        LightTexture.FULL_BRIGHT, overlay, lodAgeInTicks,
-                        netHeadYaw, headPitch, helpingAllay.action());
+                        LightTexture.FULL_BRIGHT, overlay, this.rigPose);
             } else {
                 this.mesh.renderBone(bone, poseStack, buffer,
                         LightTexture.FULL_BRIGHT, overlay);

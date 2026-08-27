@@ -80,6 +80,7 @@ public final class ExactMobMeshLayer<T extends LivingEntity, M extends EntityMod
         float floorScaleY = modelScale;
         poseStack.scale(modelScale, modelScale, modelScale);
         float modelYaw = switch (this.variant) {
+            case WEB_CAVE_SPIDER -> 180F;
             default -> 0F;
         };
         if (modelYaw != 0F) {
@@ -145,13 +146,15 @@ public final class ExactMobMeshLayer<T extends LivingEntity, M extends EntityMod
             } else {
                 if (this.variant == CustomMob3DModel.Variant.WEB_CAVE_SPIDER) {
                     this.mesh.renderSpiderBone(bone, poseStack, buffer, materialLight, overlay,
-                            limbSwing, limbSwingAmount);
+                            this.rigPose);
                 } else if (this.variant == CustomMob3DModel.Variant.LIVING_BOSS
                         || this.variant == CustomMob3DModel.Variant.POLAR_BEAR) {
                     this.mesh.renderQuadrupedBone(bone, poseStack, buffer, materialLight, overlay,
                             limbSwing, limbSwingAmount, netHeadYaw, headPitch);
-                } else if (this.variant == CustomMob3DModel.Variant.FROST_STRAY
-                        || this.variant == CustomMob3DModel.Variant.CORAL_DROWNED
+                } else if (this.variant == CustomMob3DModel.Variant.FROST_STRAY) {
+                    this.mesh.renderFrostStrayBone(bone, poseStack, buffer,
+                            materialLight, overlay, this.rigPose);
+                } else if (this.variant == CustomMob3DModel.Variant.CORAL_DROWNED
                         || this.variant == CustomMob3DModel.Variant.WITCH_BOSS
                         || this.variant == CustomMob3DModel.Variant.ROOTED_HUSK) {
                     boolean aimingBow = entity instanceof AbstractSkeleton skeleton && skeleton.isAggressive();
