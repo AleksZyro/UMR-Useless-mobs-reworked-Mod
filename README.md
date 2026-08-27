@@ -38,15 +38,16 @@ Die aktive Corrupted-Silverfish-Ressource enthält 101'723 Dreiecke, acht Bones 
 - Minecraft Java Edition 1.20.1
 - Minecraft Forge 47.4.16
 - GeckoLib 4.8.3
+- TerraBlender 3.0.1.10
 - Curios 5.10 oder neuer: optional
 - JEI 15.20 oder neuer: optional
 
 ## Installation
 
 1. Forge 47.4.16 für Minecraft 1.20.1 installieren.
-2. GeckoLib 4.8.3 und die aktuelle UMR-JAR in den mods-Ordner legen.
+2. GeckoLib 4.8.3, TerraBlender 3.0.1.10 und die aktuelle UMR-JAR in den `mods`-Ordner legen.
 3. Optional Curios und JEI ergänzen.
-4. Minecraft mit dem passenden Forge-Profil starten.
+4. Minecraft mit dem passenden Forge-Profil starten. Nur die normale UMR-JAR verwenden, keine Quellen- oder Prüfpakete.
 
 Vorhandene Testwelten behalten die technische Mod-ID **usless_mobs**. Diese absichtlich unveränderte ID schützt gespeicherte Registry-Daten, obwohl der sichtbare Name korrigiert wurde.
 

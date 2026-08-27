@@ -12,6 +12,10 @@
   "fit_span": 8.0,
   "mob": "living_bat",
   "output_triangles": 99081,
+  "runtime_texture_height": 2048,
+  "runtime_texture_width": 2048,
+  "source_texture_height": 4096,
+  "source_texture_width": 4096,
   "source_triangles": 99081,
   "texture_height": 4096,
   "texture_width": 4096

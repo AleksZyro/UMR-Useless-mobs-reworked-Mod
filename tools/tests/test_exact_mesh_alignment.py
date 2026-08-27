@@ -376,8 +376,10 @@ def test_living_boss_has_boss_scale_matching_hitbox_and_shadow():
 
 def test_exact_mesh_animation_uses_distance_lod_without_changing_near_geometry():
     layer = (ROOT / "src/main/java/com/Momik/usless_mobs/client/ExactMobMeshLayer.java").read_text()
+    lod = (ROOT / "src/main/java/com/Momik/usless_mobs/client/ExactAnimationLod.java").read_text()
 
-    assert "ANIMATION_LOD_DISTANCE_SQUARED = 144.0D" in layer
+    assert "NEAR_DISTANCE_SQUARED = 144.0D" in lod
+    assert "MID_DISTANCE_SQUARED = 576.0D" in lod
     assert "entity.distanceToSqr(cameraPosition)" in layer
     assert "boolean animateSurface =" in layer
     assert "if (!animateSurface)" in layer

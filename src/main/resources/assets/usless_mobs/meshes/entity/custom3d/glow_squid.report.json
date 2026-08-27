@@ -18,6 +18,10 @@
   "fit_span": 24.0,
   "mob": "glow_squid",
   "output_triangles": 100030,
+  "runtime_texture_height": 2048,
+  "runtime_texture_width": 2048,
+  "source_texture_height": 4096,
+  "source_texture_width": 4096,
   "source_triangles": 100030,
   "texture_height": 4096,
   "texture_width": 4096

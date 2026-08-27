@@ -1,6 +1,5 @@
 package com.Momik.usless_mobs.client;
 
-import com.Momik.usless_mobs.entity.HelpingAllayEntity;
 import com.Momik.usless_mobs.entity.OctopusEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -131,8 +130,7 @@ final class ExactMobMesh {
      * always receive the same transform and cannot open visible cracks.
      */
     void renderAllayBone(String boneName, PoseStack poseStack, VertexConsumer buffer,
-                         int packedLight, int packedOverlay, float ageInTicks,
-                         float netHeadYaw, float headPitch, byte actionState) {
+                         int packedLight, int packedOverlay, ExactRigPose poseState) {
         MeshPart part = this.parts.get(boneName);
         if (part == null || part.faceCount() == 0) {
             return;
@@ -150,12 +148,9 @@ final class ExactMobMesh {
         int cursor = 0;
         for (int face = 0; face < part.faceCount(); face++) {
             int verticesStart = cursor;
-            deformAllayVertex(data, verticesStart, ageInTicks, netHeadYaw,
-                    headPitch, actionState, first, original, temporary);
-            deformAllayVertex(data, verticesStart + 5, ageInTicks, netHeadYaw,
-                    headPitch, actionState, second, original, temporary);
-            deformAllayVertex(data, verticesStart + 10, ageInTicks, netHeadYaw,
-                    headPitch, actionState, third, original, temporary);
+            deformAllayVertex(data, verticesStart, poseState, first, original, temporary);
+            deformAllayVertex(data, verticesStart + 5, poseState, second, original, temporary);
+            deformAllayVertex(data, verticesStart + 10, poseState, third, original, temporary);
             calculateFaceNormal(first, second, third, normal, edge);
             normalMatrix.transform(normal);
             emitVertex(data, verticesStart, first, pose, normal, buffer, packedLight, packedOverlay);
@@ -348,8 +343,7 @@ final class ExactMobMesh {
 
     /** Seam-safe diagonal gait for the complete unweighted spider surface. */
     void renderSpiderBone(String boneName, PoseStack poseStack, VertexConsumer buffer,
-                          int packedLight, int packedOverlay, float limbSwing,
-                          float limbSwingAmount) {
+                          int packedLight, int packedOverlay, ExactRigPose poseState) {
         MeshPart part = this.parts.get(boneName);
         if (part == null || part.faceCount() == 0) {
             return;
@@ -365,9 +359,9 @@ final class ExactMobMesh {
         int cursor = 0;
         for (int face = 0; face < part.faceCount(); face++) {
             int verticesStart = cursor;
-            deformSpiderVertex(data, verticesStart, limbSwing, limbSwingAmount, first);
-            deformSpiderVertex(data, verticesStart + 5, limbSwing, limbSwingAmount, second);
-            deformSpiderVertex(data, verticesStart + 10, limbSwing, limbSwingAmount, third);
+            deformSpiderVertex(data, verticesStart, poseState, first);
+            deformSpiderVertex(data, verticesStart + 5, poseState, second);
+            deformSpiderVertex(data, verticesStart + 10, poseState, third);
             calculateFaceNormal(first, second, third, normal, edge);
             normalMatrix.transform(normal);
             emitVertex(data, verticesStart, first, pose, normal, buffer, packedLight, packedOverlay);
@@ -413,6 +407,39 @@ final class ExactMobMesh {
             emitVertex(data, verticesStart + 5, second, pose, normal, buffer, packedLight, packedOverlay);
             emitVertex(data, verticesStart + 10, third, pose, normal, buffer, packedLight, packedOverlay);
             emitVertex(data, verticesStart + 10, third, pose, normal, buffer, packedLight, packedOverlay);
+            cursor += 18;
+        }
+    }
+
+    /** Deforms Frost Stray's continuous surface from one precomputed segmented pose. */
+    void renderFrostStrayBone(String boneName, PoseStack poseStack, VertexConsumer buffer,
+                              int packedLight, int packedOverlay, ExactRigPose pose) {
+        MeshPart part = this.parts.get(boneName);
+        if (part == null || part.faceCount() == 0) {
+            return;
+        }
+        Matrix4f matrix = poseStack.last().pose();
+        Matrix3f normalMatrix = poseStack.last().normal();
+        float[] data = part.data();
+        Vector3f normal = new Vector3f();
+        Vector3f edge = new Vector3f();
+        Vector3f first = new Vector3f();
+        Vector3f second = new Vector3f();
+        Vector3f third = new Vector3f();
+        Vector3f original = new Vector3f();
+        Vector3f temporary = new Vector3f();
+        int cursor = 0;
+        for (int face = 0; face < part.faceCount(); face++) {
+            int verticesStart = cursor;
+            deformFrostStrayVertex(data, verticesStart, pose, first, original, temporary);
+            deformFrostStrayVertex(data, verticesStart + 5, pose, second, original, temporary);
+            deformFrostStrayVertex(data, verticesStart + 10, pose, third, original, temporary);
+            calculateFaceNormal(first, second, third, normal, edge);
+            normalMatrix.transform(normal);
+            emitVertex(data, verticesStart, first, matrix, normal, buffer, packedLight, packedOverlay);
+            emitVertex(data, verticesStart + 5, second, matrix, normal, buffer, packedLight, packedOverlay);
+            emitVertex(data, verticesStart + 10, third, matrix, normal, buffer, packedLight, packedOverlay);
+            emitVertex(data, verticesStart + 10, third, matrix, normal, buffer, packedLight, packedOverlay);
             cursor += 18;
         }
     }
@@ -532,9 +559,8 @@ final class ExactMobMesh {
         }
     }
 
-    private static void deformAllayVertex(float[] data, int offset, float ageInTicks,
-                                          float netHeadYaw, float headPitch,
-                                          byte actionState, Vector3f output,
+    private static void deformAllayVertex(float[] data, int offset, ExactRigPose pose,
+                                          Vector3f output,
                                           Vector3f original, Vector3f temporary) {
         original.set(data[offset], data[offset + 1], data[offset + 2]);
         output.set(original);
@@ -543,53 +569,43 @@ final class ExactMobMesh {
         float z = original.z();
         float side = x < 0.0F ? -1.0F : 1.0F;
 
-        float wingWeight = Mth.clamp((Math.abs(x) - 3.55F) / 0.82F, 0.0F, 1.0F)
-                * Mth.clamp((-z + 1.30F) / 0.65F, 0.0F, 1.0F);
-        float flapSpeed = actionState == HelpingAllayEntity.ACTION_TELEPORT ? 1.34F
-                : actionState == HelpingAllayEntity.ACTION_SHIELD
-                || actionState == HelpingAllayEntity.ACTION_HEAL ? 1.05F : 0.78F;
-        float flapStrength = actionState == HelpingAllayEntity.ACTION_TELEPORT ? 1.05F
-                : actionState == HelpingAllayEntity.ACTION_SHIELD
-                || actionState == HelpingAllayEntity.ACTION_HEAL ? 0.86F : 0.62F;
-        float flap = Mth.sin(ageInTicks * flapSpeed) * flapStrength;
-        rotateAroundY(original, side * 3.55F, -1.45F, side * flap, temporary);
+        float wingWeight = Mth.clamp((Math.abs(x) - 0.222F) / 0.052F, 0.0F, 1.0F)
+                * Mth.clamp((-z + 0.081F) / 0.041F, 0.0F, 1.0F);
+        boolean right = side < 0.0F;
+        rotateAroundYPrecomputed(original, side * 0.222F, -0.091F,
+                right ? pose.rightWingRootCos() : pose.leftWingRootCos(),
+                right ? pose.rightWingRootSin() : pose.leftWingRootSin(), temporary);
         output.lerp(temporary, wingWeight);
 
-        float armWeight = Mth.clamp((Math.abs(x) - 1.88F) / 0.58F, 0.0F, 1.0F)
-                * Mth.clamp((4.08F - Math.abs(x)) / 0.42F, 0.0F, 1.0F)
-                * Mth.clamp((y - 16.45F) / 0.72F, 0.0F, 1.0F)
-                * Mth.clamp((21.70F - y) / 0.72F, 0.0F, 1.0F)
-                * Mth.clamp((z + 2.02F) / 0.52F, 0.0F, 1.0F);
-        float armAngle;
-        if (actionState == HelpingAllayEntity.ACTION_REVEAL) {
-            armAngle = -1.05F;
-        } else if (actionState == HelpingAllayEntity.ACTION_SHIELD) {
-            armAngle = -1.24F;
-        } else if (actionState == HelpingAllayEntity.ACTION_HEAL
-                || actionState == HelpingAllayEntity.ACTION_BOND) {
-            armAngle = -0.72F;
-        } else {
-            armAngle = Mth.sin(ageInTicks * 0.10F + (side < 0.0F ? Mth.PI : 0.0F)) * 0.12F;
-        }
-        rotateAroundX(original, 16.85F, 0.0F, armAngle, temporary);
+        float wingTipWeight = smoothBand(Math.abs(x), 0.287F, 0.323F) * wingWeight;
+        rotateAroundYPrecomputed(output, side * 0.293F, -0.169F,
+                right ? pose.rightWingTipCos() : pose.leftWingTipCos(),
+                right ? pose.rightWingTipSin() : pose.leftWingTipSin(), temporary);
+        output.lerp(temporary, wingTipWeight);
+
+        float armWeight = Mth.clamp((Math.abs(x) - 0.118F) / 0.036F, 0.0F, 1.0F)
+                * Mth.clamp((0.255F - Math.abs(x)) / 0.027F, 0.0F, 1.0F)
+                * Mth.clamp((y - 1.028F) / 0.045F, 0.0F, 1.0F)
+                * Mth.clamp((1.356F - y) / 0.045F, 0.0F, 1.0F)
+                * Mth.clamp((z + 0.126F) / 0.033F, 0.0F, 1.0F);
+        rotateAroundXPrecomputed(original, 1.053F, 0.0F,
+                right ? pose.rightAllayArmCos() : pose.leftAllayArmCos(),
+                right ? pose.rightAllayArmSin() : pose.leftAllayArmSin(), temporary);
         output.lerp(temporary, armWeight);
 
-        float headWeight = Mth.clamp((17.25F - y) / 0.72F, 0.0F, 1.0F)
-                * Mth.clamp((4.50F - Math.abs(x)) / 0.42F, 0.0F, 1.0F);
-        float yaw = Mth.clamp(netHeadYaw * Mth.DEG_TO_RAD, -0.55F, 0.55F);
-        float pitch = Mth.clamp(headPitch * Mth.DEG_TO_RAD, -0.42F, 0.42F);
-        rotateAroundY(original, 0.0F, 0.15F, yaw, temporary);
-        rotateAroundX(temporary, 16.85F, 0.15F, pitch, temporary);
+        float headWeight = Mth.clamp((1.078F - y) / 0.045F, 0.0F, 1.0F)
+                * Mth.clamp((0.281F - Math.abs(x)) / 0.027F, 0.0F, 1.0F);
+        rotateYawPitchPrecomputed(original, 1.053F, 0.009F,
+                pose.allayHeadYawCos(), pose.allayHeadYawSin(),
+                pose.allayHeadPitchCos(), pose.allayHeadPitchSin(), temporary);
         output.lerp(temporary, headWeight * headWeight);
 
-        float coreWeight = Mth.clamp((z - 2.30F) / 0.34F, 0.0F, 1.0F)
-                * Mth.clamp((1.45F - Math.abs(x)) / 0.32F, 0.0F, 1.0F)
-                * Mth.clamp((y - 17.40F) / 0.38F, 0.0F, 1.0F)
-                * Mth.clamp((20.05F - y) / 0.38F, 0.0F, 1.0F);
-        float corePulse = actionState == HelpingAllayEntity.ACTION_HEAL ? 0.30F
-                : actionState == HelpingAllayEntity.ACTION_BOND ? 0.20F : 0.08F;
-        output.add(0.0F, Mth.sin(ageInTicks * 0.42F) * corePulse * coreWeight,
-                Mth.cos(ageInTicks * 0.42F) * corePulse * 0.35F * coreWeight);
+        float coreWeight = Mth.clamp((z - 0.144F) / 0.022F, 0.0F, 1.0F)
+                * Mth.clamp((0.091F - Math.abs(x)) / 0.020F, 0.0F, 1.0F)
+                * Mth.clamp((y - 1.088F) / 0.024F, 0.0F, 1.0F)
+                * Mth.clamp((1.253F - y) / 0.024F, 0.0F, 1.0F);
+        output.add(0.0F, pose.allayCorePulse() * coreWeight,
+                pose.allayCorePulse() * 0.35F * coreWeight);
     }
 
     private static void rotateAroundZ(Vector3f point, float pivotX, float pivotY, float angle,
@@ -660,6 +676,94 @@ final class ExactMobMesh {
         }
     }
 
+    private static void deformFrostStrayVertex(float[] data, int offset, ExactRigPose pose,
+                                               Vector3f output, Vector3f original,
+                                               Vector3f temporary) {
+        original.set(data[offset], data[offset + 1], data[offset + 2]);
+        output.set(original);
+        float x = original.x();
+        float y = original.y();
+        boolean right = x >= 0.0F;
+
+        float headWeight = 1.0F - smoothBand(y, 0.08F, 0.22F);
+        float upperBodyWeight = smoothBand(y, 0.04F, 0.22F)
+                * (1.0F - smoothBand(y, 0.56F, 0.76F));
+        rotateYawPitchPrecomputed(original, 0.36F, 0.0F,
+                pose.upperBodyYawCos(), pose.upperBodyYawSin(),
+                pose.upperBodyPitchCos(), pose.upperBodyPitchSin(), temporary);
+        output.lerp(temporary, upperBodyWeight);
+
+        float sideWeight = smoothBand(Math.abs(x), 0.20F, 0.34F);
+        float upperArmWeight = smoothBand(y, 0.10F, 0.34F) * sideWeight;
+        float lowerArmWeight = smoothBand(y, 0.42F, 0.68F) * sideWeight;
+        float shoulderX = right ? 0.2403F : -0.2403F;
+        rotateAroundYPrecomputed(output, shoulderX, 0.0F,
+                right ? pose.rightShoulderYawCos() : pose.leftShoulderYawCos(),
+                right ? pose.rightShoulderYawSin() : pose.leftShoulderYawSin(), temporary);
+        output.lerp(temporary, upperArmWeight);
+        rotateAroundXPrecomputed(output, 0.252F, 0.0F,
+                right ? pose.rightShoulderCos() : pose.leftShoulderCos(),
+                right ? pose.rightShoulderSin() : pose.leftShoulderSin(), temporary);
+        output.lerp(temporary, upperArmWeight);
+        rotateAroundXPrecomputed(output, 0.54F, 0.0F,
+                right ? pose.rightElbowCos() : pose.leftElbowCos(),
+                right ? pose.rightElbowSin() : pose.leftElbowSin(), temporary);
+        output.lerp(temporary, lowerArmWeight);
+
+        float legSideWeight = smoothBand(Math.abs(x), 0.03F, 0.14F);
+        float thighWeight = smoothBand(y, 0.62F, 0.82F) * legSideWeight;
+        float shinWeight = smoothBand(y, 0.94F, 1.16F) * legSideWeight;
+        rotateAroundXPrecomputed(output, 0.759F, 0.0F,
+                right ? pose.rightHipCos() : pose.leftHipCos(),
+                right ? pose.rightHipSin() : pose.leftHipSin(), temporary);
+        output.lerp(temporary, thighWeight);
+        rotateAroundXPrecomputed(output, 1.10F, 0.0F,
+                right ? pose.rightKneeCos() : pose.leftKneeCos(),
+                right ? pose.rightKneeSin() : pose.leftKneeSin(), temporary);
+        output.lerp(temporary, shinWeight);
+
+        rotateYawPitchPrecomputed(original, -0.02F, 0.0F,
+                pose.targetYawCos(), pose.targetYawSin(),
+                pose.targetPitchCos(), pose.targetPitchSin(), temporary);
+        output.lerp(temporary, headWeight * headWeight);
+
+    }
+
+    private static float smoothBand(float value, float start, float end) {
+        float t = Mth.clamp((value - start) / (end - start), 0.0F, 1.0F);
+        return t * t * (3.0F - 2.0F * t);
+    }
+
+    private static void rotateAroundXPrecomputed(Vector3f point, float pivotY, float pivotZ,
+                                                  float cosine, float sine, Vector3f output) {
+        float relativeY = point.y() - pivotY;
+        float relativeZ = point.z() - pivotZ;
+        output.set(point.x(),
+                relativeY * cosine - relativeZ * sine + pivotY,
+                relativeY * sine + relativeZ * cosine + pivotZ);
+    }
+
+    private static void rotateAroundYPrecomputed(Vector3f point, float pivotX, float pivotZ,
+                                                  float cosine, float sine, Vector3f output) {
+        float relativeX = point.x() - pivotX;
+        float relativeZ = point.z() - pivotZ;
+        output.set(relativeX * cosine + relativeZ * sine + pivotX,
+                point.y(), -relativeX * sine + relativeZ * cosine + pivotZ);
+    }
+
+    private static void rotateYawPitchPrecomputed(Vector3f point, float pivotY, float pivotZ,
+                                                   float yawCosine, float yawSine,
+                                                   float pitchCosine, float pitchSine,
+                                                   Vector3f output) {
+        float relativeZ = point.z() - pivotZ;
+        float yawedX = point.x() * yawCosine + relativeZ * yawSine;
+        float yawedZ = -point.x() * yawSine + relativeZ * yawCosine;
+        float relativeY = point.y() - pivotY;
+        output.set(yawedX,
+                relativeY * pitchCosine - yawedZ * pitchSine + pivotY,
+                relativeY * pitchSine + yawedZ * pitchCosine + pivotZ);
+    }
+
     private static void rotateAroundX(Vector3f point, float pivotY, float pivotZ, float angle,
                                       Vector3f output) {
         float relativeY = point.y() - pivotY;
@@ -716,19 +820,22 @@ final class ExactMobMesh {
         output.set(rotatedX, rotatedY + pivotY, rotatedZ + pivotZ);
     }
 
-    private static void deformSpiderVertex(float[] data, int offset, float limbSwing,
-                                           float limbSwingAmount, Vector3f output) {
+    private static void deformSpiderVertex(float[] data, int offset, ExactRigPose pose,
+                                           Vector3f output) {
         float x = data[offset];
         float y = data[offset + 1];
         float z = data[offset + 2];
         float legTipWeight = Mth.clamp((Math.abs(x) - 0.125F) / 0.225F, 0.0F, 1.0F);
         legTipWeight *= legTipWeight;
-        float phase = x * z >= 0.0F ? 0.0F : Mth.PI;
-        float step = Mth.cos(limbSwing * 1.45F + phase) * limbSwingAmount;
+        int longitudinalStation = Mth.clamp((int) ((z + 0.25F) * 8.0F), 0, 3);
+        int stationParity = longitudinalStation & 1;
+        int sideParity = x < 0.0F ? 0 : 1;
+        boolean phaseA = stationParity == sideParity;
+        float step = phaseA ? pose.spiderStepCosA() : pose.spiderStepCosB();
+        float sweep = phaseA ? pose.spiderSweepSinA() : pose.spiderSweepSinB();
         z += step * 0.115F * legTipWeight;
         y -= Math.abs(step) * 0.042F * legTipWeight;
-        x += Math.signum(x) * Mth.sin(limbSwing * 1.45F + phase)
-                * 0.022F * limbSwingAmount * legTipWeight;
+        x += Math.signum(x) * sweep * 0.022F * legTipWeight;
         output.set(x, y, z);
     }
 

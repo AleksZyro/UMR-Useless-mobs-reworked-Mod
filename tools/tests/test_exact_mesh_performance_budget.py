@@ -30,9 +30,13 @@ def test_exact_runtime_mesh_collection_stays_within_the_frame_budget():
     assert sum(report["output_triangles"] for report in reports) <= 1_500_000
 
 
-def test_performance_meshes_keep_the_original_4k_texture_quality():
+def test_performance_meshes_keep_4k_sources_but_ship_2k_runtime_textures():
     reports = _active_reports()
 
     assert reports
     assert all(report["texture_width"] == 4096 for report in reports)
     assert all(report["texture_height"] == 4096 for report in reports)
+    assert all(report["source_texture_width"] == 4096 for report in reports)
+    assert all(report["source_texture_height"] == 4096 for report in reports)
+    assert all(report["runtime_texture_width"] == 2048 for report in reports)
+    assert all(report["runtime_texture_height"] == 2048 for report in reports)
