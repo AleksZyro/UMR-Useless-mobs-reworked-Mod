@@ -19,7 +19,7 @@ def test_public_metadata_is_consistent_and_registry_id_stays_compatible():
 
     assert values["mod_id"] == "usless_mobs"
     assert values["mod_name"] == "Useless Mobs Reworked"
-    assert values["mod_version"] == "1.0.0-alpha.2"
+    assert values["mod_version"] == "1.0.0-alpha.3"
     assert values["mod_license"] == "GPL-3.0-only"
     assert values["mod_authors"] == "Andrin Maag, Aleksandar Nikolic"
     assert (ROOT / "LICENSE").read_text(encoding="utf-8").startswith(
