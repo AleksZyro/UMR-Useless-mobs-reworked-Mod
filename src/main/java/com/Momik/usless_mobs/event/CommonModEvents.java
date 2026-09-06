@@ -7,6 +7,7 @@ import com.Momik.usless_mobs.entity.CoralDrownedEntity;
 import com.Momik.usless_mobs.entity.EnderSlimeEntity;
 import com.Momik.usless_mobs.entity.FrostStrayEntity;
 import com.Momik.usless_mobs.entity.HelpingAllayEntity;
+import com.Momik.usless_mobs.entity.GiantSquidEntity;
 import com.Momik.usless_mobs.entity.KingSlimeEntity;
 import com.Momik.usless_mobs.entity.LivingAxolotlEntity;
 import com.Momik.usless_mobs.entity.LivingBatEntity;
@@ -48,6 +49,7 @@ public final class CommonModEvents {
         event.put(ModEntities.WITCH_BOSS.get(), WitchBossEntity.createAttributes().build());
         event.put(ModEntities.HELPING_ALLAY.get(), HelpingAllayEntity.createAttributes().build());
         event.put(ModEntities.LIVING_SQUID.get(), LivingSquidEntity.createAttributes().build());
+        event.put(ModEntities.GIANT_SQUID.get(), GiantSquidEntity.createAttributes().build());
         event.put(ModEntities.LIVING_GLOW_SQUID.get(), LivingGlowSquidEntity.createAttributes().build());
         event.put(ModEntities.LIVING_POLAR_BEAR.get(), LivingPolarBearEntity.createAttributes().build());
         event.put(ModEntities.LIVING_AXOLOTL.get(), LivingAxolotlEntity.createAttributes().build());

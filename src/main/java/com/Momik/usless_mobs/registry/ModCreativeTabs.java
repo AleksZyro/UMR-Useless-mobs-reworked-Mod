@@ -124,12 +124,14 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.TRUE_LIVING_BOOTS.get());
                         output.accept(ModItems.LIVING_KING.get());
                         output.accept(ModItems.LIVING_BOSS_SPAWN_EGG.get());
+                        output.accept(ModItems.CORRUPTED_SILVERFISH_SPAWN_EGG.get());
                         output.accept(ModItems.FROST_STRAY_SPAWN_EGG.get());
                         output.accept(ModItems.WEB_CAVE_SPIDER_SPAWN_EGG.get());
                         output.accept(ModItems.CORAL_DROWNED_SPAWN_EGG.get());
                         output.accept(ModItems.OCTOPUS_SPAWN_EGG.get());
                         output.accept(ModItems.WITCH_BOSS_SPAWN_EGG.get());
                         output.accept(ModItems.LIVING_SQUID_SPAWN_EGG.get());
+                        output.accept(ModItems.GIANT_SQUID_SPAWN_EGG.get());
                         output.accept(ModItems.LIVING_GLOW_SQUID_SPAWN_EGG.get());
                         output.accept(ModItems.LIVING_POLAR_BEAR_SPAWN_EGG.get());
                         output.accept(ModItems.LIVING_AXOLOTL_SPAWN_EGG.get());

@@ -2,6 +2,7 @@ package com.Momik.usless_mobs.registry;
 
 import com.Momik.usless_mobs.Usless_mobs;
 import com.Momik.usless_mobs.world.CelestialSpireFeature;
+import com.Momik.usless_mobs.world.BigUnderwaterCaveFeature;
 import com.Momik.usless_mobs.world.LivingGroveFeature;
 import com.Momik.usless_mobs.world.SlimeCaveFeature;
 import com.Momik.usless_mobs.world.VoidShrineFeature;
@@ -32,4 +33,8 @@ public final class ModFeatures {
     public static final RegistryObject<Feature<NoneFeatureConfiguration>> LIVING_GROVE =
             FEATURES.register("living_grove",
                     () -> new LivingGroveFeature(NoneFeatureConfiguration.CODEC));
+
+    public static final RegistryObject<Feature<NoneFeatureConfiguration>> BIG_UNDERWATER_CAVE =
+            FEATURES.register("big_underwater_cave",
+                    () -> new BigUnderwaterCaveFeature(NoneFeatureConfiguration.CODEC));
 }

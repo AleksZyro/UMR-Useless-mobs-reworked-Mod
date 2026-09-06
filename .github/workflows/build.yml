@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
@@ -30,7 +30,7 @@ jobs:
           java-version: "17"
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
@@ -41,6 +41,9 @@ jobs:
 
       - name: Verify active project truth
         run: python tools/verify_umr_project_truth.py
+
+      - name: Rebuild deterministic exact textures
+        run: python tools/mob_tripo/build_quality_textures.py --all
 
       - name: Run Python regression suite
         run: python -m pytest -q

@@ -13,6 +13,9 @@ import com.Momik.usless_mobs.registry.ModItems;
 import com.Momik.usless_mobs.registry.ModPotions;
 import com.Momik.usless_mobs.registry.ModRecipeSerializers;
 import com.Momik.usless_mobs.registry.ModSounds;
+import com.Momik.usless_mobs.worldgen.UmrOceanRegion;
+import com.Momik.usless_mobs.worldgen.ModStructures;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -23,6 +26,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.ModList;
 import net.mysith.MySithMod;
 import org.slf4j.Logger;
+import terrablender.api.Regions;
 
 @Mod(Usless_mobs.MODID)
 public class Usless_mobs {
@@ -43,6 +47,8 @@ public class Usless_mobs {
         ModRecipeSerializers.RECIPE_SERIALIZERS.register(modEventBus);
         ModSounds.SOUND_EVENTS.register(modEventBus);
         ModFeatures.FEATURES.register(modEventBus);
+        ModStructures.STRUCTURE_TYPES.register(modEventBus);
+        ModStructures.STRUCTURE_PIECE_TYPES.register(modEventBus);
         ModCreativeTabs.CREATIVE_TABS.register(modEventBus);
         MinecraftForge.EVENT_BUS.register(this);
         context.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
@@ -60,6 +66,11 @@ public class Usless_mobs {
         event.enqueueWork(() -> {
             ModNetwork.register();
             ModBrewingRecipes.register();
+            if (Config.oceanBiomeRegionWeight > 0) {
+                Regions.register(new UmrOceanRegion(
+                        ResourceLocation.tryBuild(MODID, "ocean_region"),
+                        Config.oceanBiomeRegionWeight));
+            }
         });
         LOGGER.info("Registered slime content: entity {}, blocks {}, {}, core {}",
                 ModEntities.BLAUER_SCHLEIM.getId(),

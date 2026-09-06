@@ -191,6 +191,25 @@ class ExactMobRuntimeTests(unittest.TestCase):
         self.assertEqual(set(MOB_SPECS["helping_allay"].bones), set(decoded))
         self.assertTrue(texture_bytes.startswith(b"\x89PNG\r\n\x1a\n"))
 
+    def test_regenerated_helping_allay_is_the_active_exact_4k_source(self):
+        root = Path(__file__).resolve().parents[3]
+        source = load_glb(
+            root
+            / "Modelle/Exports/helping_allay_v1/source/helping_allay_runtime_optimized_4k.glb"
+        )
+        report = json.loads(
+            (
+                root
+                / "src/main/resources/assets/usless_mobs/meshes/entity/custom3d/helping_allay.report.json"
+            ).read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(99241, source.triangles.shape[0])
+        self.assertEqual(source.triangles.shape[0], report["source_triangles"])
+        self.assertEqual(report["source_triangles"], report["output_triangles"])
+        self.assertEqual((4096, 4096), (report["texture_width"], report["texture_height"]))
+        self.assertEqual(0, report["cubes"])
+
     def test_octopus_preserves_all_triangles_in_nine_nonempty_regions(self):
         root = Path(__file__).resolve().parents[3]
         source = load_glb(
@@ -211,7 +230,7 @@ class ExactMobRuntimeTests(unittest.TestCase):
 
     def test_squid_preserves_4k_texture_and_all_triangles_in_eleven_regions(self):
         root = Path(__file__).resolve().parents[3]
-        source = load_glb(root / "Modelle/Exports/squid_v1/source/squid_textured_4k.glb")
+        source = load_glb(root / "Modelle/Exports/squid_v1/source/squid_runtime_optimized_4k.glb")
 
         payload, _, report = build_runtime_assets("squid", source)
         decoded = decode_mesh(payload)
@@ -226,11 +245,11 @@ class ExactMobRuntimeTests(unittest.TestCase):
 
     def test_glow_squid_preserves_4k_texture_and_all_triangles_in_eleven_regions(self):
         root = Path(__file__).resolve().parents[3]
-        source = load_glb(root / "Modelle/Exports/glow_squid_v1/source/glow_squid_textured_4k.glb")
+        source = load_glb(root / "Modelle/Exports/glow_squid_v1/source/glow_squid_runtime_optimized_4k.glb")
         asset_root = root / "src/main/resources/assets/usless_mobs"
         payload = (asset_root / "meshes/entity/custom3d/glow_squid.mesh").read_bytes()
         report = json.loads((asset_root / "meshes/entity/custom3d/glow_squid.report.json").read_text())
-        self.assertEqual(714534, source.triangles.shape[0])
+        self.assertEqual(100030, source.triangles.shape[0])
         self.assertEqual(source.triangles.shape[0], report["source_triangles"])
         self.assertEqual(report["source_triangles"], report["output_triangles"])
         self.assertTrue(payload.startswith(b"UMMESH1\0"))
@@ -240,16 +259,17 @@ class ExactMobRuntimeTests(unittest.TestCase):
         self.assertEqual(0, report["cubes"])
         self.assertEqual(24.0, report["fit_span"])
 
-    def test_polar_bear_preserves_4k_texture_and_all_triangles_in_six_regions(self):
+    def test_polar_bear_discards_the_verified_floating_shell_and_keeps_4k_uvs(self):
         root = Path(__file__).resolve().parents[3]
-        source = load_glb(root / "Modelle/Exports/polar_bear_v1/source/polar_bear_textured_4k.glb")
+        source = load_glb(root / "Modelle/Exports/polar_bear_v1/source/polar_bear_runtime_optimized_4k.glb")
 
         payload, _, report = build_runtime_assets("polar_bear", source)
         decoded = decode_mesh(payload)
 
-        self.assertEqual(684939, source.triangles.shape[0])
+        self.assertEqual(95888, source.triangles.shape[0])
         self.assertEqual(source.triangles.shape[0], report["source_triangles"])
-        self.assertEqual(report["source_triangles"], report["output_triangles"])
+        self.assertEqual(84682, report["output_triangles"])
+        self.assertEqual(11206, report["discarded_detached_triangles"])
         self.assertEqual(set(MOB_SPECS["polar_bear"].bones), set(decoded))
         self.assertTrue(all(len(part["faces"]) > 0 for part in decoded.values()))
         self.assertEqual((4096, 4096), (report["texture_width"], report["texture_height"]))
@@ -258,12 +278,15 @@ class ExactMobRuntimeTests(unittest.TestCase):
 
     def test_frost_stray_preserves_4k_texture_and_all_triangles_in_six_regions(self):
         root = Path(__file__).resolve().parents[3]
-        source = load_glb(root / "Modelle/Exports/frost_stray_v1/source/frost_stray_textured_4k_v2.glb")
+        source = load_glb(
+            root
+            / "Modelle/Exports/frost_stray_v1/source/frost_stray_runtime_optimized_4k.glb"
+        )
 
         payload, _, report = build_runtime_assets("frost_stray", source)
         decoded = decode_mesh(payload)
 
-        self.assertEqual(714146, source.triangles.shape[0])
+        self.assertEqual(98103, source.triangles.shape[0])
         self.assertEqual(source.triangles.shape[0], report["source_triangles"])
         self.assertEqual(report["source_triangles"], report["output_triangles"])
         self.assertEqual(set(MOB_SPECS["frost_stray"].bones), set(decoded))
@@ -271,15 +294,25 @@ class ExactMobRuntimeTests(unittest.TestCase):
         self.assertEqual((4096, 4096), (report["texture_width"], report["texture_height"]))
         self.assertEqual(0, report["cubes"])
         self.assertEqual(31.2, report["fit_span"])
+        active = json.loads(
+            (
+                root
+                / "src/main/resources/assets/usless_mobs/meshes/entity/custom3d/frost_stray.report.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertEqual(source.triangles.shape[0], active["source_triangles"])
 
     def test_coral_drowned_preserves_oriented_4k_source_and_every_triangle(self):
         root = Path(__file__).resolve().parents[3]
-        source = load_glb(root / "Modelle/Exports/coral_drowned_v1/source/coral_drowned_textured_4k_v2.glb")
+        source = load_glb(
+            root
+            / "Modelle/Exports/coral_drowned_v1/source/coral_drowned_runtime_optimized_4k.glb"
+        )
 
         payload, _, report = build_runtime_assets("coral_drowned", source)
         decoded = decode_mesh(payload)
 
-        self.assertEqual(728013, source.triangles.shape[0])
+        self.assertEqual(102563, source.triangles.shape[0])
         self.assertGreater(float(np.ptp(source.positions[:, 1])), float(np.ptp(source.positions[:, 0])))
         self.assertEqual(source.triangles.shape[0], report["source_triangles"])
         self.assertEqual(report["source_triangles"], report["output_triangles"])
@@ -288,15 +321,25 @@ class ExactMobRuntimeTests(unittest.TestCase):
         self.assertEqual((4096, 4096), (report["texture_width"], report["texture_height"]))
         self.assertEqual(0, report["cubes"])
         self.assertEqual(31.2, report["fit_span"])
+        active = json.loads(
+            (
+                root
+                / "src/main/resources/assets/usless_mobs/meshes/entity/custom3d/coral_drowned.report.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertEqual(source.triangles.shape[0], active["source_triangles"])
 
     def test_axolotl_preserves_4k_texture_and_every_source_triangle(self):
         root = Path(__file__).resolve().parents[3]
-        source = load_glb(root / "Modelle/Exports/axolotl_v1/source/axolotl_textured_4k_v2.glb")
+        source = load_glb(
+            root
+            / "Modelle/Exports/axolotl_v1/source/axolotl_runtime_optimized_4k.glb"
+        )
 
         payload, _, report = build_runtime_assets("axolotl", source)
         decoded = decode_mesh(payload)
 
-        self.assertEqual(733834, source.triangles.shape[0])
+        self.assertEqual(98535, source.triangles.shape[0])
         self.assertEqual(source.triangles.shape[0], report["source_triangles"])
         self.assertEqual(report["source_triangles"], report["output_triangles"])
         self.assertEqual(set(MOB_SPECS["axolotl"].bones), set(decoded))
@@ -304,15 +347,22 @@ class ExactMobRuntimeTests(unittest.TestCase):
         self.assertEqual((4096, 4096), (report["texture_width"], report["texture_height"]))
         self.assertEqual(0, report["cubes"])
         self.assertEqual(20.8, report["fit_span"])
+        active = json.loads(
+            (
+                root
+                / "src/main/resources/assets/usless_mobs/meshes/entity/custom3d/axolotl.report.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertEqual(source.triangles.shape[0], active["source_triangles"])
 
     def test_ocelot_preserves_4k_texture_and_every_source_triangle(self):
         root = Path(__file__).resolve().parents[3]
-        source = load_glb(root / "Modelle/Exports/ocelot_v1/source/ocelot_textured_4k.glb")
+        source = load_glb(root / "Modelle/Exports/ocelot_v1/source/ocelot_runtime_optimized_4k.glb")
 
         payload, _, report = build_runtime_assets("ocelot", source)
         decoded = decode_mesh(payload)
 
-        self.assertEqual(721849, source.triangles.shape[0])
+        self.assertEqual(101058, source.triangles.shape[0])
         self.assertEqual(source.triangles.shape[0], report["source_triangles"])
         self.assertEqual(report["source_triangles"], report["output_triangles"])
         self.assertEqual(set(MOB_SPECS["ocelot"].bones), set(decoded))

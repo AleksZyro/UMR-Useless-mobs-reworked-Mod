@@ -11,6 +11,7 @@ Alle wichtigen Änderungen an Useless Mobs Reworked werden hier dokumentiert. Da
 
 ### Changed
 
+- Acht übergrosse Tripo-Laufzeitmeshes UV-erhaltend auf Silverfish-nahe 84’682–102’845 Dreiecke optimiert; die 14 aktiven Exact-Meshes sinken zusammen von 6’228’107 auf 1’362’210 Dreiecke, während die vollständigen GLB-Quellen und 4K-Texturen erhalten bleiben.
 - Client-Renderer, Modell-Layer, Tastenbelegung und Item-Properties aus dem gemeinsamen Mod-Einstiegspunkt in eine strikt clientseitige Eventklasse ausgelagert
 - Entity-Attribute und Spawnplatzierungen aus dem Mod-Einstiegspunkt in eine gemeinsame Mod-Eventklasse ausgelagert
 - Braurezepte in eine eigene Registry-Hilfsklasse ausgelagert

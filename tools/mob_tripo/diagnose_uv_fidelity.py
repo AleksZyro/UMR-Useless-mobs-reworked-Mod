@@ -36,6 +36,9 @@ def audit_source(name: str, glb_path: Path) -> dict:
         ROOT / f"src/main/resources/assets/usless_mobs/textures/entity/custom3d/exact/{name}.png"
     )
     runtime_mesh_path = ROOT / f"src/main/resources/assets/usless_mobs/meshes/entity/custom3d/{name}.mesh"
+    report_path = ROOT / f"src/main/resources/assets/usless_mobs/meshes/entity/custom3d/{name}.report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    discarded = int(report.get("discarded_detached_triangles", 0))
     with Image.open(runtime_texture_path) as image:
         runtime_pixels = np.asarray(image.convert("RGBA"))
     decoded = decode_mesh(runtime_mesh_path.read_bytes())
@@ -52,13 +55,20 @@ def audit_source(name: str, glb_path: Path) -> dict:
     source = load_glb(glb_path)
     source_pixels = np.asarray(source.base_colour.convert("RGBA"))
     expected_faces = source.uvs[source.triangles[:, [0, 2, 1]]]
+    expected_runtime_triangles = int(len(source.triangles) - discarded)
     same_shape = expected_faces.shape == emitted_faces.shape
     signature = lambda faces: Counter(
         tuple(tuple(round(float(value), 6) for value in corner) for corner in face)
         for face in faces
     )
-    runtime_signature = signature(emitted_faces) if same_shape else Counter()
-    direct_exact = same_shape and signature(expected_faces) == runtime_signature
+    expected_signature = signature(expected_faces)
+    runtime_signature = signature(emitted_faces)
+    direct_exact = same_shape and expected_signature == runtime_signature
+    retained_subset_exact = (
+        discarded > 0
+        and len(emitted_faces) == expected_runtime_triangles
+        and all(count <= expected_signature[face] for face, count in runtime_signature.items())
+    )
     flipped_faces = expected_faces.copy()
     flipped_faces[:, :, 1] = 1.0 - flipped_faces[:, :, 1]
     flipped_exact = same_shape and signature(flipped_faces) == runtime_signature
@@ -71,8 +81,10 @@ def audit_source(name: str, glb_path: Path) -> dict:
         "pixels_equal": bool(np.array_equal(source_pixels, runtime_pixels)),
         "source_pixel_hash": hashlib.sha256(source_pixels.tobytes()).hexdigest(),
         "runtime_pixel_hash": hashlib.sha256(runtime_pixels.tobytes()).hexdigest(),
-        "uv_shape_equal": same_shape,
-        "uv_exact": bool(direct_exact),
+        "discarded_detached_triangles": discarded,
+        "expected_runtime_triangles": expected_runtime_triangles,
+        "uv_shape_equal": len(emitted_faces) == expected_runtime_triangles,
+        "uv_exact": bool(direct_exact or retained_subset_exact),
         "uv_exact_if_v_flipped": bool(flipped_exact),
         "uv_min": source.uvs.min(axis=0).tolist(),
         "uv_max": source.uvs.max(axis=0).tolist(),
@@ -86,14 +98,17 @@ def audit_all() -> list[dict]:
     return [audit_source(name, path) for name, path in sorted(SOURCES.items())]
 
 
+def runtime_contract_passes(result: dict) -> bool:
+    return bool(
+        result["pixels_equal"]
+        and result["uv_exact"]
+        and result["expected_runtime_triangles"] == result["runtime_triangles"]
+    )
+
+
 if __name__ == "__main__":
     failed = False
     for result in audit_all():
         print(json.dumps(result, sort_keys=True))
-        failed |= not (
-            result["pixels_equal"]
-            and result["uv_shape_equal"]
-            and result["uv_exact"]
-            and result["triangles"] == result["runtime_triangles"]
-        )
+        failed |= not runtime_contract_passes(result)
     raise SystemExit(1 if failed else 0)

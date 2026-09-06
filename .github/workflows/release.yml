@@ -1,0 +1,129 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify-and-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+
+      - name: Install validation dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-ci.txt
+
+      - name: Verify tag and project version
+        shell: bash
+        run: |
+          set -euo pipefail
+          MOD_VERSION="$(sed -n 's/^mod_version=//p' gradle.properties | tr -d '\r')"
+          EXPECTED_TAG="v${MOD_VERSION}"
+          if [[ "${GITHUB_REF_NAME}" != "${EXPECTED_TAG}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match mod_version ${MOD_VERSION}." >&2
+            exit 1
+          fi
+
+      - name: Verify active project truth
+        run: python tools/verify_umr_project_truth.py
+
+      - name: Rebuild deterministic exact textures
+        run: python tools/mob_tripo/build_quality_textures.py --all
+
+      - name: Run Python regression suite
+        run: python -m pytest -q
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Build production mod
+        run: ./gradlew clean build --no-daemon
+
+      - name: Verify and prepare release files
+        shell: bash
+        run: |
+          set -euo pipefail
+          MOD_VERSION="$(sed -n 's/^mod_version=//p' gradle.properties | tr -d '\r')"
+          EXPECTED_JAR="build/libs/usless_mobs-${MOD_VERSION}.jar"
+          mapfile -t JARS < <(find build/libs -maxdepth 1 -type f -name '*.jar' -print)
+          if [[ "${#JARS[@]}" -ne 1 || "${JARS[0]}" != "${EXPECTED_JAR}" ]]; then
+            echo "Exactly one production JAR named ${EXPECTED_JAR} is required." >&2
+            printf '%s\n' "${JARS[@]}" >&2
+            exit 1
+          fi
+          unzip -t "${EXPECTED_JAR}"
+          unzip -p "${EXPECTED_JAR}" META-INF/mods.toml | grep -F "version = \"${MOD_VERSION}\""
+          unzip -l "${EXPECTED_JAR}" | grep -F 'usless_mobs.mixins.json'
+          unzip -l "${EXPECTED_JAR}" | grep -F 'assets/usless_mobs/meshes/entity/custom3d/'
+          QUALITY_ZIP="UMR-Exact-4K-${MOD_VERSION}.zip"
+          (cd quality-packs/UMR-Exact-4K && zip -qr "${GITHUB_WORKSPACE}/${QUALITY_ZIP}" .)
+          sha256sum "${EXPECTED_JAR}" "${QUALITY_ZIP}" > SHA256SUMS.txt
+          cat > INSTALLATION.txt <<'EOF'
+          Useless Mobs Reworked
+
+          Required:
+          - Minecraft 1.20.1
+          - Forge 47.4.16
+          - GeckoLib 4.8.3
+          - TerraBlender 3.0.1.10
+
+          Put the UMR JAR, GeckoLib and TerraBlender into the same mods folder.
+          Curios 5.10+ and JEI 15.20+ are optional.
+          The separate UMR Exact 4K ZIP is an optional resource pack; the mod already includes lighter 2K textures.
+          Do not install source archives, QA packs or Blockbench files as mods.
+          EOF
+
+      - name: Upload verified build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: umr-${{ github.ref_name }}
+          path: |
+            build/libs/usless_mobs-*.jar
+            UMR-Exact-4K-*.zip
+            SHA256SUMS.txt
+            INSTALLATION.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          MOD_VERSION="$(sed -n 's/^mod_version=//p' gradle.properties | tr -d '\r')"
+          JAR="build/libs/usless_mobs-${MOD_VERSION}.jar"
+          QUALITY_ZIP="UMR-Exact-4K-${MOD_VERSION}.zip"
+          gh release create "${GITHUB_REF_NAME}" \
+            "${JAR}" "${QUALITY_ZIP}" SHA256SUMS.txt INSTALLATION.txt \
+            --verify-tag \
+            --prerelease \
+            --title "UMR ${MOD_VERSION}" \
+            --generate-notes

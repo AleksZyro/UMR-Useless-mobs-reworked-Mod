@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import unittest
@@ -34,6 +35,15 @@ class UmrProjectTruthContractTests(unittest.TestCase):
         self.assertIn("UMR_PROJECT_TRUTH_PASS", result.stdout)
         self.assertIn("triangles=101723", result.stdout)
         self.assertIn("cubes=0", result.stdout)
+
+    def test_active_state_uses_current_exact_mesh_triangle_counts(self) -> None:
+        state = (ROOT / "docs" / "UMR_ACTIVE_PROJECT_STATE.md").read_text(encoding="utf-8")
+        report_root = ROOT / "src/main/resources/assets/usless_mobs/meshes/entity/custom3d"
+
+        for mob in ("frost_stray", "coral_drowned", "axolotl", "polar_bear"):
+            report = json.loads((report_root / f"{mob}.report.json").read_text(encoding="utf-8"))
+            formatted_count = f"{report['output_triangles']:,}".replace(",", "’")
+            self.assertIn(formatted_count, state, (mob, formatted_count))
 
 
 if __name__ == "__main__":

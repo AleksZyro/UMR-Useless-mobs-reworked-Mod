@@ -21,6 +21,7 @@ from typing import Callable, Dict, Iterable, Mapping, Sequence
 import numpy as np
 
 from tools.corrupted_silverfish_v5.tripo_voxel import MeshData, load_glb
+from tools.mob_tripo.audit_connected_components import largest_component_mesh
 
 
 MAGIC = b"UMMESH1\0"
@@ -496,6 +497,11 @@ def build_runtime_assets(name: str, mesh: MeshData) -> tuple[bytes, bytes, dict]
         spec = MOB_SPECS[name]
     except KeyError as exc:
         raise ValueError(f"Unknown exact Tripo mob: {name}") from exc
+    source_triangle_count = int(len(mesh.triangles))
+    discarded_detached_triangles = 0
+    if name == "polar_bear":
+        mesh = largest_component_mesh(mesh)
+        discarded_detached_triangles = source_triangle_count - int(len(mesh.triangles))
     positions = transform_positions(
         mesh.positions,
         longest_span=None,
@@ -548,8 +554,9 @@ def build_runtime_assets(name: str, mesh: MeshData) -> tuple[bytes, bytes, dict]
                 payload.extend(struct.pack("<5f", *values))
     report = {
         "mob": name,
-        "source_triangles": int(len(triangles)),
+        "source_triangles": source_triangle_count,
         "output_triangles": int(sum(map(len, regions.values()))),
+        "discarded_detached_triangles": discarded_detached_triangles,
         "bones": {bone: len(regions[bone]) for bone in spec.bones},
         "texture_width": mesh.base_colour.width,
         "texture_height": mesh.base_colour.height,

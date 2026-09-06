@@ -133,6 +133,9 @@ runs/
 /.superpowers/
 /tmp/
 
+# Rebuilt from the tracked approved Tripo GLBs and attached as a release asset.
+/quality-packs/UMR-Exact-4K/
+
 # Local service hand-off marker; contains no project source
 /Modelle/Exports/armor_graphics_tripo/.pilot-export-url.txt
 

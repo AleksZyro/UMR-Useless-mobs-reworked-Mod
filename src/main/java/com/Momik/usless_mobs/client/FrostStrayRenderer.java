@@ -4,7 +4,6 @@ import com.Momik.usless_mobs.entity.FrostStrayEntity;
 import net.minecraft.client.model.geom.ModelLayers;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.StrayRenderer;
-import net.minecraft.client.renderer.entity.layers.ItemInHandLayer;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.monster.AbstractSkeleton;
 
@@ -13,7 +12,8 @@ public class FrostStrayRenderer extends StrayRenderer {
         super(context);
         this.model = new FrostStrayModel<>(context.bakeLayer(ModelLayers.STRAY));
         this.layers.clear();
-        this.addLayer(new ItemInHandLayer<>(this, context.getItemInHandRenderer()));
+        this.addLayer(new ExactHeldItemLayer<>(this, context.getItemInHandRenderer(),
+                CustomMob3DModel.Variant.FROST_STRAY));
         this.addLayer(new ExactMobMeshLayer<>(this, context.getResourceManager(),
                 CustomMob3DModel.Variant.FROST_STRAY, CustomMobModelLayers.FROST_STRAY_EXACT_TEXTURE));
     }

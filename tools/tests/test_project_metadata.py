@@ -19,7 +19,7 @@ def test_public_metadata_is_consistent_and_registry_id_stays_compatible():
 
     assert values["mod_id"] == "usless_mobs"
     assert values["mod_name"] == "Useless Mobs Reworked"
-    assert values["mod_version"] == "1.0.0-alpha.2"
+    assert values["mod_version"] == "1.0.0-alpha.3"
     assert values["mod_license"] == "GPL-3.0-only"
     assert values["mod_authors"] == "Andrin Maag, Aleksandar Nikolic"
     assert (ROOT / "LICENSE").read_text(encoding="utf-8").startswith(
@@ -37,6 +37,15 @@ def test_dependency_versions_are_centralized():
     assert "curios-forge:${curios_version}" in build
     assert "geckolib-forge-1.20.1:${geckolib_version}" in build
     assert "jei-1.20.1-forge:${jei_version}" in build
+
+
+def test_geckolib_is_declared_as_a_required_runtime_dependency():
+    mods = (ROOT / "src/main/resources/META-INF/mods.toml").read_text(encoding="utf-8")
+
+    dependency = mods.split('modId = "geckolib"', 1)[1].split("[[", 1)[0]
+    assert "mandatory = true" in dependency
+    assert 'versionRange = "[4.8.3,4.9)"' in dependency
+    assert 'side = "BOTH"' in dependency
 
 
 def test_build_resources_use_utf8_and_manifest_is_time_independent():
