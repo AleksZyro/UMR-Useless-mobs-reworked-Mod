@@ -1,6 +1,5 @@
 package com.Momik.usless_mobs.entity;
 
-import com.Momik.usless_mobs.Config;
 import com.Momik.usless_mobs.event.KingSlimeAdvancements;
 import com.Momik.usless_mobs.Usless_mobs;
 import net.minecraft.core.BlockPos;
@@ -161,118 +160,47 @@ public class KingSlimeEntity extends Slime implements GeoEntity {
     }
 
     private Difficulty currentDifficulty() {
-        Difficulty difficulty = this.level().getDifficulty();
-        return difficulty == Difficulty.PEACEFUL ? Difficulty.EASY : difficulty;
+        return KingSlimeDifficultySettings.normalize(this.level().getDifficulty());
     }
 
     private double healthMultiplier() {
-        switch (this.currentDifficulty()) {
-            case EASY:
-                return Config.easyHealthMultiplier;
-            case HARD:
-                return Config.hardHealthMultiplier;
-            default:
-                return Config.normalHealthMultiplier;
-        }
+        return KingSlimeDifficultySettings.healthMultiplier(this.currentDifficulty());
     }
 
     private double attackMultiplier() {
-        switch (this.currentDifficulty()) {
-            case EASY:
-                return Config.easyAttackMultiplier;
-            case HARD:
-                return Config.hardAttackMultiplier;
-            default:
-                return Config.normalAttackMultiplier;
-        }
+        return KingSlimeDifficultySettings.attackMultiplier(this.currentDifficulty());
     }
 
     private double speedMultiplier() {
-        switch (this.currentDifficulty()) {
-            case EASY:
-                return Config.easySpeedMultiplier;
-            case HARD:
-                return Config.hardSpeedMultiplier;
-            default:
-                return Config.normalSpeedMultiplier;
-        }
+        return KingSlimeDifficultySettings.speedMultiplier(this.currentDifficulty());
     }
 
     private int scaleCooldown(int baseTicks) {
-        switch (this.currentDifficulty()) {
-            case EASY:
-                return Math.max(20, Math.round(baseTicks * 1.25F));
-            case HARD:
-                return Math.max(20, Math.round(baseTicks * 0.62F));
-            default:
-                return baseTicks;
-        }
+        return KingSlimeDifficultySettings.cooldown(baseTicks, this.currentDifficulty());
     }
 
     private int maxNearbyMinions() {
-        switch (this.currentDifficulty()) {
-            case EASY:
-                return 4;
-            case HARD:
-                return 10;
-            default:
-                return MAX_NEARBY_MINIONS;
-        }
+        return KingSlimeDifficultySettings.maxNearbyMinions(this.currentDifficulty(), MAX_NEARBY_MINIONS);
     }
 
     private int phase2GoldenCount() {
-        switch (this.currentDifficulty()) {
-            case EASY:
-                return 2;
-            case HARD:
-                return 4;
-            default:
-                return PHASE2_GOLDEN_COUNT;
-        }
+        return KingSlimeDifficultySettings.phase2GoldenCount(this.currentDifficulty(), PHASE2_GOLDEN_COUNT);
     }
 
     private int phase2DurationTicks() {
-        switch (this.currentDifficulty()) {
-            case EASY:
-                return 160;
-            case HARD:
-                return 240;
-            default:
-                return PHASE2_DURATION_TICKS;
-        }
+        return KingSlimeDifficultySettings.phase2DurationTicks(this.currentDifficulty(), PHASE2_DURATION_TICKS);
     }
 
     private float phase2DamagePerGolden() {
-        switch (this.currentDifficulty()) {
-            case EASY:
-                return 0.38F;
-            case HARD:
-                return 0.24F;
-            default:
-                return 0.33F;
-        }
+        return KingSlimeDifficultySettings.phase2DamagePerGolden(this.currentDifficulty());
     }
 
     private int slamTelegraphTicks() {
-        switch (this.currentDifficulty()) {
-            case EASY:
-                return SLAM_TELEGRAPH_TICKS + 10;
-            case HARD:
-                return Math.max(12, SLAM_TELEGRAPH_TICKS - 7);
-            default:
-                return SLAM_TELEGRAPH_TICKS;
-        }
+        return KingSlimeDifficultySettings.slamTelegraphTicks(this.currentDifficulty(), SLAM_TELEGRAPH_TICKS);
     }
 
     private double slamRadius() {
-        switch (this.currentDifficulty()) {
-            case EASY:
-                return SLAM_RADIUS - 0.5D;
-            case HARD:
-                return SLAM_RADIUS + 1.25D;
-            default:
-                return SLAM_RADIUS;
-        }
+        return KingSlimeDifficultySettings.slamRadius(this.currentDifficulty(), SLAM_RADIUS);
     }
 
     private float slamDamage() {
@@ -281,25 +209,11 @@ public class KingSlimeEntity extends Slime implements GeoEntity {
     }
 
     private double shockwaveRadius() {
-        switch (this.currentDifficulty()) {
-            case EASY:
-                return SHOCKWAVE_RADIUS - 0.75D;
-            case HARD:
-                return SHOCKWAVE_RADIUS + 1.5D;
-            default:
-                return SHOCKWAVE_RADIUS;
-        }
+        return KingSlimeDifficultySettings.shockwaveRadius(this.currentDifficulty(), SHOCKWAVE_RADIUS);
     }
 
     private float maxDamagePerHit() {
-        switch (this.currentDifficulty()) {
-            case EASY:
-                return 18.0F;
-            case HARD:
-                return 8.0F;
-            default:
-                return 12.0F;
-        }
+        return KingSlimeDifficultySettings.maxDamagePerHit(this.currentDifficulty());
     }
 
     @Override
