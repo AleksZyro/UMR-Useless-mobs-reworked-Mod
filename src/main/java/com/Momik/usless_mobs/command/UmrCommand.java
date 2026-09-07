@@ -18,6 +18,8 @@ import net.minecraftforge.registries.ForgeRegistries;
 
 public final class UmrCommand {
 
+    private static final int OPERATOR_PERMISSION_LEVEL = 2;
+
     private static final SuggestionProvider<CommandSourceStack> EFFECT_SUGGESTIONS =
             (ctx, builder) -> SharedSuggestionProvider.suggestResource(
                     ForgeRegistries.MOB_EFFECTS.getKeys(), builder);
@@ -29,21 +31,29 @@ public final class UmrCommand {
                 .requires(src -> src.hasPermission(0))
                 .then(Commands.literal("effect")
                         .then(Commands.literal("disable")
+                                .requires(UmrCommand::requiresOperator)
                                 .then(Commands.argument("effect", ResourceLocationArgument.id())
                                         .suggests(EFFECT_SUGGESTIONS)
                                         .executes(UmrCommand::disable)))
                         .then(Commands.literal("enable")
+                                .requires(UmrCommand::requiresOperator)
                                 .then(Commands.argument("effect", ResourceLocationArgument.id())
                                         .suggests(EFFECT_SUGGESTIONS)
                                         .executes(UmrCommand::enable)))
                         .then(Commands.literal("list")
                                 .executes(UmrCommand::list))
                         .then(Commands.literal("clear")
+                                .requires(UmrCommand::requiresOperator)
                                 .executes(UmrCommand::clear))
                 )
                 .then(Commands.literal("debug")
+                        .requires(UmrCommand::requiresOperator)
                         .executes(UmrCommand::debug))
         );
+    }
+
+    private static boolean requiresOperator(CommandSourceStack source) {
+        return source.hasPermission(OPERATOR_PERMISSION_LEVEL);
     }
 
     private static int debug(CommandContext<CommandSourceStack> ctx) {
