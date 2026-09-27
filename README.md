@@ -1,5 +1,7 @@
 # UMR – Useless Mobs Reworked
 
+**Deutsch** | [English](README_EN.md)
+
 [![Build](https://github.com/AleksZyro/UMR-Useless-mobs-reworked-Mod/actions/workflows/build.yml/badge.svg)](https://github.com/AleksZyro/UMR-Useless-mobs-reworked-Mod/actions/workflows/build.yml)
 [![Minecraft 1.20.1](https://img.shields.io/badge/Minecraft-1.20.1-62b47a)](https://www.minecraft.net/)
 [![Forge 47.4.16](https://img.shields.io/badge/Forge-47.4.16-e04e14)](https://files.minecraftforge.net/)
