@@ -1,5 +1,6 @@
 package com.Momik.usless_mobs.entity;
 
+import com.Momik.usless_mobs.Config;
 import com.Momik.usless_mobs.event.KingSlimeAdvancements;
 import com.Momik.usless_mobs.Usless_mobs;
 import net.minecraft.core.BlockPos;
