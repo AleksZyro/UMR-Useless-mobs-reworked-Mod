@@ -1,6 +1,7 @@
 package com.Momik.usless_mobs.client;
 
 import com.Momik.usless_mobs.entity.HelpingAllayEntity;
+import com.Momik.usless_mobs.entity.FrostStrayEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.util.Mth;
@@ -114,8 +115,10 @@ final class ExactRigPose {
             case WEB_CAVE_SPIDER -> updateWebCaveSpider(limbSwing, limbSwingAmount);
             case FROST_STRAY -> updateFrostStray(limbSwing, limbSwingAmount, ageInTicks,
                     netHeadYaw, headPitch,
-                    entity instanceof AbstractSkeleton skeleton && skeleton.isAggressive(),
-                    entity.getTicksUsingItem());
+                    entity instanceof FrostStrayEntity frostStray && frostStray.isIceVolleyActive()
+                            || entity instanceof AbstractSkeleton skeleton && skeleton.isAggressive(),
+                    entity instanceof FrostStrayEntity frostStray ? frostStray.iceVolleyProgress(0.0F)
+                            : Math.min(1.0F, (entity.getTicksUsingItem() + 1.0F) / 6.0F));
             default -> {
             }
         }
@@ -191,12 +194,11 @@ final class ExactRigPose {
 
     private void updateFrostStray(float limbSwing, float limbSwingAmount, float ageInTicks,
                                   float netHeadYaw, float headPitch, boolean aimingBow,
-                                  int itemUseTicks) {
+                                  float drawProgress) {
         float walk = limbSwing * 0.6662F;
         float rightWalkPhase = Mth.cos(walk + Mth.PI);
         float leftWalkPhase = Mth.cos(walk);
-        float drawProgress = aimingBow
-                ? Mth.clamp((itemUseTicks + 1.0F) / 6.0F, 0.0F, 1.0F) : 0.0F;
+        drawProgress = aimingBow ? Mth.clamp(drawProgress * 3.0F, 0.0F, 1.0F) : 0.0F;
         this.bowBlend = drawProgress * drawProgress * (3.0F - 2.0F * drawProgress);
 
         this.targetYaw = Mth.clamp(netHeadYaw * Mth.DEG_TO_RAD, -0.70F, 0.70F);

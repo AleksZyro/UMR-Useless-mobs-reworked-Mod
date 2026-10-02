@@ -1,9 +1,17 @@
 package com.Momik.usless_mobs.entity;
 
+import com.Momik.usless_mobs.ability.FrostStrayAbilityTimeline;
+import com.Momik.usless_mobs.network.FrostStrayAbilityPacket;
+import com.Momik.usless_mobs.network.FrostStrayImpactPacket;
+import com.Momik.usless_mobs.network.ModNetwork;
 import com.Momik.usless_mobs.registry.ModSounds;
+import java.util.Optional;
 import java.util.UUID;
-import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -17,16 +25,24 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.monster.Stray;
 import net.minecraft.world.entity.projectile.AbstractArrow;
-import net.minecraft.world.entity.projectile.Arrow;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 public class FrostStrayEntity extends Stray {
     private static final int ICE_VOLLEY_WARMUP_TICKS = 18;
+    private static final EntityDataAccessor<Boolean> ICE_VOLLEY_ACTIVE = SynchedEntityData.defineId(
+            FrostStrayEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Long> ICE_VOLLEY_START_TIME = SynchedEntityData.defineId(
+            FrostStrayEntity.class, EntityDataSerializers.LONG);
+    private static final EntityDataAccessor<Integer> ICE_VOLLEY_DURATION = SynchedEntityData.defineId(
+            FrostStrayEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Optional<UUID>> ICE_VOLLEY_INSTANCE_ID = SynchedEntityData.defineId(
+            FrostStrayEntity.class, EntityDataSerializers.OPTIONAL_UUID);
+
     private int iceVolleyCooldown = 110;
-    private int iceVolleyWarmup = 0;
     private UUID iceVolleyTargetId = null;
+    private FrostStrayAbilityTimeline iceVolleyTimeline;
 
     public FrostStrayEntity(EntityType<? extends Stray> entityType, Level level) {
         super(entityType, level);
@@ -39,6 +55,31 @@ public class FrostStrayEntity extends Stray {
                 .add(Attributes.MOVEMENT_SPEED, 0.25D)
                 .add(Attributes.ATTACK_DAMAGE, 4.0D)
                 .add(Attributes.FOLLOW_RANGE, 36.0D);
+    }
+
+    @Override
+    protected void defineSynchedData() {
+        super.defineSynchedData();
+        this.entityData.define(ICE_VOLLEY_ACTIVE, false);
+        this.entityData.define(ICE_VOLLEY_START_TIME, 0L);
+        this.entityData.define(ICE_VOLLEY_DURATION, 0);
+        this.entityData.define(ICE_VOLLEY_INSTANCE_ID, Optional.empty());
+    }
+
+    public boolean isIceVolleyActive() {
+        return this.entityData.get(ICE_VOLLEY_ACTIVE);
+    }
+
+    public float iceVolleyProgress(float partialTick) {
+        if (!this.isIceVolleyActive() || this.level() == null) {
+            return 0.0F;
+        }
+        int duration = this.entityData.get(ICE_VOLLEY_DURATION);
+        if (duration <= 0) {
+            return 0.0F;
+        }
+        float elapsed = this.level().getGameTime() - this.entityData.get(ICE_VOLLEY_START_TIME) + partialTick;
+        return Math.max(0.0F, Math.min(1.0F, elapsed / duration));
     }
 
     @Override
@@ -59,15 +100,10 @@ public class FrostStrayEntity extends Stray {
             return;
         }
 
-        if (this.tickCount % 12 == 0) {
-            serverLevel.sendParticles(ParticleTypes.SNOWFLAKE,
-                    this.getX(), this.getY(0.75D), this.getZ(),
-                    4, 0.25D, 0.45D, 0.25D, 0.01D);
-        }
         if (this.iceVolleyCooldown > 0) {
             this.iceVolleyCooldown--;
         }
-        if (this.iceVolleyWarmup > 0) {
+        if (this.iceVolleyTimeline != null) {
             tickIceVolley(serverLevel);
             return;
         }
@@ -82,36 +118,31 @@ public class FrostStrayEntity extends Stray {
 
     private void startIceVolley(LivingEntity target, ServerLevel serverLevel) {
         this.iceVolleyTargetId = target.getUUID();
-        this.iceVolleyWarmup = ICE_VOLLEY_WARMUP_TICKS;
+        this.iceVolleyTimeline = new FrostStrayAbilityTimeline(UUID.randomUUID(), this.getUUID(),
+                serverLevel.getGameTime(), ICE_VOLLEY_WARMUP_TICKS);
+        this.entityData.set(ICE_VOLLEY_ACTIVE, true);
+        this.entityData.set(ICE_VOLLEY_START_TIME, this.iceVolleyTimeline.startGameTime());
+        this.entityData.set(ICE_VOLLEY_DURATION, this.iceVolleyTimeline.durationTicks());
+        this.entityData.set(ICE_VOLLEY_INSTANCE_ID, Optional.of(this.iceVolleyTimeline.instanceId()));
         this.iceVolleyCooldown = this.level().getDifficulty() == net.minecraft.world.Difficulty.HARD ? 150 : 195;
-        serverLevel.playSound(null, this.blockPosition(), ModSounds.FROST_STRAY_VOLLEY.get(), SoundSource.HOSTILE, 0.85F, 0.72F);
+        broadcastTimeline(FrostStrayAbilityPacket.Type.START, serverLevel);
     }
 
     private void tickIceVolley(ServerLevel serverLevel) {
-        if (this.iceVolleyTargetId == null) {
-            this.iceVolleyWarmup = 0;
+        if (this.iceVolleyTimeline == null || this.iceVolleyTargetId == null) {
+            cancelIceVolley(serverLevel);
             return;
         }
 
         net.minecraft.world.entity.Entity entity = serverLevel.getEntity(this.iceVolleyTargetId);
         if (!(entity instanceof LivingEntity target) || !target.isAlive() || this.distanceToSqr(target) > 28.0D * 28.0D) {
-            this.iceVolleyWarmup = 0;
-            this.iceVolleyTargetId = null;
+            cancelIceVolley(serverLevel);
             return;
         }
-
-        if (this.iceVolleyWarmup % 3 == 0) {
-            serverLevel.sendParticles(ParticleTypes.SNOWFLAKE,
-                    target.getX(), target.getY(0.9D), target.getZ(),
-                    9, 0.45D, 0.6D, 0.45D, 0.02D);
-            serverLevel.sendParticles(ParticleTypes.ITEM_SNOWBALL,
-                    this.getX(), this.getEyeY(), this.getZ(),
-                    5, 0.18D, 0.18D, 0.18D, 0.02D);
-        }
-
-        this.iceVolleyWarmup--;
-        if (this.iceVolleyWarmup <= 0) {
+        if (!this.iceVolleyTimeline.isActiveAt(serverLevel.getGameTime())) {
             shootIceVolley(target, serverLevel);
+            broadcastTimeline(FrostStrayAbilityPacket.Type.RELEASE, serverLevel);
+            clearIceVolley();
             this.iceVolleyTargetId = null;
         }
     }
@@ -130,7 +161,8 @@ public class FrostStrayEntity extends Stray {
         double center = (arrows - 1) / 2.0D;
         for (int i = 0; i < arrows; i++) {
             double offset = (i - center) * 0.13D;
-            Arrow arrow = new Arrow(this.level(), this);
+            FrostStrayVolleyArrow arrow = new FrostStrayVolleyArrow(this.level(), this,
+                    this.iceVolleyTimeline.instanceId());
             arrow.setPos(origin.x, origin.y, origin.z);
             arrow.setBaseDamage(arrow.getBaseDamage() + 1.0D);
             arrow.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 180, 2));
@@ -139,11 +171,65 @@ public class FrostStrayEntity extends Stray {
             arrow.shoot(direction.x, direction.y + 0.03D, direction.z, 1.75F, 0.75F);
             this.level().addFreshEntity(arrow);
         }
+    }
 
-        serverLevel.sendParticles(ParticleTypes.SNOWFLAKE,
-                this.getX(), this.getEyeY(), this.getZ(),
-                18, 0.35D, 0.25D, 0.35D, 0.04D);
-        serverLevel.playSound(null, this.blockPosition(), ModSounds.FROST_STRAY_VOLLEY.get(), SoundSource.HOSTILE, 1.0F, 1.0F);
+    public void syncActiveVolleyTo(ServerPlayer player) {
+        if (this.iceVolleyTimeline != null && this.level() instanceof ServerLevel serverLevel
+                && this.iceVolleyTimeline.isActiveAt(serverLevel.getGameTime())) {
+            ModNetwork.sendToPlayer(player, new FrostStrayAbilityPacket(
+                    FrostStrayAbilityPacket.Type.START, this.getId(), this.iceVolleyTimeline.instanceId(),
+                    this.iceVolleyTimeline.startGameTime(), serverLevel.getGameTime(),
+                    this.iceVolleyTimeline.durationTicks()));
+        }
+    }
+
+    void onVolleyProjectileImpact(UUID abilityInstanceId, Vec3 impactPosition) {
+        if (this.level() instanceof ServerLevel serverLevel) {
+            ModNetwork.sendToTrackingAndSelf(this, new FrostStrayImpactPacket(this.getId(), abilityInstanceId,
+                    UUID.randomUUID(), impactPosition.x, impactPosition.y, impactPosition.z,
+                    serverLevel.getGameTime()));
+        }
+    }
+
+    @Override
+    public boolean hurt(DamageSource source, float amount) {
+        boolean hurt = super.hurt(source, amount);
+        if (hurt && this.level() instanceof ServerLevel serverLevel && this.iceVolleyTimeline != null) {
+            cancelIceVolley(serverLevel);
+        }
+        return hurt;
+    }
+
+    @Override
+    public void die(DamageSource source) {
+        if (this.level() instanceof ServerLevel serverLevel) {
+            cancelIceVolley(serverLevel);
+        }
+        super.die(source);
+    }
+
+    private void cancelIceVolley(ServerLevel serverLevel) {
+        if (this.iceVolleyTimeline != null) {
+            broadcastTimeline(FrostStrayAbilityPacket.Type.CANCEL, serverLevel);
+        }
+        clearIceVolley();
+        this.iceVolleyTargetId = null;
+    }
+
+    private void clearIceVolley() {
+        this.iceVolleyTimeline = null;
+        this.entityData.set(ICE_VOLLEY_ACTIVE, false);
+        this.entityData.set(ICE_VOLLEY_START_TIME, 0L);
+        this.entityData.set(ICE_VOLLEY_DURATION, 0);
+        this.entityData.set(ICE_VOLLEY_INSTANCE_ID, Optional.empty());
+    }
+
+    private void broadcastTimeline(FrostStrayAbilityPacket.Type type, ServerLevel serverLevel) {
+        if (this.iceVolleyTimeline != null) {
+            ModNetwork.sendToTrackingAndSelf(this, new FrostStrayAbilityPacket(type, this.getId(),
+                    this.iceVolleyTimeline.instanceId(), this.iceVolleyTimeline.startGameTime(),
+                    serverLevel.getGameTime(), this.iceVolleyTimeline.durationTicks()));
+        }
     }
 
     @Override

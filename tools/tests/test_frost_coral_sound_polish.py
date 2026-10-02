@@ -1,13 +1,15 @@
 import json
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_frost_stray_and_coral_drowned_own_their_sound_families():
     registry = (ROOT / "src/main/java/com/Momik/usless_mobs/registry/ModSounds.java").read_text()
-    frost = (ROOT / "src/main/java/com/Momik/usless_mobs/entity/FrostStrayEntity.java").read_text()
+    frost = (
+        (ROOT / "src/main/java/com/Momik/usless_mobs/entity/FrostStrayEntity.java").read_text()
+        + (ROOT / "src/main/java/com/Momik/usless_mobs/client/FrostStrayAbilityClient.java").read_text()
+    )
     coral = (ROOT / "src/main/java/com/Momik/usless_mobs/entity/CoralDrownedEntity.java").read_text()
     sounds = json.loads(
         (ROOT / "src/main/resources/assets/usless_mobs/sounds.json").read_text(encoding="utf-8")

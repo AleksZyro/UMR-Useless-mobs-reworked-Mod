@@ -6,7 +6,8 @@
 - Vertices: 384'790
 - Dreiecke: 714'146
 - Albedo: 4096 × 4096 Pixel
-- Runtime: verlustfreies Triangle-Mesh, sechs Animationsregionen, null Cubes
+- Runtime: 98'103-Dreieck-Triangle-Mesh, sechs Animationsregionen, null Cubes;
+  die archivierte Albedo-Quelle ist 4096 × 4096, die ausgelieferte Runtime-PNG ist 2048 × 2048.
 - Spielgrösse: 31,2 Modellpixel hoch; Hitbox 1,10 × 1,95 Blöcke
 
 Die frühere Quelle `source/frost_stray_textured_4k.glb` und die Datei

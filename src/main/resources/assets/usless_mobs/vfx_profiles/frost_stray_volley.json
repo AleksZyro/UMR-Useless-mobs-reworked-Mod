@@ -1,0 +1,29 @@
+{
+  "charge": {
+    "particle": "snowflake",
+    "near_count": 4,
+    "mid_count": 1,
+    "emit_every_ticks": 2,
+    "spread": 0.18,
+    "vertical_speed": 0.025,
+    "important": true
+  },
+  "release": {
+    "particle": "item_snowball",
+    "near_count": 12,
+    "mid_count": 4,
+    "emit_every_ticks": 1,
+    "spread": 0.35,
+    "vertical_speed": 0.04,
+    "important": true
+  },
+  "impact": {
+    "particle": "snowflake",
+    "near_count": 18,
+    "mid_count": 6,
+    "emit_every_ticks": 1,
+    "spread": 0.45,
+    "vertical_speed": 0.055,
+    "important": true
+  }
+}
