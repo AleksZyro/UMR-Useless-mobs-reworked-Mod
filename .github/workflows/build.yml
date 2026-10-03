@@ -56,6 +56,33 @@ jobs:
       - name: Build Forge mod
         run: ./gradlew clean build --no-daemon
 
+      - name: Dedicated server startup smoke test
+        shell: bash
+        run: |
+          set +e
+          mkdir -p run
+          printf 'eula=true\n' > run/eula.txt
+          timeout --signal=TERM --kill-after=20s 120s ./gradlew runServer --no-daemon > dedicated-server.log 2>&1
+          status=$?
+          set -e
+          if ! grep -Fq "Done (" dedicated-server.log; then
+            cat dedicated-server.log
+            exit "${status:-1}"
+          fi
+          if [[ "$status" -ne 0 && "$status" -ne 124 ]]; then
+            cat dedicated-server.log
+            exit "$status"
+          fi
+
+      - name: Upload dedicated server log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dedicated-server-${{ github.sha }}
+          path: dedicated-server.log
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v7

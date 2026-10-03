@@ -39,8 +39,41 @@ einem Partikel sichtbar.
 
 ## Nachweisstatus
 
-Die fokussierten Python-Verträge bestehen. Eine lokale Java-17-JDK ist zwar
-vorhanden, aber Gradle scheitert vor der Projektkonfiguration an einer
-gesperrten lokalen Loopback-Verbindung. Deshalb sind Java-Kompilation,
-Dedicated-Server-Start sowie echte Client-Screenshots bei 4, 12 und 24 Blöcken
-ausdrücklich noch nicht nachgewiesen.
+### Ausführbar geprüft
+
+- Die bisherigen Python-Verträge prüfen überwiegend Quelltext- und Asset-
+  Muster. Sie beweisen nicht, dass Minecraft die Java-Klassen ausführt.
+- Ergänzend prüft `tools/tests/test_frost_stray_ability_behavior.py` ein
+  ausführbares, deterministisches Protokollmodell für doppelte Starts und
+  Releases, spätes Tracking, Abbruch mit verspätetem Start sowie doppelte
+  Impacts. Das ist ein Verhaltenstest des Netzwerkvertrags, aber noch kein
+  Forge-Laufzeittest.
+- `.github/workflows/build.yml` führt in der CI einen echten Forge-Build und
+  danach einen Dedicated-Server-Startup-Smoke-Test aus. Der Server muss
+  `Done (` loggen; der kontrollierte Timeout danach ist erwartbar. Der
+  Nachweis ist nach dem nächsten CI-Lauf zu protokollieren.
+
+### Noch offen, weil lokal nicht ausführbar
+
+Die lokale Java-17-JDK ist vorhanden, Gradle 8.14.5 scheitert aber vor der
+Projektkonfiguration an einer gesperrten lokalen Loopback-Verbindung:
+`java.io.IOException: Unable to establish loopback connection`, verursacht
+durch `java.net.SocketException: Invalid argument: connect` in Gradle's
+`PipeImpl`/Unix-Domain-Socket-IPC. Es gibt deshalb aus dieser Umgebung noch
+keinen lokalen Java-Kompilationsnachweis.
+
+Noch nicht ausgeführt und daher ausdrücklich offen sind: CI-Ergebnis des
+Forge-Builds, Dedicated-Server-Start, zwei echte Clients für Treffer,
+Fehlschlag, Unterbrechung, Tod, spätes Tracking sowie verspätete und doppelte
+Timeline-Nachrichten, reale Ingame-Aufnahmen bei 4, 12 und 24 Blöcken, die
+Timing-Bildfolge sowie der Vergleich von Lesbarkeit, Partikelzahl und
+Framezeit mit dem Ausgangszustand. Diese Punkte dürfen erst nach einem
+reproduzierbaren Spieltest als abgenommen markiert werden.
+
+Die globalen Python-Checks sind ein bestehendes Repository-Problem: `pytest -q`
+ohne Modulaufruf scheitert an fehlenden `tools`-Imports; `python -m pytest -q`
+benötigt die in `requirements-ci.txt` aufgeführten externen Pakete
+`meshoptimizer` und `nbtlib`. `ruff check src tests` kann nicht ausgeführt
+werden, weil dieses Repository kein `tests`-Verzeichnis besitzt; `ruff check
+src tools` meldet bestehende Lintfehler ausserhalb dieses PoC. Die fokussierten
+PoC-Tests und der neue Verhaltenstest sind davon getrennt zu berichten.

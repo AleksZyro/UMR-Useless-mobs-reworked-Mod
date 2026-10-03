@@ -1,11 +1,9 @@
 package com.Momik.usless_mobs.network;
 
-import com.Momik.usless_mobs.client.FrostStrayAbilityClient;
 import java.util.UUID;
 import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.network.NetworkEvent;
 
 /** Timeline control messages are server-to-client only; clients never request an attack. */
@@ -45,8 +43,7 @@ public record FrostStrayAbilityPacket(Type type, int entityId, UUID instanceId,
 
     public static void handle(FrostStrayAbilityPacket packet, Supplier<NetworkEvent.Context> contextSupplier) {
         NetworkEvent.Context context = contextSupplier.get();
-        context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-                () -> () -> FrostStrayAbilityClient.handleTimeline(packet)));
+        context.enqueueWork(() -> MinecraftForge.EVENT_BUS.post(new FrostStrayAbilityPacketEvent(packet)));
         context.setPacketHandled(true);
     }
 }

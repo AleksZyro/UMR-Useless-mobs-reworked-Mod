@@ -1,11 +1,9 @@
 package com.Momik.usless_mobs.network;
 
-import com.Momik.usless_mobs.client.FrostStrayAbilityClient;
 import java.util.UUID;
 import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.network.NetworkEvent;
 
 /** A server-confirmed projectile collision, carrying its actual collision position. */
@@ -35,8 +33,7 @@ public record FrostStrayImpactPacket(int entityId, UUID instanceId, UUID impactI
 
     public static void handle(FrostStrayImpactPacket packet, Supplier<NetworkEvent.Context> contextSupplier) {
         NetworkEvent.Context context = contextSupplier.get();
-        context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-                () -> () -> FrostStrayAbilityClient.handleImpact(packet)));
+        context.enqueueWork(() -> MinecraftForge.EVENT_BUS.post(new FrostStrayImpactPacketEvent(packet)));
         context.setPacketHandled(true);
     }
 }

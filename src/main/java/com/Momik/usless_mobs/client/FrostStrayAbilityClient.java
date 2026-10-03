@@ -1,7 +1,9 @@
 package com.Momik.usless_mobs.client;
 
 import com.Momik.usless_mobs.network.FrostStrayAbilityPacket;
+import com.Momik.usless_mobs.network.FrostStrayAbilityPacketEvent;
 import com.Momik.usless_mobs.network.FrostStrayImpactPacket;
+import com.Momik.usless_mobs.network.FrostStrayImpactPacketEvent;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -53,6 +55,16 @@ public final class FrostStrayAbilityClient {
         serverTimeOffset = packet.serverGameTime() - level.getGameTime();
         FrostStrayVfxProfiles.Profile profile = FrostStrayVfxProfiles.impact();
         emit(level, new Vec3(packet.x(), packet.y(), packet.z()), profile, true);
+    }
+
+    @SubscribeEvent
+    public static void onTimelinePacket(FrostStrayAbilityPacketEvent event) {
+        handleTimeline(event.packet());
+    }
+
+    @SubscribeEvent
+    public static void onImpactPacket(FrostStrayImpactPacketEvent event) {
+        handleImpact(event.packet());
     }
 
     @SubscribeEvent
