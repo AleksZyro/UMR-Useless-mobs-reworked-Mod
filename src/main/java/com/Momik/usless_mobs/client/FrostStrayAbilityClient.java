@@ -28,6 +28,7 @@ public final class FrostStrayAbilityClient {
     private static final Map<UUID, Long> FINISHED = new HashMap<>();
     private static final Map<UUID, Long> IMPACTS = new HashMap<>();
     private static long serverTimeOffset;
+    private static long highestServerGameTime = Long.MIN_VALUE;
 
     private FrostStrayAbilityClient() {
     }
@@ -38,7 +39,7 @@ public final class FrostStrayAbilityClient {
         if (level == null) {
             return;
         }
-        serverTimeOffset = packet.serverGameTime() - level.getGameTime();
+        updateServerTimeOffset(packet.serverGameTime(), level);
         switch (packet.type()) {
             case START -> start(packet, level);
             case RELEASE -> release(packet, level);
@@ -52,7 +53,7 @@ public final class FrostStrayAbilityClient {
         if (level == null || IMPACTS.putIfAbsent(packet.impactId(), packet.serverGameTime()) != null) {
             return;
         }
-        serverTimeOffset = packet.serverGameTime() - level.getGameTime();
+        updateServerTimeOffset(packet.serverGameTime(), level);
         FrostStrayVfxProfiles.Profile profile = FrostStrayVfxProfiles.impact();
         emit(level, new Vec3(packet.x(), packet.y(), packet.z()), profile, true);
     }
@@ -78,6 +79,8 @@ public final class FrostStrayAbilityClient {
             ACTIVE.clear();
             FINISHED.clear();
             IMPACTS.clear();
+            serverTimeOffset = 0L;
+            highestServerGameTime = Long.MIN_VALUE;
             return;
         }
         long serverGameTime = level.getGameTime() + serverTimeOffset;
@@ -188,6 +191,13 @@ public final class FrostStrayAbilityClient {
 
     private static void finish(UUID instanceId, long serverGameTime) {
         FINISHED.put(instanceId, serverGameTime);
+    }
+
+    private static void updateServerTimeOffset(long packetServerGameTime, ClientLevel level) {
+        if (packetServerGameTime >= highestServerGameTime) {
+            highestServerGameTime = packetServerGameTime;
+            serverTimeOffset = packetServerGameTime - level.getGameTime();
+        }
     }
 
     private static final class ActiveTimeline {

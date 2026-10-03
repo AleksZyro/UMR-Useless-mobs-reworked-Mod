@@ -46,8 +46,13 @@ einem Partikel sichtbar.
 - Ergänzend prüft `tools/tests/test_frost_stray_ability_behavior.py` ein
   ausführbares, deterministisches Protokollmodell für doppelte Starts und
   Releases, spätes Tracking, Abbruch mit verspätetem Start sowie doppelte
-  Impacts. Das ist ein Verhaltenstest des Netzwerkvertrags, aber noch kein
-  Forge-Laufzeittest.
+  Impacts. Die fokussierte Gruppe umfasst aktuell **17 bestanden**. Das ist
+  ein Verhaltenstest des Netzwerkvertrags, aber noch kein Forge-Laufzeittest.
+- Die gemeinsamen Network-Packet-Klassen enthalten keine Client-Imports mehr.
+  Sie übergeben Nachrichten über `FrostStrayAbilityPacketEvent` bzw.
+  `FrostStrayImpactPacketEvent` an den clientseitigen Cue-Player. Der
+  Projektilpfad verwirft wiederholte Kollisionsaufrufe mit einer
+  `collisionHandled`-Sperre.
 - `.github/workflows/build.yml` führt in der CI einen echten Forge-Build und
   danach einen Dedicated-Server-Startup-Smoke-Test aus. Der Server muss
   `Done (` loggen; der kontrollierte Timeout danach ist erwartbar. Der
@@ -59,8 +64,12 @@ Die lokale Java-17-JDK ist vorhanden, Gradle 8.14.5 scheitert aber vor der
 Projektkonfiguration an einer gesperrten lokalen Loopback-Verbindung:
 `java.io.IOException: Unable to establish loopback connection`, verursacht
 durch `java.net.SocketException: Invalid argument: connect` in Gradle's
-`PipeImpl`/Unix-Domain-Socket-IPC. Es gibt deshalb aus dieser Umgebung noch
-keinen lokalen Java-Kompilationsnachweis.
+`PipeImpl`/Unix-Domain-Socket-IPC. Das wurde sowohl mit dem installierten
+Android-JDK 17 als auch mit dem vorhandenen 64-Bit-JDK 25 reproduziert. Der
+normale Aufruf ohne gesetztes `JAVA_HOME` verwendet zusätzlich das 32-Bit-Java
+8 und scheitert bereits vorher mit `Could not reserve enough space for
+3145728KB object heap`. Es gibt deshalb aus dieser Umgebung noch keinen
+lokalen Java-Kompilationsnachweis.
 
 Noch nicht ausgeführt und daher ausdrücklich offen sind: CI-Ergebnis des
 Forge-Builds, Dedicated-Server-Start, zwei echte Clients für Treffer,

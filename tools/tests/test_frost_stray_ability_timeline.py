@@ -51,6 +51,8 @@ def test_client_cues_are_tick_driven_idempotent_and_do_not_replay_stale_sounds()
     assert "elapsed <= 3L" in client
     assert "ACTIVE.remove(packet.entityId())" in client
     assert "serverGameTime - active.startGameTime" in client
+    assert "highestServerGameTime" in client
+    assert "updateServerTimeOffset" in client
     assert "EntityRenderer" not in client
 
 

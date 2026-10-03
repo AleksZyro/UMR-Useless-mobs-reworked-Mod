@@ -9,7 +9,7 @@ import net.minecraft.world.phys.HitResult;
 /** Arrow variant that reports an impact only after the server has observed a real collision. */
 final class FrostStrayVolleyArrow extends Arrow {
     private final UUID abilityInstanceId;
-    private boolean impactReported;
+    private boolean collisionHandled;
 
     FrostStrayVolleyArrow(Level level, LivingEntity owner, UUID abilityInstanceId) {
         super(level, owner);
@@ -18,8 +18,11 @@ final class FrostStrayVolleyArrow extends Arrow {
 
     @Override
     protected void onHit(HitResult result) {
-        if (!this.level().isClientSide && !this.impactReported && this.getOwner() instanceof FrostStrayEntity frostStray) {
-            this.impactReported = true;
+        if (this.collisionHandled) {
+            return;
+        }
+        this.collisionHandled = true;
+        if (!this.level().isClientSide && this.getOwner() instanceof FrostStrayEntity frostStray) {
             frostStray.onVolleyProjectileImpact(this.abilityInstanceId, result.getLocation());
         }
         super.onHit(result);

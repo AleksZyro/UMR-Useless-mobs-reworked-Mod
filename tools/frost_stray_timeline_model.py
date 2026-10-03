@@ -1,11 +1,11 @@
-"""Small executable model of the Frost Stray client timeline contract.
+"""Small executable models of the Frost Stray timeline contract.
 
 This deliberately does not import Minecraft or Forge.  It is a deterministic
 protocol model used to exercise ordering, deduplication and late-observer
 semantics while the real implementation is verified by the Forge CI build.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -69,3 +69,74 @@ class TimelineClientModel:
         if self.active is not None and self.active[0].instance == packet.instance:
             self.active = None
         self.finished.add(packet.instance)
+
+
+@dataclass
+class VolleyServerModel:
+    """Model the server-side one-shot contract used by one Frost Stray volley."""
+
+    duration: int = 18
+    projectile_count: int = 3
+    state: str = "idle"
+    instance: str | None = None
+    starts: int = 0
+    releases: int = 0
+    cancellations: int = 0
+    projectiles: int = 0
+    damage_events: int = 0
+    impact_events: int = 0
+    normal_attack_attempts: int = 0
+    normal_attack_hits: int = 0
+    normal_attack_misses: int = 0
+    handled_projectiles: set[str] = field(default_factory=set)
+
+    def normal_attack(self, *, target_alive: bool, in_range: bool) -> bool:
+        self.normal_attack_attempts += 1
+        if target_alive and in_range:
+            self.normal_attack_hits += 1
+            return True
+        self.normal_attack_misses += 1
+        return False
+
+    def start(self, instance: str) -> bool:
+        if self.state != "idle":
+            return False
+        self.state = "charging"
+        self.instance = instance
+        self.starts += 1
+        return True
+
+    def tick(self, elapsed: int, *, target_alive: bool = True, in_range: bool = True) -> None:
+        if self.state != "charging":
+            return
+        if not target_alive or not in_range:
+            self.cancel()
+            return
+        if elapsed >= self.duration:
+            self.state = "released"
+            self.releases += 1
+            self.projectiles += self.projectile_count
+
+    def cancel(self) -> None:
+        if self.state == "charging":
+            self.state = "idle"
+            self.cancellations += 1
+            self.instance = None
+
+    def die(self) -> None:
+        if self.state == "charging":
+            self.cancel()
+        self.state = "dead"
+
+    def projectile_hit(self, projectile_id: str, *, target_hit: bool) -> None:
+        """Resolve one server projectile collision at most once."""
+        if projectile_id in self.handled_projectiles:
+            return
+        self.handled_projectiles.add(projectile_id)
+        self.impact_events += 1
+        if target_hit:
+            self.damage_events += 1
+
+    def projectile_missed(self, projectile_id: str) -> None:
+        """Resolve a projectile that expires without a collision."""
+        self.handled_projectiles.add(projectile_id)
