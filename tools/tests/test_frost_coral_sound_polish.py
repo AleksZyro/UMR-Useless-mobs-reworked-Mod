@@ -16,7 +16,7 @@ def test_frost_stray_and_coral_drowned_own_their_sound_families():
     )
 
     contracts = {
-        "FROST_STRAY": (frost, ("AMBIENT", "HURT", "DEATH", "VOLLEY")),
+        "FROST_STRAY": (frost, ("AMBIENT", "HURT", "DEATH", "CHARGE", "RELEASE", "IMPACT")),
         "CORAL_DROWNED": (coral, ("AMBIENT", "HURT", "DEATH", "SURGE")),
     }
     for prefix, (source, suffixes) in contracts.items():

@@ -329,6 +329,30 @@
             { "name": "minecraft:entity.player.hurt_freeze", "type": "event", "volume": 0.30, "pitch": 1.25 }
         ]
     },
+    "frost_stray_charge": {
+        "category": "hostile",
+        "subtitle": "subtitle.usless_mobs.frost_stray_charge",
+        "sounds": [
+            { "name": "minecraft:block.amethyst_block.chime", "type": "event", "volume": 0.52, "pitch": 0.58 },
+            { "name": "minecraft:block.powder_snow.step", "type": "event", "volume": 0.30, "pitch": 0.72 }
+        ]
+    },
+    "frost_stray_release": {
+        "category": "hostile",
+        "subtitle": "subtitle.usless_mobs.frost_stray_release",
+        "sounds": [
+            { "name": "minecraft:entity.skeleton.shoot", "type": "event", "volume": 0.86, "pitch": 0.70 },
+            { "name": "minecraft:entity.player.hurt_freeze", "type": "event", "volume": 0.38, "pitch": 1.18 }
+        ]
+    },
+    "frost_stray_impact": {
+        "category": "hostile",
+        "subtitle": "subtitle.usless_mobs.frost_stray_impact",
+        "sounds": [
+            { "name": "minecraft:block.glass.break", "type": "event", "volume": 0.64, "pitch": 0.70 },
+            { "name": "minecraft:block.powder_snow.break", "type": "event", "volume": 0.52, "pitch": 0.58 }
+        ]
+    },
     "coral_drowned_ambient": {
         "category": "hostile",
         "sounds": [

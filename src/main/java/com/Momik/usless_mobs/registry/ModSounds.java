@@ -39,6 +39,9 @@ public final class ModSounds {
     public static final RegistryObject<SoundEvent> FROST_STRAY_HURT = register("frost_stray_hurt");
     public static final RegistryObject<SoundEvent> FROST_STRAY_DEATH = register("frost_stray_death");
     public static final RegistryObject<SoundEvent> FROST_STRAY_VOLLEY = register("frost_stray_volley");
+    public static final RegistryObject<SoundEvent> FROST_STRAY_CHARGE = register("frost_stray_charge");
+    public static final RegistryObject<SoundEvent> FROST_STRAY_RELEASE = register("frost_stray_release");
+    public static final RegistryObject<SoundEvent> FROST_STRAY_IMPACT = register("frost_stray_impact");
     public static final RegistryObject<SoundEvent> CORAL_DROWNED_AMBIENT = register("coral_drowned_ambient");
     public static final RegistryObject<SoundEvent> CORAL_DROWNED_HURT = register("coral_drowned_hurt");
     public static final RegistryObject<SoundEvent> CORAL_DROWNED_DEATH = register("coral_drowned_death");

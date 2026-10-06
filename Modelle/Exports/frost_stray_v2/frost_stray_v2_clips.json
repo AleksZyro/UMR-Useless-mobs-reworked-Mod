@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "runtime": "FrostStrayV2OverlayModel plus ExactRigPose",
+  "note": "The connected Tripo shell is unweighted. These are named, reproducible procedural presentation clips for the detached v2 ice accents; they are not falsely represented as skeletal mesh clips.",
+  "clips": [
+    {"name": "spawn", "duration_ticks": 12, "loop": false, "purpose": "settle crown and collar after entity creation"},
+    {"name": "idle", "duration_ticks": 40, "loop": true, "purpose": "quiet crown, spine and hip breathing"},
+    {"name": "walk", "duration_ticks": 20, "loop": true, "purpose": "opposed forearm, shoulder and hip response to the exact mesh gait"},
+    {"name": "run", "duration_ticks": 14, "loop": true, "purpose": "stronger shoulder and spine response at higher limb amplitude"},
+    {"name": "bow_volley", "duration_ticks": 18, "loop": false, "purpose": "charge toward bow grip, release, controlled return"},
+    {"name": "hurt", "duration_ticks": 10, "loop": false, "purpose": "short collar and spine recoil"},
+    {"name": "death", "duration_ticks": 20, "loop": false, "purpose": "settled spine collapse that follows the entity death state"}
+  ],
+  "pose_checks": [
+    {"name": "front_idle", "distance_blocks": 4, "checks": ["face", "crown silhouette", "bow grip"]},
+    {"name": "side_walk", "distance_blocks": 12, "checks": ["forearm phase", "foot contact", "no overlay clipping"]},
+    {"name": "rear_volley", "distance_blocks": 12, "checks": ["spine shards", "charge direction", "release timing"]},
+    {"name": "player_view_volley", "distance_blocks": 24, "checks": ["telegraph remains readable", "no stale audio", "particle budget"]}
+  ]
+}

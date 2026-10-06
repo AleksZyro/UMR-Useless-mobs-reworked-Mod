@@ -1,6 +1,9 @@
 {
   "entity.usless_mobs.blauer_schleim": "Blue Slime",
   "entity.usless_mobs.frost_stray_v2": "Frost Stray v2 Preview",
+  "subtitle.usless_mobs.frost_stray_charge": "Frost Stray draws frost",
+  "subtitle.usless_mobs.frost_stray_release": "Frost Stray releases ice volley",
+  "subtitle.usless_mobs.frost_stray_impact": "Ice volley shatters",
   "item.usless_mobs.frost_stray_v2_spawn_egg": "Frost Stray v2 Spawn Egg",
   "entity.usless_mobs.goldener_schleim": "Golden Slime",
   "entity.usless_mobs.king_schleim": "King Slime",

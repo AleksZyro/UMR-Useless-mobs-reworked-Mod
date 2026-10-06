@@ -1,5 +1,6 @@
 package com.Momik.usless_mobs.client;
 
+import com.Momik.usless_mobs.entity.FrostStrayEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.model.geom.ModelPart;
@@ -62,18 +63,38 @@ final class FrostStrayV2OverlayModel {
         return LayerDefinition.create(mesh, 64, 64);
     }
 
-    void setupAnim(float ageInTicks, float abilityProgress) {
+    /**
+     * Procedural presentation clips for the detachable v2 accents. The connected Tripo shell
+     * continues to use ExactRigPose; these offsets deliberately animate only separate plates.
+     */
+    void setupAnim(FrostStrayEntity entity, float limbSwing, float limbSwingAmount, float ageInTicks,
+                   float netHeadYaw, float headPitch, float abilityProgress) {
         this.root.getAllParts().forEach(ModelPart::resetPose);
-        float pulse = 0.04F + Mth.sin(ageInTicks * 0.22F) * 0.025F;
-        float charge = Mth.sin(abilityProgress * Mth.PI) * 0.22F;
-        this.root.getChild("ice_crown_left").zRot -= pulse + charge;
-        this.root.getChild("ice_crown_right").zRot += pulse + charge;
-        this.root.getChild("ice_face_shard").xRot -= charge * 0.7F;
-        this.root.getChild("ice_shoulder_left").zRot -= pulse * 0.7F + charge;
-        this.root.getChild("ice_shoulder_right").zRot += pulse * 0.7F + charge;
-        this.root.getChild("ice_spine_upper").xRot += charge * 0.5F;
-        this.root.getChild("ice_spine_lower").xRot += charge * 0.35F;
-        this.root.getChild("ice_hip_shards").yRot += Mth.sin(ageInTicks * 0.12F) * 0.03F;
+        float idle = Mth.sin(ageInTicks * 0.13F) * 0.035F;
+        float gait = Mth.cos(limbSwing * 0.6662F) * limbSwingAmount;
+        float run = Mth.clamp(limbSwingAmount, 0.0F, 1.0F);
+        float charge = Mth.sin(abilityProgress * Mth.PI) * 0.24F;
+        float aiming = entity.isIceVolleyActive() || entity.isAggressive() ? Math.max(charge, 0.08F) : 0.0F;
+        float hurt = entity.hurtTime > 0 ? Mth.sin((entity.hurtTime / 10.0F) * Mth.PI) * 0.16F : 0.0F;
+        float death = Mth.clamp(entity.deathTime / 20.0F, 0.0F, 1.0F);
+        float headYaw = Mth.clamp(netHeadYaw * Mth.DEG_TO_RAD, -0.45F, 0.45F);
+        float headPitchRadians = Mth.clamp(headPitch * Mth.DEG_TO_RAD, -0.35F, 0.35F);
+
+        this.root.getChild("ice_crown").yRot += headYaw * 0.28F;
+        this.root.getChild("ice_crown").xRot += headPitchRadians * 0.20F;
+        this.root.getChild("ice_crown_left").zRot -= idle + charge;
+        this.root.getChild("ice_crown_right").zRot += idle + charge;
+        this.root.getChild("ice_face_shard").xRot -= charge * 0.7F + headPitchRadians * 0.16F;
+        this.root.getChild("ice_shoulder_left").zRot -= idle * 0.7F + aiming + gait * 0.18F;
+        this.root.getChild("ice_shoulder_right").zRot += idle * 0.7F + aiming - gait * 0.18F;
+        this.root.getChild("ice_forearm_left").xRot -= aiming * 1.05F + gait * 0.28F;
+        this.root.getChild("ice_forearm_right").xRot -= aiming * 0.78F - gait * 0.28F;
+        this.root.getChild("ice_spine_upper").xRot += charge * 0.5F + run * 0.05F;
+        this.root.getChild("ice_spine_lower").xRot += charge * 0.35F - run * 0.04F;
+        this.root.getChild("ice_hip_shards").yRot += Mth.sin(ageInTicks * 0.12F) * 0.03F + gait * 0.07F;
+        this.root.getChild("ice_collar").xRot += hurt;
+        this.root.getChild("ice_spine_upper").zRot += hurt * 0.45F + death * 0.55F;
+        this.root.getChild("ice_spine_lower").zRot += hurt * 0.28F + death * 0.35F;
     }
 
     void render(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay) {

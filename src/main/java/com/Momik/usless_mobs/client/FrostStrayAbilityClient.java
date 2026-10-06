@@ -62,7 +62,11 @@ public final class FrostStrayAbilityClient {
         }
         CLOCK.observe(packet.serverGameTime(), level.getGameTime());
         FrostStrayVfxProfiles.Profile profile = FrostStrayVfxProfiles.impact();
-        emit(level, new Vec3(packet.x(), packet.y(), packet.z()), profile, true);
+        Vec3 position = new Vec3(packet.x(), packet.y(), packet.z());
+        emit(level, position, profile, true, Vec3.ZERO);
+        level.playLocalSound(position.x, position.y, position.z,
+                com.Momik.usless_mobs.registry.ModSounds.FROST_STRAY_IMPACT.get(),
+                net.minecraft.sounds.SoundSource.HOSTILE, 0.78F, 0.86F, false);
     }
 
     @SubscribeEvent
@@ -119,9 +123,9 @@ public final class FrostStrayAbilityClient {
         // A late observer joins the current emission, but never receives a stale start sound.
         if (elapsed <= 3L) {
             Entity entity = level.getEntity(packet.entityId());
-            if (entity != null) {
+            if (entity instanceof FrostStrayEntity frostStray) {
                 level.playLocalSound(entity.getX(), entity.getY(), entity.getZ(),
-                        com.Momik.usless_mobs.registry.ModSounds.FROST_STRAY_VOLLEY.get(),
+                        com.Momik.usless_mobs.registry.ModSounds.FROST_STRAY_CHARGE.get(),
                         net.minecraft.sounds.SoundSource.HOSTILE, 0.55F, 0.72F, false);
             }
         }
@@ -136,11 +140,12 @@ public final class FrostStrayAbilityClient {
         long elapsed = CLOCK.elapsed(packet.startGameTime(), level.getGameTime());
         if (elapsed <= packet.durationTicks() + 3L) {
             Entity entity = level.getEntity(packet.entityId());
-            if (entity != null) {
+            if (entity instanceof FrostStrayEntity frostStray) {
                 FrostStrayVfxProfiles.Profile profile = FrostStrayVfxProfiles.release();
-                emit(level, entity.position().add(0.0D, entity.getEyeHeight(), 0.0D), profile, true);
-                level.playLocalSound(entity.getX(), entity.getY(), entity.getZ(),
-                        com.Momik.usless_mobs.registry.ModSounds.FROST_STRAY_VOLLEY.get(),
+                Vec3 releasePoint = FrostStrayVisualAnchors.projectileRelease(frostStray);
+                emit(level, releasePoint, profile, true, Vec3.ZERO);
+                level.playLocalSound(releasePoint.x, releasePoint.y, releasePoint.z,
+                        com.Momik.usless_mobs.registry.ModSounds.FROST_STRAY_RELEASE.get(),
                         net.minecraft.sounds.SoundSource.HOSTILE, 0.9F, 1.0F, false);
             }
         }
@@ -170,17 +175,21 @@ public final class FrostStrayAbilityClient {
         }
         active.lastEmissionTick = elapsed;
         Entity entity = level.getEntity(active.entityId);
-        if (entity == null || !entity.isAlive()) {
+        if (!(entity instanceof FrostStrayEntity frostStray) || !entity.isAlive()) {
             finish(active.instanceId, serverGameTime);
             return true;
         }
-        emit(level, entity.position().add(0.0D, entity.getEyeHeight() * 0.8D, 0.0D),
-                FrostStrayVfxProfiles.charge(), false);
+        Vec3 chargeOrigin = FrostStrayVisualAnchors.chargeOrigin(frostStray);
+        Vec3 bowGrip = FrostStrayVisualAnchors.bowGrip(frostStray);
+        double chargeProgress = Math.min(1.0D, elapsed / (double) active.durationTicks);
+        Vec3 position = chargeOrigin.lerp(bowGrip, 0.18D + chargeProgress * 0.72D);
+        Vec3 direction = bowGrip.subtract(position).normalize();
+        emit(level, position, FrostStrayVfxProfiles.charge(), false, direction);
         return false;
     }
 
     private static void emit(ClientLevel level, Vec3 position, FrostStrayVfxProfiles.Profile profile,
-                             boolean oneShot) {
+                             boolean oneShot, Vec3 direction) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null) {
             return;
@@ -191,9 +200,19 @@ public final class FrostStrayAbilityClient {
         for (int index = 0; index < count; index++) {
             double spread = profile.spread();
             level.addParticle(particle, position.x, position.y, position.z,
-                    (level.random.nextDouble() - 0.5D) * spread,
+                    direction.x * profile.directionalSpeed() + (level.random.nextDouble() - 0.5D) * spread,
                     level.random.nextDouble() * profile.verticalSpeed(),
-                    (level.random.nextDouble() - 0.5D) * spread);
+                    direction.z * profile.directionalSpeed() + (level.random.nextDouble() - 0.5D) * spread);
+        }
+        int accentCount = profile.accentCountAt(distanceSquared, oneShot);
+        for (int index = 0; index < accentCount; index++) {
+            double spread = profile.spread() * 0.7D;
+            level.addParticle(profile.accentParticle(), position.x, position.y, position.z,
+                    direction.x * profile.directionalSpeed() * 0.72D
+                            + (level.random.nextDouble() - 0.5D) * spread,
+                    level.random.nextDouble() * profile.verticalSpeed() * 0.7D,
+                    direction.z * profile.directionalSpeed() * 0.72D
+                            + (level.random.nextDouble() - 0.5D) * spread);
         }
     }
 

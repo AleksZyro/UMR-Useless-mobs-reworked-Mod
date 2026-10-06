@@ -126,6 +126,7 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.LIVING_BOSS_SPAWN_EGG.get());
                         output.accept(ModItems.CORRUPTED_SILVERFISH_SPAWN_EGG.get());
                         output.accept(ModItems.FROST_STRAY_SPAWN_EGG.get());
+                        output.accept(ModItems.FROST_STRAY_V2_SPAWN_EGG.get());
                         output.accept(ModItems.WEB_CAVE_SPIDER_SPAWN_EGG.get());
                         output.accept(ModItems.CORAL_DROWNED_SPAWN_EGG.get());
                         output.accept(ModItems.OCTOPUS_SPAWN_EGG.get());

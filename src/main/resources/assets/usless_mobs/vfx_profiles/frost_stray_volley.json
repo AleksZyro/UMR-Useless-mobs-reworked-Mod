@@ -1,29 +1,41 @@
 {
   "charge": {
     "particle": "snowflake",
+    "accent_particle": "snowflake",
     "near_count": 4,
     "mid_count": 1,
+    "accent_near_count": 0,
+    "accent_mid_count": 0,
     "emit_every_ticks": 2,
     "spread": 0.18,
     "vertical_speed": 0.025,
+    "directional_speed": 0.08,
     "important": true
   },
   "release": {
     "particle": "item_snowball",
+    "accent_particle": "snowflake",
     "near_count": 12,
     "mid_count": 4,
+    "accent_near_count": 4,
+    "accent_mid_count": 1,
     "emit_every_ticks": 1,
     "spread": 0.35,
     "vertical_speed": 0.04,
+    "directional_speed": 0.2,
     "important": true
   },
   "impact": {
     "particle": "snowflake",
+    "accent_particle": "item_snowball",
     "near_count": 18,
     "mid_count": 6,
+    "accent_near_count": 6,
+    "accent_mid_count": 2,
     "emit_every_ticks": 1,
     "spread": 0.45,
     "vertical_speed": 0.055,
+    "directional_speed": 0.0,
     "important": true
   }
 }

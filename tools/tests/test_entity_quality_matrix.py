@@ -1,8 +1,6 @@
 import json
 import re
 from pathlib import Path
-from typing import Optional
-
 
 ROOT = Path(__file__).resolve().parents[2]
 JAVA = ROOT / "src/main/java/com/Momik/usless_mobs"
@@ -21,7 +19,7 @@ def _entity_registry():
     return [match.groupdict() for match in pattern.finditer(source)]
 
 
-def _asset(relative: str) -> Optional[Path]:
+def _asset(relative: str) -> Path | None:
     for root in (ASSETS, MOB_ASSETS):
         candidate = root / relative
         if candidate.is_file():
@@ -36,7 +34,7 @@ def test_every_registered_entity_has_renderer_attributes_and_localized_name():
     de_de = json.loads((ASSETS / "lang/de_de.json").read_text(encoding="utf-8"))
     en_us = json.loads((ASSETS / "lang/en_us.json").read_text(encoding="utf-8"))
 
-    assert len(entities) == 21
+    assert len(entities) == 22
     for entity in entities:
         constant = entity["constant"]
         entity_id = entity["id"]
@@ -78,6 +76,7 @@ def test_hostile_and_boss_entities_have_explicit_combat_implementation():
         "CORRUPTED_SILVERFISH": MOB_JAVA / "silverfish/CorruptedSilverfishEntity.java",
         "LIVING_BOSS": JAVA / "entity/LivingBossEntity.java",
         "FROST_STRAY": JAVA / "entity/FrostStrayEntity.java",
+        "FROST_STRAY_V2": JAVA / "entity/FrostStrayV2Entity.java",
         "WEB_CAVE_SPIDER": JAVA / "entity/WebCaveSpiderEntity.java",
         "CORAL_DROWNED": JAVA / "entity/CoralDrownedEntity.java",
         "OCTOPUS": JAVA / "entity/OctopusEntity.java",
@@ -99,6 +98,9 @@ def test_hostile_and_boss_entities_have_explicit_combat_implementation():
     assert registered == set(combat_sources) | passive_or_utility
     for constant, path in combat_sources.items():
         source = path.read_text(encoding="utf-8")
+        if constant == "FROST_STRAY_V2":
+            assert "extends FrostStrayEntity" in source
+            continue
         assert any(token in source for token in (
             "doHurtTarget(",
             ".hurt(",

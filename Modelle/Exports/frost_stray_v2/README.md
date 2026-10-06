@@ -1,9 +1,19 @@
-# Frost Stray v2 – editable preview source
+# Frost Stray v2 – bearbeitbare Produktionsquelle
 
-This folder contains the editable declaration for the v2 visual preview.
-`frost_stray_v2_rig.json` defines twelve ice overlay sockets and their pivots.
-The connected Frost Stray shell remains on the approved six-region runtime mesh;
-the rigging audit forbids splitting that unweighted shell into rigid body bones.
+Dieser Ordner enthält die versionierte Quelle der v2-Darstellung:
+
+- `frost_stray_v2_rig.json`: zwölf abgetrennte Eisakzente und fünf benannte
+  visuelle Sockets für Hände, Bogen, Freigabe und Charge.
+- `frost_stray_v2_clips.json`: Dauer, Zweck und Pose-Prüfungen der sieben
+  prozeduralen Präsentationsclips.
+- `STYLE_BRIEF.md`: gestalterische Ziele, Runtime-Materialgrenzen und Herkunft.
+- `TEST_PLAN.md`: reproduzierbare Capture-Matrix, ohne noch nicht gemachte
+  Spielaufnahmen als bestanden auszugeben.
+
+Die zusammenhängende Frost-Stray-Basis bleibt auf dem genehmigten Runtime-Mesh.
+Die Rigging-Prüfung verbietet, die ungewichtete Oberfläche in starre Körperknochen
+aufzuschneiden. Die Clips animieren daher nur die getrennten Eisakzente, während
+`ExactRigPose` die bestehende geschlossene Basis bewegt.
 
 The runtime overlay is generated with:
 
@@ -11,15 +21,21 @@ The runtime overlay is generated with:
 python tools/frost_stray_v2/build_assets.py
 ```
 
-The generated 64×64 overlay texture is deliberately separate from the existing
-2048×2048 Frost Stray albedo. Its source colours, UV-safe layout and runtime
-budget are encoded in the generator, so the asset can be recreated without
-relying on ignored work files. The v2 test entity is selectable with:
+Die generierte 64×64-Overlay-Textur bleibt bewusst getrennt von der vorhandenen
+2048×2048-Frost-Stray-Albedo. Farbpalette, UV-sicheres Raster und Runtime-Budget
+sind im Generator versioniert. Der Generator schreibt ausserdem ein Manifest mit
+Prüfsummen, Sockets, Clips, Quellen und Werkzeugversionen:
 
 ```text
 /summon usless_mobs:frost_stray_v2 ~ ~ ~
 ```
 
-The full replacement of the connected shell with a weighted 10–14-bone body
-remains a follow-up until an editable weighted source is supplied and passes
-the seam audit.
+Die v2-Testentität ist parallel auswählbar mit:
+
+```text
+/summon usless_mobs:frost_stray_v2 ~ ~ ~
+```
+
+Ein vollständiger Ersatz der verbundenen Basis durch ein gewichtetes 10–14-Bone-
+Körperrig bleibt offen, bis eine bearbeitbare gewichtete Quelle vorliegt und die
+Nahtprüfung besteht.

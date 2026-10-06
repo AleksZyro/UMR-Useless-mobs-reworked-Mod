@@ -34,14 +34,14 @@ final class FrostStrayV2OverlayLayer<T extends LivingEntity, M extends EntityMod
             return;
         }
         float progress = FrostStrayAbilityClient.progressFor(frostStray, partialTicks);
-        this.model.setupAnim(ageInTicks, progress);
+        this.model.setupAnim(frostStray, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch, progress);
         VertexConsumer buffer = bufferSource.getBuffer(RenderType.entityTranslucent(TEXTURE));
         int overlay = LivingEntityRenderer.getOverlayCoords(entity, 0.0F);
         poseStack.pushPose();
         var camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         if (entity.distanceToSqr(camera) > 24.0D * 24.0D) {
             // Preserve the silhouette cue at distance while avoiding animated detail work.
-            this.model.setupAnim(0.0F, progress);
+            this.model.setupAnim(frostStray, 0.0F, 0.0F, 0.0F, netHeadYaw, headPitch, progress);
         }
         this.model.render(poseStack, buffer, LightTexture.FULL_BRIGHT, overlay);
         poseStack.popPose();

@@ -2,6 +2,8 @@
   "name": "frost_stray_v2_overlay_rig",
   "source_mesh": "../frost_stray_v1/source/frost_stray_textured_4k_v3_candidate.glb",
   "license": "Project-owned source; verify upstream Tripo terms before redistribution",
+  "coordinate_convention": "Minecraft model units; +Y up, +Z forward after the approved runtime export, pivots relative to the entity feet.",
+  "unit_scale": "16 model units = 1 Minecraft block",
   "runtime_policy": "Keep the connected Frost Stray shell on its approved body regions; animate these detached ice accents only.",
   "bones": [
     {"name": "ice_crown", "parent": "head", "pivot": [0.0, -8.3, 0.0], "purpose": "crown rim"},
@@ -16,5 +18,12 @@
     {"name": "ice_spine_upper", "parent": "body", "pivot": [0.0, 2.0, 2.4], "purpose": "upper spine"},
     {"name": "ice_spine_lower", "parent": "body", "pivot": [0.0, 8.0, 2.4], "purpose": "lower spine"},
     {"name": "ice_hip_shards", "parent": "body", "pivot": [0.0, 11.0, 0.0], "purpose": "hip silhouette"}
+  ],
+  "sockets": [
+    {"name": "main_hand", "parent": "right_arm", "pivot": [4.6, 8.0, -0.2], "purpose": "existing exact held-item anchor"},
+    {"name": "off_hand", "parent": "left_arm", "pivot": [-4.6, 8.0, -0.2], "purpose": "bow stabilisation reference"},
+    {"name": "bow_grip", "parent": "right_arm", "pivot": [5.1, 7.5, -0.8], "purpose": "charge target"},
+    {"name": "projectile_release", "parent": "bow_grip", "pivot": [5.1, 7.5, -4.8], "purpose": "release VFX origin"},
+    {"name": "charge_anchor", "parent": "body", "pivot": [0.0, 7.8, -1.8], "purpose": "charge VFX origin"}
   ]
 }

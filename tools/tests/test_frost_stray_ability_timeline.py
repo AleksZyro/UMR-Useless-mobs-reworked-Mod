@@ -67,11 +67,17 @@ def test_collision_position_and_vfx_profiles_are_declarative_and_distance_budget
 
     assert "result.getLocation()" in projectile
     assert "!this.level().isClientSide" in projectile
+    assert "FrostStrayVisualAnchors" in _source("client/FrostStrayAbilityClient.java")
+    assert "FROST_STRAY_CHARGE" in _source("client/FrostStrayAbilityClient.java")
+    assert "FROST_STRAY_RELEASE" in _source("client/FrostStrayAbilityClient.java")
+    assert "FROST_STRAY_IMPACT" in _source("client/FrostStrayAbilityClient.java")
     assert "12.0D * 12.0D" in profiles
     assert "24.0D * 24.0D" in profiles
     assert "32.0D * 32.0D" in profiles
     assert set(profile_json) == {"charge", "release", "impact"}
     assert profile_json["charge"]["important"] is True
+    assert profile_json["charge"]["directional_speed"] > 0
+    assert profile_json["impact"]["accent_particle"] == "item_snowball"
 
 
 def test_frost_stray_v2_is_selectable_and_has_reproducible_twelve_socket_preview():
@@ -79,14 +85,25 @@ def test_frost_stray_v2_is_selectable_and_has_reproducible_twelve_socket_preview
     client_events = _source("client/ClientModEvents.java")
     v2_renderer = _source("client/FrostStrayV2Renderer.java")
     rig = json.loads((ROOT / "Modelle/Exports/frost_stray_v2/frost_stray_v2_rig.json").read_text(encoding="utf-8"))
+    clips = json.loads((ROOT / "Modelle/Exports/frost_stray_v2/frost_stray_v2_clips.json").read_text(encoding="utf-8"))
     manifest = json.loads((ROOT / "Modelle/Exports/frost_stray_v2/frost_stray_v2.manifest.json").read_text(encoding="utf-8"))
 
     assert 'register("frost_stray_v2"' in registry
     assert "ModEntities.FROST_STRAY_V2.get()" in client_events
     assert "FrostStrayV2OverlayLayer" in v2_renderer
     assert len(rig["bones"]) == 12
+    assert {socket["name"] for socket in rig["sockets"]} == {
+        "main_hand", "off_hand", "bow_grip", "projectile_release", "charge_anchor"
+    }
+    assert {clip["name"] for clip in clips["clips"]} == {
+        "spawn", "idle", "walk", "run", "bow_volley", "hurt", "death"
+    }
     assert manifest["runtime_resolution"] == [64, 64]
     assert len(manifest["overlay_bones"]) == 12
+    assert manifest["runtime_triangle_count"] == 144
+    assert {socket["name"] for socket in manifest["visual_sockets"]} == {
+        "main_hand", "off_hand", "bow_grip", "projectile_release", "charge_anchor"
+    }
     assert (ROOT / manifest["runtime_texture"]).is_file()
 
 

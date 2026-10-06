@@ -1,6 +1,9 @@
 {
   "entity.usless_mobs.blauer_schleim": "Blauer Schleim",
   "entity.usless_mobs.frost_stray_v2": "Frost Stray v2 Vorschau",
+  "subtitle.usless_mobs.frost_stray_charge": "Frost-Stray sammelt Frost",
+  "subtitle.usless_mobs.frost_stray_release": "Frost-Stray feuert Eissalve",
+  "subtitle.usless_mobs.frost_stray_impact": "Eissalve zersplittert",
   "item.usless_mobs.frost_stray_v2_spawn_egg": "Frost-Stray-v2-Spawn-Ei",
   "entity.usless_mobs.goldener_schleim": "Goldener Schleim",
   "entity.usless_mobs.king_schleim": "King Slime",

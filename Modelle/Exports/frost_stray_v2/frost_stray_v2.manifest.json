@@ -1,5 +1,9 @@
 {
-  "source": "Modelle/Exports/frost_stray_v2/frost_stray_v2_rig.json",
+  "sources": {
+    "rig": "Modelle/Exports/frost_stray_v2/frost_stray_v2_rig.json",
+    "clips": "Modelle/Exports/frost_stray_v2/frost_stray_v2_clips.json",
+    "style_brief": "Modelle/Exports/frost_stray_v2/STYLE_BRIEF.md"
+  },
   "source_mesh": "Modelle/Exports/frost_stray_v1/source/frost_stray_textured_4k_v3_candidate.glb",
   "source_mesh_sha256": "c8893e987ad8a84774b91e5d58089498272ebc327edd00f3717d75b0b2447a52",
   "license": "Project-owned source; verify upstream Tripo terms before redistribution",
@@ -22,11 +26,112 @@
     "ice_spine_lower",
     "ice_hip_shards"
   ],
+  "visual_sockets": [
+    {
+      "name": "main_hand",
+      "parent": "right_arm",
+      "pivot": [
+        4.6,
+        8.0,
+        -0.2
+      ],
+      "purpose": "existing exact held-item anchor"
+    },
+    {
+      "name": "off_hand",
+      "parent": "left_arm",
+      "pivot": [
+        -4.6,
+        8.0,
+        -0.2
+      ],
+      "purpose": "bow stabilisation reference"
+    },
+    {
+      "name": "bow_grip",
+      "parent": "right_arm",
+      "pivot": [
+        5.1,
+        7.5,
+        -0.8
+      ],
+      "purpose": "charge target"
+    },
+    {
+      "name": "projectile_release",
+      "parent": "bow_grip",
+      "pivot": [
+        5.1,
+        7.5,
+        -4.8
+      ],
+      "purpose": "release VFX origin"
+    },
+    {
+      "name": "charge_anchor",
+      "parent": "body",
+      "pivot": [
+        0.0,
+        7.8,
+        -1.8
+      ],
+      "purpose": "charge VFX origin"
+    }
+  ],
+  "coordinate_convention": "Minecraft model units; +Y up, +Z forward after the approved runtime export, pivots relative to the entity feet.",
+  "unit_scale": "16 model units = 1 Minecraft block",
+  "clips": [
+    {
+      "name": "spawn",
+      "duration_ticks": 12,
+      "loop": false,
+      "purpose": "settle crown and collar after entity creation"
+    },
+    {
+      "name": "idle",
+      "duration_ticks": 40,
+      "loop": true,
+      "purpose": "quiet crown, spine and hip breathing"
+    },
+    {
+      "name": "walk",
+      "duration_ticks": 20,
+      "loop": true,
+      "purpose": "opposed forearm, shoulder and hip response to the exact mesh gait"
+    },
+    {
+      "name": "run",
+      "duration_ticks": 14,
+      "loop": true,
+      "purpose": "stronger shoulder and spine response at higher limb amplitude"
+    },
+    {
+      "name": "bow_volley",
+      "duration_ticks": 18,
+      "loop": false,
+      "purpose": "charge toward bow grip, release, controlled return"
+    },
+    {
+      "name": "hurt",
+      "duration_ticks": 10,
+      "loop": false,
+      "purpose": "short collar and spine recoil"
+    },
+    {
+      "name": "death",
+      "duration_ticks": 20,
+      "loop": false,
+      "purpose": "settled spine collapse that follows the entity death state"
+    }
+  ],
+  "runtime_triangle_count": 144,
   "runtime_triangle_budget": 288,
   "runtime_particle_budget": {
-    "charge_near": 6,
-    "charge_mid": 3,
-    "impact": 8
+    "charge_near": 4,
+    "charge_mid": 1,
+    "release_near": 16,
+    "impact_near": 24,
+    "max_distance_blocks": 32
   },
   "export_parameters": {
     "texture_format": "PNG RGBA",
@@ -38,6 +143,6 @@
     "pillow": "12.1.1",
     "generator": "frost_stray_v2/build_assets.py"
   },
-  "sha256": "57256569ef6eb3007a77ca54b6c1dc8eb7f735f4fe94b1a1b33a84dca70ef1d2",
+  "sha256": "2f32dc62d6575d3af558b1af783b139d8c7210755700b622611f67db87a4c6be",
   "generator": "tools/frost_stray_v2/build_assets.py"
 }
