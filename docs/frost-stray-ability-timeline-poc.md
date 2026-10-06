@@ -72,12 +72,13 @@ Rigging-Prüfung starre Splits mit sichtbaren Gelenkspalten ablehnen muss.
 - Ergänzend prüft `tools/tests/test_frost_stray_ability_behavior.py` ein
   ausführbares, deterministisches Protokollmodell für doppelte Starts und
   Releases, spätes Tracking, Abbruch mit verspätetem Start sowie doppelte
-  Impacts. Die fokussierte Gruppe umfasst aktuell **17 bestanden**. Das ist
+  Impacts. Die fokussierte Gruppe umfasst aktuell **18 bestanden**. Das ist
   ein Verhaltenstest des Netzwerkvertrags, aber noch kein Forge-Laufzeittest.
 - `tools/java_tests/FrostStrayTimelineClockTest.java` kompiliert und prüft die
   produktive Java-Zeitkomponente direkt ohne Forge. Der Test deckt den
   ursprünglichen Rücksprung bei doppeltem START, verspätete Erstpakete und
-  ältere Nachrichten ab; CI führt ihn vor dem Forge-Build aus.
+  ältere Nachrichten ab; er lief lokal mit `FrostStrayTimelineClockTest PASS`
+  und wird zusätzlich in der CI vor dem Forge-Build ausgeführt.
 - Die v2-Preview-Assets werden im CI reproduzierbar erzeugt und auf zwölf
   eindeutige Sockets, 64×64 Runtime-Auflösung und SHA-256 geprüft.
 - Die gemeinsamen Network-Packet-Klassen enthalten keine Client-Imports mehr.
@@ -100,8 +101,9 @@ durch `java.net.SocketException: Invalid argument: connect` in Gradle's
 Android-JDK 17 als auch mit dem vorhandenen 64-Bit-JDK 25 reproduziert. Der
 normale Aufruf ohne gesetztes `JAVA_HOME` verwendet zusätzlich das 32-Bit-Java
 8 und scheitert bereits vorher mit `Could not reserve enough space for
-3145728KB object heap`. Es gibt deshalb aus dieser Umgebung noch keinen
-lokalen Java-Kompilationsnachweis.
+3145728KB object heap`. Der direkte, unabhängige Java-Test der Clock ist davon
+nicht betroffen und bestand; ein lokaler Forge-Kompilationsnachweis existiert
+weiterhin nicht.
 
 Noch nicht ausgeführt und daher ausdrücklich offen sind: CI-Ergebnis des
 Forge-Builds, Dedicated-Server-Start, zwei echte Clients für Treffer,

@@ -95,4 +95,4 @@ def test_ci_server_smoke_requires_a_real_done_marker_before_accepting_timeout():
 
     assert 'grep -Fq "Done (" dedicated-server.log' in workflow
     assert 'exit 1' in workflow
-    assert 'status -ne 0 && "$status" -ne 124' in workflow
+    assert '[[ "$status" -ne 0 && "$status" -ne 124 ]]' in workflow
