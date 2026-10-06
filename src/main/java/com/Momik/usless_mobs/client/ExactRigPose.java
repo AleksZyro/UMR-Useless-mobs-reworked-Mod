@@ -117,7 +117,7 @@ final class ExactRigPose {
                     netHeadYaw, headPitch,
                     entity instanceof FrostStrayEntity frostStray && frostStray.isIceVolleyActive()
                             || entity instanceof AbstractSkeleton skeleton && skeleton.isAggressive(),
-                    entity instanceof FrostStrayEntity frostStray ? frostStray.iceVolleyProgress(0.0F)
+                    entity instanceof FrostStrayEntity frostStray ? FrostStrayAbilityClient.progressFor(frostStray, 0.0F)
                             : Math.min(1.0F, (entity.getTicksUsingItem() + 1.0F) / 6.0F));
             default -> {
             }

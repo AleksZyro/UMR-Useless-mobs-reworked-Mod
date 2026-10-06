@@ -1,0 +1,43 @@
+{
+  "source": "Modelle/Exports/frost_stray_v2/frost_stray_v2_rig.json",
+  "source_mesh": "Modelle/Exports/frost_stray_v1/source/frost_stray_textured_4k_v3_candidate.glb",
+  "source_mesh_sha256": "c8893e987ad8a84774b91e5d58089498272ebc327edd00f3717d75b0b2447a52",
+  "license": "Project-owned source; verify upstream Tripo terms before redistribution",
+  "runtime_texture": "src/main/resources/assets/usless_mobs/textures/entity/custom3d/frost_stray_v2_overlay.png",
+  "runtime_resolution": [
+    64,
+    64
+  ],
+  "overlay_bones": [
+    "ice_crown",
+    "ice_crown_left",
+    "ice_crown_right",
+    "ice_face_shard",
+    "ice_collar",
+    "ice_shoulder_left",
+    "ice_shoulder_right",
+    "ice_forearm_left",
+    "ice_forearm_right",
+    "ice_spine_upper",
+    "ice_spine_lower",
+    "ice_hip_shards"
+  ],
+  "runtime_triangle_budget": 288,
+  "runtime_particle_budget": {
+    "charge_near": 6,
+    "charge_mid": 3,
+    "impact": 8
+  },
+  "export_parameters": {
+    "texture_format": "PNG RGBA",
+    "compress_level": 9,
+    "optimize": false
+  },
+  "tool_versions": {
+    "python": "3.11.9",
+    "pillow": "12.1.1",
+    "generator": "frost_stray_v2/build_assets.py"
+  },
+  "sha256": "57256569ef6eb3007a77ca54b6c1dc8eb7f735f4fe94b1a1b33a84dca70ef1d2",
+  "generator": "tools/frost_stray_v2/build_assets.py"
+}

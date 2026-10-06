@@ -32,6 +32,7 @@ public final class ClientModEvents {
         event.registerEntityRenderer(ModEntities.CORRUPTED_SILVERFISH.get(), CorruptedSilverfishRenderer::createRenderer);
         event.registerEntityRenderer(ModEntities.LIVING_BOSS.get(), LivingBossRenderer::new);
         event.registerEntityRenderer(ModEntities.FROST_STRAY.get(), FrostStrayRenderer::new);
+        event.registerEntityRenderer(ModEntities.FROST_STRAY_V2.get(), FrostStrayV2Renderer::new);
         event.registerEntityRenderer(ModEntities.WEB_CAVE_SPIDER.get(), WebCaveSpiderRenderer::new);
         event.registerEntityRenderer(ModEntities.CORAL_DROWNED.get(), CoralDrownedRenderer::new);
         event.registerEntityRenderer(ModEntities.OCTOPUS.get(), OctopusRenderer::new);
@@ -54,6 +55,8 @@ public final class ClientModEvents {
                 () -> CustomMob3DModel.createLayer(CustomMob3DModel.Variant.LIVING_BOSS));
         event.registerLayerDefinition(CustomMobModelLayers.FROST_STRAY,
                 () -> CustomMob3DModel.createLayer(CustomMob3DModel.Variant.FROST_STRAY));
+        event.registerLayerDefinition(CustomMobModelLayers.FROST_STRAY_V2_OVERLAY,
+                FrostStrayV2OverlayModel::createLayer);
         event.registerLayerDefinition(CustomMobModelLayers.WEB_CAVE_SPIDER,
                 () -> CustomMob3DModel.createLayer(CustomMob3DModel.Variant.WEB_CAVE_SPIDER));
         event.registerLayerDefinition(CustomMobModelLayers.CORAL_DROWNED,

@@ -50,9 +50,11 @@ def test_client_cues_are_tick_driven_idempotent_and_do_not_replay_stale_sounds()
     assert "FINISHED.containsKey(packet.instanceId())" in client
     assert "elapsed <= 3L" in client
     assert "ACTIVE.remove(packet.entityId())" in client
-    assert "serverGameTime - active.startGameTime" in client
-    assert "highestServerGameTime" in client
-    assert "updateServerTimeOffset" in client
+    assert "CLOCK.elapsed(active.startGameTime, level.getGameTime())" in client
+    assert "CLOCK.observe(packet.serverGameTime(), level.getGameTime())" in client
+    clock = _source("ability/FrostStrayTimelineClock.java")
+    assert "highestServerGameTime" in clock
+    assert "packetServerGameTime > this.highestServerGameTime" in clock
     assert "EntityRenderer" not in client
 
 
@@ -70,3 +72,27 @@ def test_collision_position_and_vfx_profiles_are_declarative_and_distance_budget
     assert "32.0D * 32.0D" in profiles
     assert set(profile_json) == {"charge", "release", "impact"}
     assert profile_json["charge"]["important"] is True
+
+
+def test_frost_stray_v2_is_selectable_and_has_reproducible_twelve_socket_preview():
+    registry = _source("registry/ModEntities.java")
+    client_events = _source("client/ClientModEvents.java")
+    v2_renderer = _source("client/FrostStrayV2Renderer.java")
+    rig = json.loads((ROOT / "Modelle/Exports/frost_stray_v2/frost_stray_v2_rig.json").read_text(encoding="utf-8"))
+    manifest = json.loads((ROOT / "Modelle/Exports/frost_stray_v2/frost_stray_v2.manifest.json").read_text(encoding="utf-8"))
+
+    assert 'register("frost_stray_v2"' in registry
+    assert "ModEntities.FROST_STRAY_V2.get()" in client_events
+    assert "FrostStrayV2OverlayLayer" in v2_renderer
+    assert len(rig["bones"]) == 12
+    assert manifest["runtime_resolution"] == [64, 64]
+    assert len(manifest["overlay_bones"]) == 12
+    assert (ROOT / manifest["runtime_texture"]).is_file()
+
+
+def test_ci_server_smoke_requires_a_real_done_marker_before_accepting_timeout():
+    workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
+
+    assert 'grep -Fq "Done (" dedicated-server.log' in workflow
+    assert 'exit 1' in workflow
+    assert 'status -ne 0 && "$status" -ne 124' in workflow

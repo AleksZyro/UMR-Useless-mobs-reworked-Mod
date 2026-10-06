@@ -140,6 +140,7 @@ public final class CreativeTabEvents {
             event.accept(ModItems.CORRUPTED_SILVERFISH_SPAWN_EGG);
             event.accept(ModItems.LIVING_BOSS_SPAWN_EGG);
             event.accept(ModItems.FROST_STRAY_SPAWN_EGG);
+            event.accept(ModItems.FROST_STRAY_V2_SPAWN_EGG);
             event.accept(ModItems.WEB_CAVE_SPIDER_SPAWN_EGG);
             event.accept(ModItems.CORAL_DROWNED_SPAWN_EGG);
             event.accept(ModItems.OCTOPUS_SPAWN_EGG);

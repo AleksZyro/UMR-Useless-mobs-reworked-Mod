@@ -556,6 +556,9 @@ public final class ModItems {
     public static final RegistryObject<Item> FROST_STRAY_SPAWN_EGG = ITEMS.register("frost_stray_spawn_egg",
             () -> new ForgeSpawnEggItem(ModEntities.FROST_STRAY, 0xD7F7FF, 0x3D8CFF, new Item.Properties().rarity(Rarity.RARE)));
 
+    public static final RegistryObject<Item> FROST_STRAY_V2_SPAWN_EGG = ITEMS.register("frost_stray_v2_spawn_egg",
+            () -> new ForgeSpawnEggItem(ModEntities.FROST_STRAY_V2, 0xE9FCFF, 0x41D9FF, new Item.Properties().rarity(Rarity.EPIC)));
+
     public static final RegistryObject<Item> WEB_CAVE_SPIDER_SPAWN_EGG = ITEMS.register("web_cave_spider_spawn_egg",
             () -> new ForgeSpawnEggItem(ModEntities.WEB_CAVE_SPIDER, 0x16332A, 0xBDEBE4, new Item.Properties().rarity(Rarity.RARE)));
 

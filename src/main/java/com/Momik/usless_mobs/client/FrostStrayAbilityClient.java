@@ -1,5 +1,7 @@
 package com.Momik.usless_mobs.client;
 
+import com.Momik.usless_mobs.ability.FrostStrayTimelineClock;
+import com.Momik.usless_mobs.entity.FrostStrayEntity;
 import com.Momik.usless_mobs.network.FrostStrayAbilityPacket;
 import com.Momik.usless_mobs.network.FrostStrayAbilityPacketEvent;
 import com.Momik.usless_mobs.network.FrostStrayImpactPacket;
@@ -27,8 +29,8 @@ public final class FrostStrayAbilityClient {
     private static final Map<Integer, ActiveTimeline> ACTIVE = new HashMap<>();
     private static final Map<UUID, Long> FINISHED = new HashMap<>();
     private static final Map<UUID, Long> IMPACTS = new HashMap<>();
-    private static long serverTimeOffset;
-    private static long highestServerGameTime = Long.MIN_VALUE;
+    private static final FrostStrayTimelineClock CLOCK = new FrostStrayTimelineClock();
+    private static ClientLevel trackedLevel;
 
     private FrostStrayAbilityClient() {
     }
@@ -39,7 +41,8 @@ public final class FrostStrayAbilityClient {
         if (level == null) {
             return;
         }
-        updateServerTimeOffset(packet.serverGameTime(), level);
+        prepareLevel(level);
+        CLOCK.observe(packet.serverGameTime(), level.getGameTime());
         switch (packet.type()) {
             case START -> start(packet, level);
             case RELEASE -> release(packet, level);
@@ -50,10 +53,14 @@ public final class FrostStrayAbilityClient {
     public static void handleImpact(FrostStrayImpactPacket packet) {
         Minecraft minecraft = Minecraft.getInstance();
         ClientLevel level = minecraft.level;
-        if (level == null || IMPACTS.putIfAbsent(packet.impactId(), packet.serverGameTime()) != null) {
+        if (level == null) {
             return;
         }
-        updateServerTimeOffset(packet.serverGameTime(), level);
+        prepareLevel(level);
+        if (IMPACTS.putIfAbsent(packet.impactId(), packet.serverGameTime()) != null) {
+            return;
+        }
+        CLOCK.observe(packet.serverGameTime(), level.getGameTime());
         FrostStrayVfxProfiles.Profile profile = FrostStrayVfxProfiles.impact();
         emit(level, new Vec3(packet.x(), packet.y(), packet.z()), profile, true);
     }
@@ -79,11 +86,12 @@ public final class FrostStrayAbilityClient {
             ACTIVE.clear();
             FINISHED.clear();
             IMPACTS.clear();
-            serverTimeOffset = 0L;
-            highestServerGameTime = Long.MIN_VALUE;
+            trackedLevel = null;
+            CLOCK.reset();
             return;
         }
-        long serverGameTime = level.getGameTime() + serverTimeOffset;
+        prepareLevel(level);
+        long serverGameTime = CLOCK.serverTime(level.getGameTime());
         FINISHED.entrySet().removeIf(entry -> entry.getValue() < serverGameTime - 20L * 60L);
         IMPACTS.entrySet().removeIf(entry -> entry.getValue() < serverGameTime - 20L * 60L);
         ACTIVE.entrySet().removeIf(entry -> tickActive(level, entry.getValue(), serverGameTime));
@@ -93,7 +101,7 @@ public final class FrostStrayAbilityClient {
         if (FINISHED.containsKey(packet.instanceId())) {
             return;
         }
-        long elapsed = Math.max(0L, level.getGameTime() + serverTimeOffset - packet.startGameTime());
+        long elapsed = CLOCK.elapsed(packet.startGameTime(), level.getGameTime());
         if (elapsed >= packet.durationTicks()) {
             finish(packet.instanceId(), packet.serverGameTime());
             return;
@@ -125,7 +133,7 @@ public final class FrostStrayAbilityClient {
             finish(packet.instanceId(), packet.serverGameTime());
             return;
         }
-        long elapsed = Math.max(0L, level.getGameTime() + serverTimeOffset - packet.startGameTime());
+        long elapsed = CLOCK.elapsed(packet.startGameTime(), level.getGameTime());
         if (elapsed <= packet.durationTicks() + 3L) {
             Entity entity = level.getEntity(packet.entityId());
             if (entity != null) {
@@ -149,7 +157,7 @@ public final class FrostStrayAbilityClient {
     }
 
     private static boolean tickActive(ClientLevel level, ActiveTimeline active, long serverGameTime) {
-        long elapsed = Math.max(0L, serverGameTime - active.startGameTime);
+        long elapsed = CLOCK.elapsed(active.startGameTime, level.getGameTime());
         if (elapsed > active.durationTicks + 4L) {
             finish(active.instanceId, serverGameTime);
             return true;
@@ -193,10 +201,31 @@ public final class FrostStrayAbilityClient {
         FINISHED.put(instanceId, serverGameTime);
     }
 
-    private static void updateServerTimeOffset(long packetServerGameTime, ClientLevel level) {
-        if (packetServerGameTime >= highestServerGameTime) {
-            highestServerGameTime = packetServerGameTime;
-            serverTimeOffset = packetServerGameTime - level.getGameTime();
+    /** Uses the same server-time estimate as VFX for the animated bow pose. */
+    public static float progressFor(FrostStrayEntity entity, float partialTick) {
+        Minecraft minecraft = Minecraft.getInstance();
+        ClientLevel level = minecraft.level;
+        if (level == null || !entity.isIceVolleyActive()) {
+            return 0.0F;
+        }
+        prepareLevel(level);
+        ActiveTimeline active = ACTIVE.get(entity.getId());
+        long startGameTime = active == null ? entity.iceVolleyStartTime() : active.startGameTime;
+        int durationTicks = active == null ? entity.iceVolleyDurationTicks() : active.durationTicks;
+        if (durationTicks <= 0) {
+            return 0.0F;
+        }
+        double elapsed = CLOCK.elapsed(startGameTime, level.getGameTime() + partialTick);
+        return (float) Math.max(0.0D, Math.min(1.0D, elapsed / durationTicks));
+    }
+
+    private static void prepareLevel(ClientLevel level) {
+        if (trackedLevel != level) {
+            ACTIVE.clear();
+            FINISHED.clear();
+            IMPACTS.clear();
+            CLOCK.reset();
+            trackedLevel = level;
         }
     }
 

@@ -43,6 +43,7 @@ public final class CommonModEvents {
         event.put(ModEntities.CORRUPTED_SILVERFISH.get(), CorruptedSilverfishEntity.createAttributes().build());
         event.put(ModEntities.LIVING_BOSS.get(), LivingBossEntity.createAttributes().build());
         event.put(ModEntities.FROST_STRAY.get(), FrostStrayEntity.createAttributes().build());
+        event.put(ModEntities.FROST_STRAY_V2.get(), FrostStrayEntity.createAttributes().build());
         event.put(ModEntities.WEB_CAVE_SPIDER.get(), WebCaveSpiderEntity.createAttributes().build());
         event.put(ModEntities.CORAL_DROWNED.get(), CoralDrownedEntity.createAttributes().build());
         event.put(ModEntities.OCTOPUS.get(), OctopusEntity.createAttributes().build());
@@ -86,6 +87,11 @@ public final class CommonModEvents {
                 CorruptedSilverfishEntity::checkCorruptedSilverfishSpawnRules,
                 SpawnPlacementRegisterEvent.Operation.OR);
         event.register(ModEntities.FROST_STRAY.get(),
+                SpawnPlacements.Type.ON_GROUND,
+                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                net.minecraft.world.entity.monster.Monster::checkMonsterSpawnRules,
+                SpawnPlacementRegisterEvent.Operation.OR);
+        event.register(ModEntities.FROST_STRAY_V2.get(),
                 SpawnPlacements.Type.ON_GROUND,
                 Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 net.minecraft.world.entity.monster.Monster::checkMonsterSpawnRules,

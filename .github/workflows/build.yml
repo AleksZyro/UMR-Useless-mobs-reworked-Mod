@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'feature/**']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -42,6 +42,9 @@ jobs:
       - name: Verify active project truth
         run: python tools/verify_umr_project_truth.py
 
+      - name: Build Frost Stray v2 preview assets
+        run: python tools/frost_stray_v2/build_assets.py --check
+
       - name: Rebuild deterministic exact textures
         run: python tools/mob_tripo/build_quality_textures.py --all
 
@@ -52,6 +55,16 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
         with:
           cache-provider: basic
+
+      - name: Run pure Java timeline regression
+        shell: bash
+        run: |
+          mkdir -p build/timeline-clock-test
+          javac -d build/timeline-clock-test \
+            src/main/java/com/Momik/usless_mobs/ability/FrostStrayTimelineClock.java \
+            tools/java_tests/FrostStrayTimelineClockTest.java
+          java -ea -cp build/timeline-clock-test \
+            com.Momik.usless_mobs.ability.FrostStrayTimelineClockTest
 
       - name: Build Forge mod
         run: ./gradlew clean build --no-daemon
@@ -67,7 +80,7 @@ jobs:
           set -e
           if ! grep -Fq "Done (" dedicated-server.log; then
             cat dedicated-server.log
-            exit "${status:-1}"
+            exit 1
           fi
           if [[ "$status" -ne 0 && "$status" -ne 124 ]]; then
             cat dedicated-server.log

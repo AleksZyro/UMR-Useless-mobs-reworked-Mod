@@ -5,6 +5,7 @@ import com.Momik.usless_mobs.entity.CelestialSlimeEntity;
 import com.Momik.usless_mobs.entity.CoralDrownedEntity;
 import com.Momik.usless_mobs.entity.EnderSlimeEntity;
 import com.Momik.usless_mobs.entity.FrostStrayEntity;
+import com.Momik.usless_mobs.entity.FrostStrayV2Entity;
 import com.Momik.usless_mobs.entity.HelpingAllayEntity;
 import com.Momik.usless_mobs.entity.GiantSquidEntity;
 import com.Momik.usless_mobs.entity.KingSlimeEntity;
@@ -83,6 +84,12 @@ public final class ModEntities {
                     .sized(1.10F, 1.95F)
                     .clientTrackingRange(8)
                     .build(Usless_mobs.MODID + ":frost_stray"));
+
+    public static final RegistryObject<EntityType<FrostStrayV2Entity>> FROST_STRAY_V2 = ENTITY_TYPES.register("frost_stray_v2",
+            () -> EntityType.Builder.of(FrostStrayV2Entity::new, MobCategory.MONSTER)
+                    .sized(1.10F, 1.95F)
+                    .clientTrackingRange(8)
+                    .build(Usless_mobs.MODID + ":frost_stray_v2"));
 
     public static final RegistryObject<EntityType<WebCaveSpiderEntity>> WEB_CAVE_SPIDER = ENTITY_TYPES.register("web_cave_spider",
             () -> EntityType.Builder.of(WebCaveSpiderEntity::new, MobCategory.MONSTER)

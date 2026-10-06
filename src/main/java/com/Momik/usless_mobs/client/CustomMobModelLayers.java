@@ -11,6 +11,8 @@ public final class CustomMobModelLayers {
             layer("living_boss_custom_3d");
     public static final ModelLayerLocation FROST_STRAY =
             layer("frost_stray_custom_3d");
+    public static final ModelLayerLocation FROST_STRAY_V2_OVERLAY =
+            layer("frost_stray_v2_overlay");
     public static final ModelLayerLocation WEB_CAVE_SPIDER =
             layer("web_cave_spider_custom_3d");
     public static final ModelLayerLocation CORAL_DROWNED =
@@ -63,6 +65,8 @@ public final class CustomMobModelLayers {
             texture("textures/entity/custom3d/exact/polar_bear.png");
     public static final ResourceLocation FROST_STRAY_EXACT_TEXTURE =
             texture("textures/entity/custom3d/exact/frost_stray.png");
+    public static final ResourceLocation FROST_STRAY_V2_OVERLAY_TEXTURE =
+            texture("textures/entity/custom3d/frost_stray_v2_overlay.png");
     public static final ResourceLocation CORAL_DROWNED_EXACT_TEXTURE =
             texture("textures/entity/custom3d/exact/coral_drowned.png");
     public static final ResourceLocation AXOLOTL_EXACT_TEXTURE =

@@ -29,6 +29,14 @@ Der Projektil-Impact wird ausschliesslich aus `HitResult#getLocation()` auf dem
 Server erzeugt und erhält pro Kollision eine eigene Impact-UUID. Ein
 Animationszeitpunkt behauptet keinen Treffer.
 
+`FrostStrayTimelineClock` ist die gemeinsame Client-Zeitbasis für VFX und
+Bogenpose. Sie übernimmt nur streng neuere Serverticks. Ein doppeltes START-
+Paket bei Servertick 100 kann deshalb nach bereits verstrichenem Tick 106 den
+Offset nicht mehr auf 100 zurücksetzen. Bei verspätetem Erstpaket wird der
+Starttick aus dem Paket verwendet; alte Cues werden nicht nachgespielt,
+laufende Emissionen steigen beim aktuellen Fortschritt ein. Bei neuer
+Dimension oder neuer Verbindung wird die Client-Uhr samt aktiven Cues geleert.
+
 ## VFX-Budget
 
 `assets/usless_mobs/vfx_profiles/frost_stray_volley.json` definiert Charge,
@@ -36,6 +44,24 @@ Release und Impact. Innerhalb von 12 Blöcken gelten die Near-Werte, von 12 bis
 24 Blöcken die Mid-Werte. Wichtige Telegraphen bleiben dort mit mindestens
 einem Partikel lesbar; einmalige wichtige Impacts bleiben bis 32 Blöcke mit
 einem Partikel sichtbar.
+
+## Frost Stray v2 Preview
+
+`/summon usless_mobs:frost_stray_v2 ~ ~ ~` wählt die parallele Vorschau, ohne
+`frost_stray` oder bestehende Welten zu ersetzen. Die Vorschau bewahrt den
+zusammenhängenden, ungewichteten sechs-Regionen-Körper und ergänzt zwölf
+seam-sichere Eis-Overlay-Sockets für Krone, Gesicht, Schulter, Unterarm,
+Wirbelsäule und Hüfte. Die editierbare Quelle liegt in
+`Modelle/Exports/frost_stray_v2/frost_stray_v2_rig.json`; die Runtime-Textur ist
+bewusst ein separates 64×64-Overlay. Der reproduzierbare Export lautet:
+
+```powershell
+python tools/frost_stray_v2/build_assets.py --check
+```
+
+Ein vollständig gewichtetes 10–14-Bone-Ersatzrig des verbundenen Körpers ist
+noch offen, weil dafür eine gewichtete Quelle fehlt und die vorhandene
+Rigging-Prüfung starre Splits mit sichtbaren Gelenkspalten ablehnen muss.
 
 ## Nachweisstatus
 
@@ -48,6 +74,12 @@ einem Partikel sichtbar.
   Releases, spätes Tracking, Abbruch mit verspätetem Start sowie doppelte
   Impacts. Die fokussierte Gruppe umfasst aktuell **17 bestanden**. Das ist
   ein Verhaltenstest des Netzwerkvertrags, aber noch kein Forge-Laufzeittest.
+- `tools/java_tests/FrostStrayTimelineClockTest.java` kompiliert und prüft die
+  produktive Java-Zeitkomponente direkt ohne Forge. Der Test deckt den
+  ursprünglichen Rücksprung bei doppeltem START, verspätete Erstpakete und
+  ältere Nachrichten ab; CI führt ihn vor dem Forge-Build aus.
+- Die v2-Preview-Assets werden im CI reproduzierbar erzeugt und auf zwölf
+  eindeutige Sockets, 64×64 Runtime-Auflösung und SHA-256 geprüft.
 - Die gemeinsamen Network-Packet-Klassen enthalten keine Client-Imports mehr.
   Sie übergeben Nachrichten über `FrostStrayAbilityPacketEvent` bzw.
   `FrostStrayImpactPacketEvent` an den clientseitigen Cue-Player. Der

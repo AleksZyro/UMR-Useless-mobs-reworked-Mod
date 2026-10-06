@@ -1,4 +1,8 @@
-from tools.frost_stray_timeline_model import TimelineClientModel, TimelinePacket, VolleyServerModel
+from tools.frost_stray_timeline_model import (
+    TimelineClientModel,
+    TimelinePacket,
+    VolleyServerModel,
+)
 
 
 def packet(kind: str, instance: str, start: int, server_time: int) -> TimelinePacket:

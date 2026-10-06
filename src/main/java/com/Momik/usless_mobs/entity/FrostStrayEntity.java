@@ -71,15 +71,27 @@ public class FrostStrayEntity extends Stray {
         return this.entityData.get(ICE_VOLLEY_ACTIVE);
     }
 
+    public long iceVolleyStartTime() {
+        return this.entityData.get(ICE_VOLLEY_START_TIME);
+    }
+
+    public int iceVolleyDurationTicks() {
+        return this.entityData.get(ICE_VOLLEY_DURATION);
+    }
+
+    /**
+     * Server-synced fallback for non-render callers. Client render code uses
+     * FrostStrayAbilityClient.progressFor so it shares the packet clock with VFX.
+     */
     public float iceVolleyProgress(float partialTick) {
         if (!this.isIceVolleyActive() || this.level() == null) {
             return 0.0F;
         }
-        int duration = this.entityData.get(ICE_VOLLEY_DURATION);
+        int duration = this.iceVolleyDurationTicks();
         if (duration <= 0) {
             return 0.0F;
         }
-        float elapsed = this.level().getGameTime() - this.entityData.get(ICE_VOLLEY_START_TIME) + partialTick;
+        float elapsed = this.level().getGameTime() - this.iceVolleyStartTime() + partialTick;
         return Math.max(0.0F, Math.min(1.0F, elapsed / duration));
     }
 

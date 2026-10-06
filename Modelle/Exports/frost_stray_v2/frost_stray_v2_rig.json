@@ -1,0 +1,20 @@
+{
+  "name": "frost_stray_v2_overlay_rig",
+  "source_mesh": "../frost_stray_v1/source/frost_stray_textured_4k_v3_candidate.glb",
+  "license": "Project-owned source; verify upstream Tripo terms before redistribution",
+  "runtime_policy": "Keep the connected Frost Stray shell on its approved body regions; animate these detached ice accents only.",
+  "bones": [
+    {"name": "ice_crown", "parent": "head", "pivot": [0.0, -8.3, 0.0], "purpose": "crown rim"},
+    {"name": "ice_crown_left", "parent": "head", "pivot": [-3.8, -8.8, 0.0], "purpose": "left crown shard"},
+    {"name": "ice_crown_right", "parent": "head", "pivot": [3.8, -8.8, 0.0], "purpose": "right crown shard"},
+    {"name": "ice_face_shard", "parent": "head", "pivot": [0.0, -3.7, -4.3], "purpose": "front telegraph shard"},
+    {"name": "ice_collar", "parent": "body", "pivot": [0.0, 0.4, -2.6], "purpose": "collar edge"},
+    {"name": "ice_shoulder_left", "parent": "left_arm", "pivot": [4.8, 1.4, 0.0], "purpose": "left shoulder plate"},
+    {"name": "ice_shoulder_right", "parent": "right_arm", "pivot": [-4.8, 1.4, 0.0], "purpose": "right shoulder plate"},
+    {"name": "ice_forearm_left", "parent": "left_arm", "pivot": [5.2, 7.1, -0.1], "purpose": "left forearm edge"},
+    {"name": "ice_forearm_right", "parent": "right_arm", "pivot": [-5.2, 7.1, -0.1], "purpose": "right forearm edge"},
+    {"name": "ice_spine_upper", "parent": "body", "pivot": [0.0, 2.0, 2.4], "purpose": "upper spine"},
+    {"name": "ice_spine_lower", "parent": "body", "pivot": [0.0, 8.0, 2.4], "purpose": "lower spine"},
+    {"name": "ice_hip_shards", "parent": "body", "pivot": [0.0, 11.0, 0.0], "purpose": "hip silhouette"}
+  ]
+}
