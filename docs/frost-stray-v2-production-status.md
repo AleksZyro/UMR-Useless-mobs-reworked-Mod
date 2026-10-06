@@ -48,14 +48,21 @@ Output-Hash.
 
 ## Nachweise und offene Abnahme
 
+- Die produktive `FrostStrayTimelineState` verwaltet aktive Instanzen,
+  Abschluss- und Impact-Historien nun ausserhalb des Forge-Clients. Ihr
+  direkter Java-Test deckt doppeltes START, CANCEL vor verspätetem START,
+  altes RELEASE während einer neuen Instanz, doppelten Impact und einen
+  abgelaufenen Snapshot ab. Der Test ist kein Minecraft-Netzwerktest.
 - Fokussierte Frost-Stray-/Sound-/Rig-Verträge: 30 bestanden.
 - Entity-Matrix nach vollständiger v2-Spawn-Ei-Integration: 5 bestanden.
 - Assetgenerator und JSON-Parsing: bestanden.
 - Der direkte Java-Test der Timeline-Clock besteht; der lokale Forge-Start ist
   weiterhin durch die bekannte Windows-Loopback-Grenze blockiert.
 - CI-Lauf #41 scheiterte vor Forge beim vollständigen Python-Lauf. Die konkrete
-  bekannte Branch-Regressionsursache – unvollständige v2-Entity-Matrix – ist in
-  diesem Arbeitsstand behoben und wird mit dem nächsten Push erneut geprüft.
+  bekannte Branch-Regressionsursache – unvollständige v2-Entity-Matrix – ist
+  behoben. CI-Lauf #42 hat den vollständigen Python-Lauf bestanden; Forge-Build
+  und Dedicated-Server-Smoke waren bei dieser Dokumentationsänderung noch
+  nicht abgeschlossen.
 - Zwei-Client-Test, echter Forge-Client, Dedicated-Server, Screenshots/Video
   bei 4/12/24 Blöcken sowie Framezeit-/Serverlastmessung sind nicht ausgeführt
   und ausdrücklich nicht als bestanden markiert.

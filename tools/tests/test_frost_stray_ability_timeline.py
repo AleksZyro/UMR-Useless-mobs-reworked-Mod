@@ -47,14 +47,23 @@ def test_client_cues_are_tick_driven_idempotent_and_do_not_replay_stale_sounds()
     client = _source("client/FrostStrayAbilityClient.java")
 
     assert "TickEvent.ClientTickEvent" in client
-    assert "FINISHED.containsKey(packet.instanceId())" in client
+    assert "FrostStrayTimelineState" in client
+    assert "STATE.start" in client
+    assert "STATE.release" in client
+    assert "STATE.cancel" in client
+    assert "STATE.clear" in client
     assert "elapsed <= 3L" in client
-    assert "ACTIVE.remove(packet.entityId())" in client
-    assert "CLOCK.elapsed(active.startGameTime, level.getGameTime())" in client
+    assert "STATE.complete" in client
+    assert "CLOCK.elapsed(active.startGameTime(), level.getGameTime())" in client
     assert "CLOCK.observe(packet.serverGameTime(), level.getGameTime())" in client
     clock = _source("ability/FrostStrayTimelineClock.java")
+    state = _source("ability/FrostStrayTimelineState.java")
     assert "highestServerGameTime" in clock
     assert "packetServerGameTime > this.highestServerGameTime" in clock
+    assert "FrostStrayTimelineState" in client
+    assert "STATE.recordImpact" in client
+    assert "IGNORED_FINISHED" in state
+    assert "IGNORED_EXPIRED" in state
     assert "EntityRenderer" not in client
 
 
@@ -113,3 +122,4 @@ def test_ci_server_smoke_requires_a_real_done_marker_before_accepting_timeout():
     assert 'grep -Fq "Done (" dedicated-server.log' in workflow
     assert 'exit 1' in workflow
     assert '[[ "$status" -ne 0 && "$status" -ne 124 ]]' in workflow
+    assert "FrostStrayTimelineStateTest.java" in workflow

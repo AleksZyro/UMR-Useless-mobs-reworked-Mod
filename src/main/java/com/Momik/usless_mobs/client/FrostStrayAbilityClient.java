@@ -1,14 +1,12 @@
 package com.Momik.usless_mobs.client;
 
 import com.Momik.usless_mobs.ability.FrostStrayTimelineClock;
+import com.Momik.usless_mobs.ability.FrostStrayTimelineState;
 import com.Momik.usless_mobs.entity.FrostStrayEntity;
 import com.Momik.usless_mobs.network.FrostStrayAbilityPacket;
 import com.Momik.usless_mobs.network.FrostStrayAbilityPacketEvent;
 import com.Momik.usless_mobs.network.FrostStrayImpactPacket;
 import com.Momik.usless_mobs.network.FrostStrayImpactPacketEvent;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.particles.ParticleOptions;
@@ -26,9 +24,7 @@ import net.minecraftforge.fml.common.Mod;
 @Mod.EventBusSubscriber(modid = com.Momik.usless_mobs.Usless_mobs.MODID, value = Dist.CLIENT,
         bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class FrostStrayAbilityClient {
-    private static final Map<Integer, ActiveTimeline> ACTIVE = new HashMap<>();
-    private static final Map<UUID, Long> FINISHED = new HashMap<>();
-    private static final Map<UUID, Long> IMPACTS = new HashMap<>();
+    private static final FrostStrayTimelineState STATE = new FrostStrayTimelineState();
     private static final FrostStrayTimelineClock CLOCK = new FrostStrayTimelineClock();
     private static ClientLevel trackedLevel;
 
@@ -57,7 +53,7 @@ public final class FrostStrayAbilityClient {
             return;
         }
         prepareLevel(level);
-        if (IMPACTS.putIfAbsent(packet.impactId(), packet.serverGameTime()) != null) {
+        if (!STATE.recordImpact(packet.impactId(), packet.serverGameTime())) {
             return;
         }
         CLOCK.observe(packet.serverGameTime(), level.getGameTime());
@@ -87,38 +83,26 @@ public final class FrostStrayAbilityClient {
         Minecraft minecraft = Minecraft.getInstance();
         ClientLevel level = minecraft.level;
         if (level == null) {
-            ACTIVE.clear();
-            FINISHED.clear();
-            IMPACTS.clear();
+            STATE.clear();
             trackedLevel = null;
             CLOCK.reset();
             return;
         }
         prepareLevel(level);
         long serverGameTime = CLOCK.serverTime(level.getGameTime());
-        FINISHED.entrySet().removeIf(entry -> entry.getValue() < serverGameTime - 20L * 60L);
-        IMPACTS.entrySet().removeIf(entry -> entry.getValue() < serverGameTime - 20L * 60L);
-        ACTIVE.entrySet().removeIf(entry -> tickActive(level, entry.getValue(), serverGameTime));
+        STATE.prune(serverGameTime, 20L * 60L);
+        for (FrostStrayTimelineState.ActiveTimeline active : STATE.activeTimelines()) {
+            tickActive(level, active, serverGameTime);
+        }
     }
 
     private static void start(FrostStrayAbilityPacket packet, ClientLevel level) {
-        if (FINISHED.containsKey(packet.instanceId())) {
-            return;
-        }
         long elapsed = CLOCK.elapsed(packet.startGameTime(), level.getGameTime());
-        if (elapsed >= packet.durationTicks()) {
-            finish(packet.instanceId(), packet.serverGameTime());
+        FrostStrayTimelineState.StartResult result = STATE.start(packet.entityId(), packet.instanceId(),
+                packet.startGameTime(), packet.durationTicks(), CLOCK.serverTime(level.getGameTime()));
+        if (result != FrostStrayTimelineState.StartResult.STARTED) {
             return;
         }
-        ActiveTimeline existing = ACTIVE.get(packet.entityId());
-        if (existing != null) {
-            if (existing.instanceId.equals(packet.instanceId()) || existing.startGameTime > packet.startGameTime()) {
-                return;
-            }
-            finish(existing.instanceId, packet.serverGameTime());
-        }
-        ACTIVE.put(packet.entityId(), new ActiveTimeline(packet.entityId(), packet.instanceId(),
-                packet.startGameTime(), packet.durationTicks()));
 
         // A late observer joins the current emission, but never receives a stale start sound.
         if (elapsed <= 3L) {
@@ -132,9 +116,9 @@ public final class FrostStrayAbilityClient {
     }
 
     private static void release(FrostStrayAbilityPacket packet, ClientLevel level) {
-        ActiveTimeline active = ACTIVE.get(packet.entityId());
-        if (active == null || !active.instanceId.equals(packet.instanceId())) {
-            finish(packet.instanceId(), packet.serverGameTime());
+        FrostStrayTimelineState.ActiveTimeline active = STATE.activeFor(packet.entityId());
+        if (active == null || !active.instanceId().equals(packet.instanceId())) {
+            STATE.release(packet.entityId(), packet.instanceId(), packet.serverGameTime());
             return;
         }
         long elapsed = CLOCK.elapsed(packet.startGameTime(), level.getGameTime());
@@ -149,43 +133,39 @@ public final class FrostStrayAbilityClient {
                         net.minecraft.sounds.SoundSource.HOSTILE, 0.9F, 1.0F, false);
             }
         }
-        ACTIVE.remove(packet.entityId());
-        finish(packet.instanceId(), packet.serverGameTime());
+        STATE.release(packet.entityId(), packet.instanceId(), packet.serverGameTime());
     }
 
     private static void cancel(FrostStrayAbilityPacket packet) {
-        ActiveTimeline active = ACTIVE.get(packet.entityId());
-        if (active != null && active.instanceId.equals(packet.instanceId())) {
-            ACTIVE.remove(packet.entityId());
-        }
-        finish(packet.instanceId(), packet.serverGameTime());
+        STATE.cancel(packet.entityId(), packet.instanceId(), packet.serverGameTime());
     }
 
-    private static boolean tickActive(ClientLevel level, ActiveTimeline active, long serverGameTime) {
-        long elapsed = CLOCK.elapsed(active.startGameTime, level.getGameTime());
-        if (elapsed > active.durationTicks + 4L) {
-            finish(active.instanceId, serverGameTime);
-            return true;
+    private static void tickActive(ClientLevel level, FrostStrayTimelineState.ActiveTimeline active,
+                                   long serverGameTime) {
+        long elapsed = CLOCK.elapsed(active.startGameTime(), level.getGameTime());
+        if (elapsed > active.durationTicks() + 4L) {
+            STATE.complete(active.entityId(), active.instanceId(), serverGameTime);
+            return;
         }
-        if (elapsed >= active.durationTicks) {
-            return false;
+        if (elapsed >= active.durationTicks()) {
+            return;
         }
-        if (elapsed == active.lastEmissionTick || elapsed % FrostStrayVfxProfiles.charge().emitEveryTicks() != 0L) {
-            return false;
+        if (elapsed == active.lastEmissionTick()
+                || elapsed % FrostStrayVfxProfiles.charge().emitEveryTicks() != 0L) {
+            return;
         }
-        active.lastEmissionTick = elapsed;
-        Entity entity = level.getEntity(active.entityId);
+        active.markEmission(elapsed);
+        Entity entity = level.getEntity(active.entityId());
         if (!(entity instanceof FrostStrayEntity frostStray) || !entity.isAlive()) {
-            finish(active.instanceId, serverGameTime);
-            return true;
+            STATE.complete(active.entityId(), active.instanceId(), serverGameTime);
+            return;
         }
         Vec3 chargeOrigin = FrostStrayVisualAnchors.chargeOrigin(frostStray);
         Vec3 bowGrip = FrostStrayVisualAnchors.bowGrip(frostStray);
-        double chargeProgress = Math.min(1.0D, elapsed / (double) active.durationTicks);
+        double chargeProgress = Math.min(1.0D, elapsed / (double) active.durationTicks());
         Vec3 position = chargeOrigin.lerp(bowGrip, 0.18D + chargeProgress * 0.72D);
         Vec3 direction = bowGrip.subtract(position).normalize();
         emit(level, position, FrostStrayVfxProfiles.charge(), false, direction);
-        return false;
     }
 
     private static void emit(ClientLevel level, Vec3 position, FrostStrayVfxProfiles.Profile profile,
@@ -216,10 +196,6 @@ public final class FrostStrayAbilityClient {
         }
     }
 
-    private static void finish(UUID instanceId, long serverGameTime) {
-        FINISHED.put(instanceId, serverGameTime);
-    }
-
     /** Uses the same server-time estimate as VFX for the animated bow pose. */
     public static float progressFor(FrostStrayEntity entity, float partialTick) {
         Minecraft minecraft = Minecraft.getInstance();
@@ -228,9 +204,9 @@ public final class FrostStrayAbilityClient {
             return 0.0F;
         }
         prepareLevel(level);
-        ActiveTimeline active = ACTIVE.get(entity.getId());
-        long startGameTime = active == null ? entity.iceVolleyStartTime() : active.startGameTime;
-        int durationTicks = active == null ? entity.iceVolleyDurationTicks() : active.durationTicks;
+        FrostStrayTimelineState.ActiveTimeline active = STATE.activeFor(entity.getId());
+        long startGameTime = active == null ? entity.iceVolleyStartTime() : active.startGameTime();
+        int durationTicks = active == null ? entity.iceVolleyDurationTicks() : active.durationTicks();
         if (durationTicks <= 0) {
             return 0.0F;
         }
@@ -240,26 +216,9 @@ public final class FrostStrayAbilityClient {
 
     private static void prepareLevel(ClientLevel level) {
         if (trackedLevel != level) {
-            ACTIVE.clear();
-            FINISHED.clear();
-            IMPACTS.clear();
+            STATE.clear();
             CLOCK.reset();
             trackedLevel = level;
-        }
-    }
-
-    private static final class ActiveTimeline {
-        private final int entityId;
-        private final UUID instanceId;
-        private final long startGameTime;
-        private final int durationTicks;
-        private long lastEmissionTick = Long.MIN_VALUE;
-
-        private ActiveTimeline(int entityId, UUID instanceId, long startGameTime, int durationTicks) {
-            this.entityId = entityId;
-            this.instanceId = instanceId;
-            this.startGameTime = startGameTime;
-            this.durationTicks = durationTicks;
         }
     }
 }

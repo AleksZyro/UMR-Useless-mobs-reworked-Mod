@@ -62,9 +62,13 @@ jobs:
           mkdir -p build/timeline-clock-test
           javac -d build/timeline-clock-test \
             src/main/java/com/Momik/usless_mobs/ability/FrostStrayTimelineClock.java \
-            tools/java_tests/FrostStrayTimelineClockTest.java
+            src/main/java/com/Momik/usless_mobs/ability/FrostStrayTimelineState.java \
+            tools/java_tests/FrostStrayTimelineClockTest.java \
+            tools/java_tests/FrostStrayTimelineStateTest.java
           java -ea -cp build/timeline-clock-test \
             com.Momik.usless_mobs.ability.FrostStrayTimelineClockTest
+          java -ea -cp build/timeline-clock-test \
+            com.Momik.usless_mobs.ability.FrostStrayTimelineStateTest
 
       - name: Build Forge mod
         run: ./gradlew clean build --no-daemon
