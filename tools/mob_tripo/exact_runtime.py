@@ -289,33 +289,7 @@ def _classify_squid_regions(units: np.ndarray, triangles: np.ndarray) -> Dict[st
     angles = (np.arctan2(centroids[:, 1] - 0.5, centroids[:, 0] - 0.5) + math.pi) % (2.0 * math.pi)
     sectors = np.floor(angles * 10.0 / (2.0 * math.pi)).astype(np.int64) % 10
 
-    reaches = []
-    for sector in range(10):
-        sector_faces = np.flatnonzero(appendage & (sectors == sector))
-        reach = float(np.quantile(centroids[sector_faces, 2], 0.08)) if len(sector_faces) else math.inf
-        reaches.append((reach, sector))
-    catching_sectors = {sector for _, sector in sorted(reaches)[:2]}
-    arm_sectors = [sector for sector in range(10) if sector not in catching_sectors]
-    arm_names = {sector: f"arm{index}" for index, sector in enumerate(arm_sectors)}
-    catching_names = {
-        sector: f"catching_tentacle{index}"
-        for index, sector in enumerate(sorted(catching_sectors))
-    }
-
-    regions: Dict[str, list[int]] = {
-        "body": [],
-        **{f"arm{index}": [] for index in range(8)},
-        "catching_tentacle0": [],
-        "catching_tentacle1": [],
-    }
-    for face_index in range(len(triangles)):
-        if not appendage[face_index]:
-            regions["body"].append(face_index)
-            continue
-        sector = int(sectors[face_index])
-        bone = catching_names[sector] if sector in catching_names else arm_names[sector]
-        regions[bone].append(face_index)
-    return regions
+    return _classify_tentacle_sectors(centroids, appendage, sectors, 2)
 
 
 def _classify_glow_squid_regions(units: np.ndarray, triangles: np.ndarray) -> Dict[str, list[int]]:
@@ -333,10 +307,16 @@ def _classify_glow_squid_regions(units: np.ndarray, triangles: np.ndarray) -> Di
     angles = (np.arctan2(centroids[:, 2] - 0.5, centroids[:, 0] - 0.5) + math.pi) % (2.0 * math.pi)
     sectors = np.floor(angles * 10.0 / (2.0 * math.pi)).astype(np.int64) % 10
 
+    return _classify_tentacle_sectors(centroids, appendage, sectors, 1)
+
+
+def _classify_tentacle_sectors(
+    centroids: np.ndarray, appendage: np.ndarray, sectors: np.ndarray, reach_axis: int
+) -> Dict[str, list[int]]:
     reaches = []
     for sector in range(10):
         sector_faces = np.flatnonzero(appendage & (sectors == sector))
-        reach = float(np.quantile(centroids[sector_faces, 1], 0.08)) if len(sector_faces) else math.inf
+        reach = float(np.quantile(centroids[sector_faces, reach_axis], 0.08)) if len(sector_faces) else math.inf
         reaches.append((reach, sector))
     catching_sectors = {sector for _, sector in sorted(reaches)[:2]}
     arm_sectors = [sector for sector in range(10) if sector not in catching_sectors]
@@ -352,7 +332,7 @@ def _classify_glow_squid_regions(units: np.ndarray, triangles: np.ndarray) -> Di
         "catching_tentacle0": [],
         "catching_tentacle1": [],
     }
-    for face_index in range(len(triangles)):
+    for face_index in range(len(centroids)):
         if not appendage[face_index]:
             regions["body"].append(face_index)
             continue

@@ -388,20 +388,25 @@ public class KingSlimeEntity extends Slime implements GeoEntity {
     }
 
     private BlockPos findOpenGroundPosition(Vec3 desiredPos) {
+        return this.findOpenGroundPosition(desiredPos, TELEPORT_SEARCH_RADIUS, this::findOpenGroundAt);
+    }
+
+    private BlockPos findOpenGroundPosition(Vec3 desiredPos, int searchRadius,
+                                            java.util.function.Function<BlockPos, BlockPos> findGroundAt) {
         BlockPos basePos = BlockPos.containing(desiredPos.x, desiredPos.y, desiredPos.z);
-        BlockPos exact = this.findOpenGroundAt(basePos);
+        BlockPos exact = findGroundAt.apply(basePos);
         if (exact != null) {
             return exact;
         }
 
-        for (int radius = 1; radius <= TELEPORT_SEARCH_RADIUS; radius++) {
+        for (int radius = 1; radius <= searchRadius; radius++) {
             for (int x = -radius; x <= radius; x++) {
                 for (int z = -radius; z <= radius; z++) {
                     if (Math.abs(x) != radius && Math.abs(z) != radius) {
                         continue;
                     }
 
-                    BlockPos candidate = this.findOpenGroundAt(basePos.offset(x, 0, z));
+                    BlockPos candidate = findGroundAt.apply(basePos.offset(x, 0, z));
                     if (candidate != null) {
                         return candidate;
                     }
@@ -578,21 +583,7 @@ public class KingSlimeEntity extends Slime implements GeoEntity {
     }
 
     private BlockPos findSmallOpenGroundPosition(Vec3 desiredPos) {
-        BlockPos basePos = BlockPos.containing(desiredPos.x, desiredPos.y, desiredPos.z);
-        for (int radius = 0; radius <= 3; radius++) {
-            for (int x = -radius; x <= radius; x++) {
-                for (int z = -radius; z <= radius; z++) {
-                    if (radius > 0 && Math.abs(x) != radius && Math.abs(z) != radius) {
-                        continue;
-                    }
-                    BlockPos candidate = this.findSmallOpenGroundAt(basePos.offset(x, 0, z));
-                    if (candidate != null) {
-                        return candidate;
-                    }
-                }
-            }
-        }
-        return null;
+        return this.findOpenGroundPosition(desiredPos, 3, this::findSmallOpenGroundAt);
     }
 
     private BlockPos findSmallOpenGroundAt(BlockPos basePos) {
